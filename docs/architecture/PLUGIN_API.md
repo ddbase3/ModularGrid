@@ -18,9 +18,9 @@ A plugin may:
 - listen to events
 - contribute UI into layout zones
 - contribute render columns
+- register views
 - read and update grid state
-- request rendering
-- request reloading
+- trigger behavior through commands
 - expose reusable feature behavior
 
 A plugin should not directly rewrite unrelated core behavior.
@@ -31,7 +31,7 @@ A plugin is an object with a unique name.
 
 Typical shape:
 
-```js
+```javascript
 export const ExamplePlugin = {
 	name: 'example',
 
@@ -69,7 +69,15 @@ export const ExamplePlugin = {
 				}
 			}
 		];
-	}
+	},
+
+	views: [
+		{
+			name: 'cards',
+			label: 'Cards',
+			render(container, grid, viewModel) {}
+		}
+	]
 };
 Plugin fields
 name
@@ -80,21 +88,10 @@ install(context)
 
 Optional. Called when the plugin is installed.
 
-Use it for:
-
-subscriptions
-setup
-initial state coordination
-light registration work
 destroy(context)
 
 Optional. Called when the grid is destroyed.
 
-Use it for:
-
-cleanup
-unsubscribing
-detaching listeners
 commands
 
 Optional object of command handlers.
@@ -103,27 +100,20 @@ layoutContributions(context)
 
 Optional. Returns an array of layout contributions.
 
-Each contribution typically contains:
-
-zone
-order
-render(...)
 columnContributions(context)
 
 Optional. Returns an array of render-column contributions.
 
-Each contribution typically contains:
+views
 
-position (start or end)
-order
-column
+Optional. A plugin may register one or more named views.
 
-This is useful for plugin-driven utility columns such as:
+This is useful for:
 
-selection checkboxes
-row action buttons
-drag handles
-detail toggles
+card views
+split detail views
+chart views
+specialized domain views
 Plugin context
 
 The plugin context should be treated as the safe plugin API surface.
@@ -138,21 +128,66 @@ getState()
 peekState()
 setState(patch)
 execute(commandName, payload)
-requestRender()
-requestReload()
-getZone(zoneKey)
-getOptions()
 getPluginOptions(pluginName)
 
-Plugins should use this context instead of reaching into private internals.
+The exact context may grow, but plugins should prefer the smallest necessary surface.
+
+Plugin-owned state sections
+
+Plugins may own dedicated top-level state sections beyond the core defaults.
+
+Examples:
+
+selection
+splitDetailView
+detailView
+filters
+
+This is important because server-mode grids may watch additional top-level state keys and reload when those keys change.
+
+The core should not need feature-specific knowledge of those state sections.
 
 Layout contributions
 
 Layout contributions allow plugins to render UI into named layout zones.
 
+Important rule:
+
+Plugins must not assume that all grids have all zones.
+
+If a layout does not contain the requested zone, the plugin contribution simply will not be shown.
+
+This is intentional and keeps layout composition flexible.
+
 Column contributions
 
 Column contributions allow plugins to prepend or append extra render columns without mutating the grid's core data columns.
+
+Header-menu style enhancements may also be implemented plugin-side by decorating existing column metadata, as long as the plugin remains responsible for that behavior.
+
+View registration
+
+Views are named render strategies.
+
+A view receives:
+
+the target container
+the current grid instance
+the prepared view model
+
+The view manager decides which registered view is currently active.
+
+Example use cases:
+
+classic table
+cards
+split detail
+chart view
+Responsive view behavior
+
+A plugin may react to width or resize changes and switch the active view through commands.
+
+This should be implemented as plugin behavior, not as hardcoded core layout rules.
 
 Storage abstraction
 
@@ -172,23 +207,6 @@ The adapter is responsible for:
 reading stored values
 writing stored values
 removing stored values
-
-This separation keeps persistence transport-specific logic out of the grid core.
-
-Examples of adapters:
-
-local storage adapter
-session storage adapter
-ajax/database storage adapter
-custom browser or app storage adapter
-Important layout rule
-
-Plugins must not assume that all grids have all zones.
-
-If a layout does not contain the requested zone, the plugin contribution simply will not be shown.
-
-This is intentional and keeps layout composition flexible.
-
 Recommended plugin boundaries
 
 A plugin should ideally own one coherent feature area.
@@ -196,17 +214,25 @@ A plugin should ideally own one coherent feature area.
 Good examples:
 
 search
+filters
+header menu
 page size
 paging
 info
+summary
 column visibility
 reset
 selection
 row actions
+bulk actions
 export
+row detail
+card view
+split detail view
+view switcher
+responsive view switching
 storage
 grouping
-responsive cards
 Plugin options
 
 Plugin options should live under:
@@ -218,22 +244,43 @@ pluginOptions: {
 }
 Example usage
 import {
+	CardViewPlugin,
+	FiltersPlugin,
+	HeaderMenuPlugin,
 	ModularGrid,
-	SearchPlugin,
-	SessionStoragePlugin
+	ResponsiveViewPlugin,
+	ViewSwitcherPlugin
 } from './src/index.js';
 
 const grid = new ModularGrid('#grid', {
 	layout,
-	data,
+	adapter,
 	plugins: [
-		SearchPlugin,
-		SessionStoragePlugin
+		FiltersPlugin,
+		HeaderMenuPlugin,
+		CardViewPlugin,
+		ViewSwitcherPlugin,
+		ResponsiveViewPlugin
 	],
 	pluginOptions: {
-		sessionStorage: {
-			key: 'example-grid',
-			sections: ['query', 'columns']
+		filters: {
+			zone: 'toolbar',
+			fields: [
+				{
+					key: 'status',
+					label: 'Status',
+					type: 'select',
+					options: [
+						{ value: '', label: 'All' },
+						{ value: 'active', label: 'Active' }
+					]
+				}
+			]
+		},
+		responsiveView: {
+			breakpoint: 920,
+			narrowMode: 'cards',
+			wideModeFallback: 'table'
 		}
 	}
 });

@@ -56,6 +56,10 @@ The core owns:
 - building requests from state
 - normalizing load results
 - handing data into the rendering pipeline
+- deciding whether rows should be prepared client-side or treated as already prepared server-side
+- watching configured top-level state sections in server mode and coordinating reloads
+
+Important: backend-specific request mapping still belongs to adapters or demo/application code, not the core.
 
 ### 6. Layout coordination
 
@@ -73,9 +77,12 @@ The default layout should stay neutral.
 
 The core owns:
 
+- view registration and lookup
 - selecting the active view
-- providing the view with prepared model data
-- coordinating rerendering
+- providing the active view with prepared model data
+- coordinating rerendering for the active view
+
+Important: concrete row-detail UI remains a view/plugin concern even when the core provides the state and render coordination needed to support it.
 
 ### 8. Plugin installation
 
@@ -85,6 +92,7 @@ The core owns:
 - plugin command registration
 - plugin layout contributions
 - plugin column contributions
+- plugin view registration
 - plugin teardown
 
 ## What should NOT go into the core if avoidable
@@ -99,10 +107,11 @@ The core should preferably not directly implement:
 - reset behavior
 - selection UI
 - row actions UI
+- concrete card view switching UI
+- row-detail UI
 - grouping UI
 - export UI
 - chart UI
-- detail view UI
 - advanced filters
 - storage persistence strategies
 - drag and drop implementations
@@ -123,6 +132,9 @@ Good examples of acceptable core changes:
 - a missing view activation mechanism
 - a missing adapter normalization contract
 - a missing plugin-driven render-column extension point
+- a missing plugin-driven view registration point
+- a missing data preparation strategy such as explicit server mode
+- a missing watched-state reload mechanism for adapter-backed grids
 
 Bad examples of unnecessary core changes:
 

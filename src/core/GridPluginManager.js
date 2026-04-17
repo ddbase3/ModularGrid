@@ -95,6 +95,19 @@ export class GridPluginManager {
 		return [];
 	}
 
+	resolveViews(plugin, context) {
+		if (typeof plugin.views === 'function') {
+			const views = plugin.views(context) || [];
+			return Array.isArray(views) ? views : [];
+		}
+
+		if (Array.isArray(plugin.views)) {
+			return plugin.views;
+		}
+
+		return [];
+	}
+
 	async installAll(pluginDefinitions = []) {
 		for (const pluginDefinition of pluginDefinitions) {
 			const plugin = this.resolvePlugin(pluginDefinition);
@@ -105,6 +118,16 @@ export class GridPluginManager {
 					this.grid.commands.register(commandName, handler);
 				});
 			}
+
+			const views = this.resolveViews(plugin, context);
+
+			views.forEach((view) => {
+				if (!view || !view.name) {
+					return;
+				}
+
+				this.grid.viewManager.register(view.name, view);
+			});
 
 			if (typeof plugin.install === 'function') {
 				await plugin.install(context);

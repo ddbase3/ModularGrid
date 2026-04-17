@@ -25,7 +25,7 @@ It is based on the originally requested feature set, translated into a more stru
 - [x] Introduce a plugin manager
 - [x] Introduce a free layout tree
 - [~] Keep the core stable and small
-- [ ] Add a formal view manager
+- [x] Add a formal view manager
 - [ ] Add formal renderer registries
 - [~] Add driver concept for DnD / resizing / integrations
 
@@ -45,10 +45,11 @@ It is based on the originally requested feature set, translated into a more stru
 - [x] Array data adapter
 - [x] Ajax adapter
 - [x] HTML table adapter
-- [ ] Server-side paging strategy
-- [ ] Server-side sorting strategy
-- [ ] Server-side search strategy
-- [ ] Server-side filter strategy
+- [x] Server-side paging strategy
+- [x] Server-side sorting strategy
+- [x] Server-side search strategy
+- [x] Server-side filter strategy
+- [x] Watched server-state reload strategy
 - [ ] Hybrid client/server processing strategy
 
 ---
@@ -75,8 +76,8 @@ It is based on the originally requested feature set, translated into a more stru
 - [ ] Column width configuration
 - [ ] Column resize by drag handle
 - [ ] Column reorder by drag and drop
-- [ ] Column header menu
-- [ ] Column-specific sort strategies
+- [x] Column header menu
+- [~] Column-specific sort strategies
 - [ ] Column overflow strategies
 - [ ] Column action selection for bulk operations
 
@@ -101,14 +102,14 @@ It is based on the originally requested feature set, translated into a more stru
 - [x] Basic global search
 - [x] Move global search into a plugin
 - [x] Preserve search input focus during rerender
-- [ ] Column filter plugin foundation
+- [~] Column filter plugin foundation
 - [ ] Header filter row
-- [ ] External filters
+- [x] External filters
 - [ ] Synchronization between header filters and external filters
-- [ ] Basic text filter
-- [ ] Select filter
+- [x] Basic text filter
+- [x] Select filter
 - [ ] Date range filter plugin
-- [ ] Custom filter plugin API
+- [~] Custom filter plugin API
 - [~] Filter persistence
 - [ ] Saved filter configurations
 
@@ -120,7 +121,7 @@ It is based on the originally requested feature set, translated into a more stru
 - [x] Replace built-in paging UI with plugin-based paging UI
 - [x] Alternative page size UI via plugin
 - [ ] Infinite scroll / auto paging
-- [~] Pluggable paging controls
+- [x] Pluggable paging controls
 
 ---
 
@@ -129,7 +130,7 @@ It is based on the originally requested feature set, translated into a more stru
 - [x] Selection plugin
 - [x] Checkbox first column
 - [~] Select all / clear selection
-- [~] Bulk action toolbar
+- [x] Bulk action toolbar
 - [x] Row actions plugin
 - [x] Three-dot row menu
 - [~] Row menu extension mechanism
@@ -150,24 +151,26 @@ It is based on the originally requested feature set, translated into a more stru
 
 # 10. Row expansion and detail behavior
 
-- [ ] Expandable row details
-- [ ] Custom detail renderer
-- [ ] Row click action abstraction
+- [x] Expandable row details
+- [x] Custom detail renderer
+- [x] Row click action abstraction
 - [ ] Dialog integration option
-- [ ] Inline detail expansion option
+- [x] Inline detail expansion option
+- [x] Shared row-detail state plugin
+- [x] Table and card detail rendering from one feature
 
 ---
 
 # 11. Views
 
 - [x] Basic table view
-- [ ] View manager
-- [ ] Card view
-- [ ] Responsive mobile card mode
-- [ ] Detail split view
+- [x] View manager
+- [x] Card view
+- [x] Responsive mobile card mode
+- [x] Detail split view
 - [ ] Chart view
-- [ ] View switching control
-- [ ] Separate detail pane rendering
+- [x] View switching control
+- [x] Separate detail pane rendering
 
 ---
 
@@ -175,10 +178,11 @@ It is based on the originally requested feature set, translated into a more stru
 
 - [~] Basic mobile-safe layout behavior
 - [x] Demo-specific modern control layout with CSS
-- [ ] Responsive cards plugin
+- [~] Responsive cards plugin
 - [ ] Adaptive column hiding strategy
 - [ ] Narrow viewport table strategy
 - [ ] Detail-first responsive strategy
+- [x] Stable manual view switching while responsive plugin is active
 
 ---
 
@@ -192,6 +196,9 @@ It is based on the originally requested feature set, translated into a more stru
 - [x] Persisted sorting
 - [x] Persisted column visibility
 - [~] Persisted selection
+- [~] Persisted view mode
+- [~] Persisted split detail state
+- [~] Persisted shared row detail state
 - [ ] Persisted layout/view settings
 - [ ] Saved named grid configurations
 
@@ -199,13 +206,13 @@ It is based on the originally requested feature set, translated into a more stru
 
 # 14. Export
 
-- [ ] Export plugin
+- [x] Export plugin
 - [ ] Export all rows
 - [ ] Export filtered rows
-- [ ] Export selected rows
-- [ ] Export with selected columns
-- [ ] CSV export
-- [ ] JSON export
+- [x] Export selected rows
+- [x] Export with selected columns
+- [x] CSV export
+- [x] JSON export
 - [ ] XLSX export or adapter strategy
 
 ---
@@ -244,7 +251,7 @@ It is based on the originally requested feature set, translated into a more stru
 # 18. Reset and state management utilities
 
 - [x] Reset plugin
-- [ ] Reset filters
+- [x] Reset filters
 - [x] Reset sorting
 - [ ] Reset grouping
 - [x] Reset column visibility
@@ -254,12 +261,13 @@ It is based on the originally requested feature set, translated into a more stru
 
 # 19. Menus and extensibility points
 
-- [ ] Header menu plugin
-- [ ] Header menu contributions by plugins
+- [x] Header menu plugin
+- [~] Header menu contributions by plugins
 - [x] Row menu contributions by plugins
 - [x] Toolbar contributions by plugins
 - [x] Footer contributions by plugins
 - [x] Column contributions by plugins
+- [x] View contributions by plugins
 
 ---
 
@@ -276,7 +284,14 @@ It is based on the originally requested feature set, translated into a more stru
 - [x] Selection demo
 - [x] Row actions demo
 - [x] Modern layout demo
-- [ ] Card view demo
+- [x] Card view demo
+- [x] Extended ajax demo
+- [x] Smoke coverage for responsive view switching
+- [x] Smoke coverage for inline row detail behavior
+- [x] Smoke coverage for bulk actions
+- [x] Smoke coverage for export events
+- [x] Smoke coverage for filters plugin
+- [x] Smoke coverage for header menu sort action
 - [ ] Grouping demo
 - [ ] Export demo
 
@@ -286,8 +301,8 @@ It is based on the originally requested feature set, translated into a more stru
 
 The next good steps are:
 
-1. view manager and card view
-2. header menu foundation
-3. grouping
-4. export
-5. ajax/database storage adapter
+1. grouping
+2. header filter row
+3. export refinement for filtered/all rows
+4. ajax/database storage adapter
+5. responsive mobile card refinement

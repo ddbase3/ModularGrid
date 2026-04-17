@@ -96,11 +96,21 @@ Whenever a new architectural concept is introduced, update the relevant file in 
 
 At minimum, update one or more of:
 
+- `README.md`
 - `CURRENT_STATUS.md`
 - `architecture/CORE_CONTRACT.md`
 - `architecture/PLUGIN_API.md`
 - `architecture/LAYOUT_MODEL.md`
 - `todo/FEATURE_TODO.md`
+
+## Testing rule
+
+Whenever user-visible behavior changes, update the browser smoke test if the changed behavior is part of the stable baseline.
+
+Relevant files:
+
+- `tests/browser-smoke/index.html`
+- `tests/browser-smoke/smoke.js`
 
 ## Chat continuation rule
 

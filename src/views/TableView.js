@@ -1,4 +1,14 @@
 import { appendContent, clearElement, createElement } from '../utils/dom.js';
+import {
+	createRowDetailContent,
+	getRowDetailRowId,
+	isDetailRowActive,
+	resolveRowDetailOptions
+} from '../utils/rowDetail.js';
+
+function isInteractiveTarget(target) {
+	return target instanceof Element && !!target.closest('a, button, input, select, textarea, label, summary, details');
+}
 
 export class TableView {
 	render(container, grid, viewModel) {
@@ -19,6 +29,8 @@ export class TableView {
 		}
 
 		const renderColumns = (viewModel.renderColumns || viewModel.columns || []).filter((column) => column.visible !== false);
+		const rowDetailOptions = resolveRowDetailOptions(grid);
+		const rowDetailEnabled = rowDetailOptions.enabled !== false && rowDetailOptions.renderInTable !== false;
 
 		if (renderColumns.length === 0) {
 			const emptyColumnsBox = createElement('div', 'mg-state');
@@ -75,14 +87,33 @@ export class TableView {
 			tbody.appendChild(emptyRow);
 		} else {
 			viewModel.rows.forEach((row) => {
+				const rowId = getRowDetailRowId(row, rowDetailOptions);
+				const canToggleDetail = rowDetailEnabled && rowDetailOptions.toggleOnRowClick !== false && rowId !== null;
+				const isActiveDetailRow = rowDetailEnabled && isDetailRowActive(row, grid, rowDetailOptions);
+				const hasExternalRowClick = typeof grid.options.onRowClick === 'function';
+
 				const tr = createElement('tr', 'mg-row');
 
-				if (typeof grid.options.onRowClick === 'function') {
+				if (canToggleDetail || hasExternalRowClick) {
 					tr.classList.add('mg-row-clickable');
 
-					tr.addEventListener('click', () => {
-						grid.options.onRowClick(row, grid);
+					tr.addEventListener('click', (event) => {
+						if (isInteractiveTarget(event.target)) {
+							return;
+						}
+
+						if (canToggleDetail) {
+							grid.execute('toggleDetailRow', rowId);
+						}
+
+						if (hasExternalRowClick) {
+							grid.options.onRowClick(row, grid);
+						}
 					});
+				}
+
+				if (isActiveDetailRow) {
+					tr.classList.add('mg-row-active');
 				}
 
 				renderColumns.forEach((column) => {
@@ -94,6 +125,22 @@ export class TableView {
 				});
 
 				tbody.appendChild(tr);
+
+				if (isActiveDetailRow) {
+					const detailContent = createRowDetailContent(row, grid, viewModel, renderColumns, rowDetailOptions);
+
+					if (detailContent) {
+						const detailRow = createElement('tr', 'mg-detail-row');
+						const detailCell = createElement('td', 'mg-detail-cell');
+						const detailWrapper = createElement('div', 'mg-row-detail');
+
+						detailCell.colSpan = Math.max(renderColumns.length, 1);
+						appendContent(detailWrapper, detailContent);
+						detailCell.appendChild(detailWrapper);
+						detailRow.appendChild(detailCell);
+						tbody.appendChild(detailRow);
+					}
+				}
 			});
 		}
 

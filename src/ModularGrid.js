@@ -5,6 +5,7 @@ import { GridEventBus } from './core/GridEventBus.js';
 import { createDefaultLayout, GridLayoutEngine } from './core/GridLayoutEngine.js';
 import { GridPluginManager } from './core/GridPluginManager.js';
 import { GridStateStore } from './core/GridStateStore.js';
+import { GridViewManager } from './core/GridViewManager.js';
 import { clearElement } from './utils/dom.js';
 import { cloneValue, deepMerge } from './utils/object.js';
 import { TableView } from './views/TableView.js';
@@ -13,11 +14,19 @@ const defaultOptions = {
 	columns: [],
 	data: [],
 	adapter: null,
+	dataMode: 'client',
+	server: {
+		searchDebounceMs: 220,
+		watchStateKeys: ['query']
+	},
 	pageSize: 10,
 	pageSizeOptions: [5, 10, 20, 50],
 	sort: {
 		key: '',
 		direction: 'asc'
+	},
+	view: {
+		mode: 'table'
 	},
 	features: {
 		paging: true
@@ -102,6 +111,18 @@ function compareValues(a, b) {
 	});
 }
 
+function areWatchedValuesEqual(a, b) {
+	try {
+		return JSON.stringify(a) === JSON.stringify(b);
+	} catch (error) {
+		return a === b;
+	}
+}
+
+function getQuerySearch(state) {
+	return String(state?.query?.search || '');
+}
+
 export class ModularGrid {
 	constructor(container, options = {}) {
 		this.container = resolveContainer(container);
@@ -113,7 +134,13 @@ export class ModularGrid {
 		this.dataController = new GridDataController(this);
 		this.commands = new GridCommandRegistry(this);
 		this.pluginManager = new GridPluginManager(this);
-		this.view = new TableView();
+		this.viewManager = new GridViewManager(this);
+
+		this.viewManager.register('table', {
+			name: 'table',
+			label: 'Table',
+			render: new TableView().render.bind(new TableView())
+		});
 
 		this.adapter = this.options.adapter || new ArrayAdapter(this.options.data || []);
 		this.layoutRefs = null;
@@ -122,6 +149,7 @@ export class ModularGrid {
 		this.unsubscribeState = null;
 		this.initialized = false;
 		this.initialStateSnapshot = this.store.getState();
+		this.serverReloadTimer = null;
 
 		this.registerBuiltInCommands();
 	}
@@ -146,6 +174,9 @@ export class ModularGrid {
 				search: '',
 				sortKey: this.options.sort?.key || '',
 				sortDirection: this.options.sort?.direction || 'asc'
+			},
+			view: {
+				mode: this.options.view?.mode || 'table'
 			},
 			columns
 		};
@@ -173,11 +204,77 @@ export class ModularGrid {
 			})
 			.register('toggleSort', ({ grid }, payload) => {
 				return grid.toggleSort(payload);
+			})
+			.register('setViewMode', ({ grid }, payload) => {
+				return grid.setViewMode(payload);
 			});
 	}
 
 	getInitialStateSnapshot() {
 		return cloneValue(this.initialStateSnapshot);
+	}
+
+	isServerMode() {
+		return this.options.dataMode === 'server';
+	}
+
+	getServerOptions() {
+		return this.options.server || {};
+	}
+
+	getServerWatchStateKeys() {
+		const watchStateKeys = this.getServerOptions().watchStateKeys;
+
+		if (!Array.isArray(watchStateKeys) || watchStateKeys.length === 0) {
+			return ['query'];
+		}
+
+		return watchStateKeys;
+	}
+
+	hasServerWatchedStateChange(previous, current) {
+		return this.getServerWatchStateKeys().some((key) => {
+			return !areWatchedValuesEqual(previous?.[key], current?.[key]);
+		});
+	}
+
+	hasServerSearchChange(previous, current) {
+		return getQuerySearch(previous) !== getQuerySearch(current);
+	}
+
+	clearPendingServerReload() {
+		if (this.serverReloadTimer) {
+			window.clearTimeout(this.serverReloadTimer);
+			this.serverReloadTimer = null;
+		}
+	}
+
+	requestServerReload(useDebounce = false) {
+		this.clearPendingServerReload();
+
+		if (!useDebounce) {
+			this.reload();
+			return;
+		}
+
+		const debounceMs = Math.max(0, Number(this.getServerOptions().searchDebounceMs) || 0);
+
+		this.serverReloadTimer = window.setTimeout(() => {
+			this.serverReloadTimer = null;
+			this.reload();
+		}, debounceMs);
+	}
+
+	syncServerState(previous, current) {
+		if (!this.isServerMode()) {
+			return;
+		}
+
+		if (!this.hasServerWatchedStateChange(previous, current)) {
+			return;
+		}
+
+		this.requestServerReload(this.hasServerSearchChange(previous, current));
 	}
 
 	captureFocusState() {
@@ -253,6 +350,7 @@ export class ModularGrid {
 				previous
 			});
 
+			this.syncServerState(previous, current);
 			this.render();
 		});
 
@@ -270,11 +368,17 @@ export class ModularGrid {
 	}
 
 	async reload() {
+		this.clearPendingServerReload();
+
 		this.store.setState({
 			data: {
 				loading: true,
 				error: null
 			}
+		});
+
+		this.events.emit('data:loading', {
+			grid: this
 		});
 
 		try {
@@ -294,12 +398,24 @@ export class ModularGrid {
 					error: null
 				}
 			});
+
+			this.events.emit('data:loaded', {
+				grid: this,
+				result
+			});
 		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : String(error);
+
 			this.store.setState({
 				data: {
 					loading: false,
-					error: error instanceof Error ? error.message : String(error)
+					error: errorMessage
 				}
+			});
+
+			this.events.emit('data:error', {
+				grid: this,
+				error: errorMessage
 			});
 		}
 
@@ -307,6 +423,8 @@ export class ModularGrid {
 	}
 
 	destroy() {
+		this.clearPendingServerReload();
+
 		if (this.unsubscribeState) {
 			this.unsubscribeState();
 			this.unsubscribeState = null;
@@ -346,6 +464,25 @@ export class ModularGrid {
 		const requestedPage = Math.max(1, Number(state.query.page) || 1);
 		const requestedPageSize = Math.max(1, Number(state.query.pageSize) || 1);
 		const pagingEnabled = this.options.features.paging !== false;
+
+		if (this.isServerMode()) {
+			const rows = state.data.rows.slice();
+			const total = Math.max(0, Number(state.data.total) || 0);
+			const totalPages = pagingEnabled ? Math.max(1, Math.ceil(total / requestedPageSize)) : 1;
+			const safePage = pagingEnabled ? Math.min(requestedPage, totalPages) : 1;
+			const from = total === 0 ? 0 : ((safePage - 1) * requestedPageSize) + 1;
+			const to = total === 0 ? 0 : Math.min(total, from + rows.length - 1);
+
+			return {
+				rows,
+				filteredTotal: total,
+				totalPages,
+				page: safePage,
+				pageSize: pagingEnabled ? requestedPageSize : (rows.length || requestedPageSize),
+				from,
+				to
+			};
+		}
 
 		let rows = state.data.rows.slice();
 
@@ -419,6 +556,7 @@ export class ModularGrid {
 			search: state.query.search,
 			sortKey: state.query.sortKey,
 			sortDirection: state.query.sortDirection,
+			viewMode: state.view?.mode || 'table',
 			loading: state.data.loading,
 			error: state.data.error
 		};
@@ -444,7 +582,7 @@ export class ModularGrid {
 		const focusState = this.captureFocusState();
 
 		this.renderAllZones(viewModel);
-		this.view.render(this.viewContainer, this, viewModel);
+		this.viewManager.render(this.viewContainer, viewModel);
 		this.restoreFocusState(focusState);
 	}
 
@@ -524,6 +662,25 @@ export class ModularGrid {
 			grid: this,
 			sortKey: key,
 			sortDirection: nextDirection
+		});
+
+		return this;
+	}
+
+	setViewMode(mode) {
+		if (!mode || !this.viewManager.has(mode)) {
+			return this;
+		}
+
+		this.store.setState({
+			view: {
+				mode
+			}
+		});
+
+		this.events.emit('view:changed', {
+			grid: this,
+			mode
 		});
 
 		return this;

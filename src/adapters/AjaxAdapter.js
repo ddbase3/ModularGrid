@@ -30,6 +30,7 @@ export class AjaxAdapter {
 			method: 'GET',
 			rowsPath: 'data',
 			totalPath: 'total',
+			columnsPath: 'columns',
 			queryParamMap: {
 				page: 'page',
 				pageSize: 'pageSize',
@@ -39,6 +40,8 @@ export class AjaxAdapter {
 			},
 			headers: {},
 			fetchOptions: {},
+			mapRequest: null,
+			mapResponse: null,
 			...options
 		};
 	}
@@ -115,8 +118,21 @@ export class AjaxAdapter {
 	}
 
 	normalizePayload(payload) {
+		if (typeof this.options.mapResponse === 'function') {
+			const normalized = this.options.mapResponse(payload) || {};
+			const rows = Array.isArray(normalized.rows) ? normalized.rows : [];
+
+			return {
+				rows,
+				total: normalized.total ?? rows.length,
+				columns: Array.isArray(normalized.columns) ? normalized.columns : null,
+				payload
+			};
+		}
+
 		const rows = getValueByPath(payload, this.options.rowsPath, getValueByPath(payload, 'rows', []));
 		const total = getValueByPath(payload, this.options.totalPath, Array.isArray(rows) ? rows.length : 0);
+		const columns = getValueByPath(payload, this.options.columnsPath, null);
 
 		if (!Array.isArray(rows)) {
 			throw new Error('AjaxAdapter expected an array in the response.');
@@ -124,7 +140,9 @@ export class AjaxAdapter {
 
 		return {
 			rows,
-			total
+			total,
+			columns: Array.isArray(columns) ? columns : null,
+			payload
 		};
 	}
 

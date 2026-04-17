@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>ModularGrid Demo - Responsive Card and Split View</title>
+	<link rel="stylesheet" href="../../src/styles/modulargrid.css">
+	<style>
+		body {
+			margin: 16px;
+			font-family: Inter, system-ui, sans-serif;
+			color: #222;
+		}
+
+		h1 {
+			margin: 0 0 8px 0;
+			font-size: 24px;
+			line-height: 1.2;
+			font-weight: 600;
+		}
+
+		p {
+			margin: 0 0 16px 0;
+			max-width: 860px;
+			color: #555;
+			line-height: 1.45;
+		}
+
+		.workspace-shell {
+			max-width: 1280px;
+		}
+
+		.workspace-grid {
+			margin-top: 8px;
+		}
+
+		.workspace-grid .mg-layout-root {
+			gap: 10px;
+		}
+
+		.workspace-grid .mg-control-group {
+			min-width: 0;
+		}
+
+		.workspace-grid .mg-view-switcher .mg-button:disabled {
+			background: #f3f3f3;
+			color: #222;
+			opacity: 1;
+		}
+
+		.workspace-grid .mg-row-actions-trigger {
+			color: #555;
+		}
+
+		.workspace-grid .mg-row-actions-trigger:hover {
+			color: #222;
+		}
+
+		.mail-content {
+			display: grid;
+			gap: 10px;
+		}
+
+		.mail-block {
+			border-top: 1px solid #e2e2e2;
+			padding-top: 8px;
+		}
+
+		.mail-block:first-child {
+			border-top: 0;
+			padding-top: 0;
+		}
+
+		.mail-block h3 {
+			margin: 0 0 4px 0;
+			font-size: 14px;
+			font-weight: 600;
+			color: #222;
+		}
+
+		.mail-block p {
+			margin: 0;
+			max-width: none;
+			color: #555;
+		}
+
+		@media (max-width: 720px) {
+			body {
+				margin: 12px;
+			}
+
+			h1 {
+				font-size: 21px;
+			}
+		}
+	</style>
+</head>
+<body>
+	<div class="workspace-shell">
+		<h1>ModularGrid - Responsive Cards and Split Detail View</h1>
+		<p>
+			On narrow space, the grid automatically switches to cards. On wider screens, you can switch
+			between a classic table and a two-pane split layout with a list on the left and detailed
+			content on the right, similar to a mail client.
+		</p>
+
+		<div class="workspace-grid">
+			<div id="card-view-grid"></div>
+		</div>
+	</div>
+
+	<script type="module" src="./card-view.js"></script>
+</body>
+</html>

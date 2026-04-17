@@ -4,7 +4,7 @@ This file describes the currently implemented baseline.
 
 ## Current implementation status
 
-The project currently has a first runnable Vanilla JavaScript foundation without jQuery.
+The project currently has a runnable Vanilla JavaScript foundation with a small core, plugin-driven controls, multiple view types and first-class server-mode support for ajax-backed grids.
 
 ### Core principles already in place
 
@@ -15,7 +15,9 @@ The project currently has a first runnable Vanilla JavaScript foundation without
 - multiple grid instances on the same page
 - small core with separate adapters and plugin manager
 - free layout tree instead of fixed header/footer slot assumptions
-- default core layout is now view-only
+- default core layout is view-only
+- plugin-first feature growth
+- state-driven rendering instead of DOM-driven behavior
 
 ## Current source structure
 
@@ -32,6 +34,7 @@ The current code base already contains:
 - `src/core/GridDataController.js`
 - `src/core/GridCommandRegistry.js`
 - `src/core/GridPluginManager.js`
+- `src/core/GridViewManager.js`
 
 ### Adapters
 
@@ -39,9 +42,11 @@ The current code base already contains:
 - `src/adapters/AjaxAdapter.js`
 - `src/adapters/HtmlTableAdapter.js`
 
-### View
+### View classes
 
 - `src/views/TableView.js`
+- `src/views/CardView.js`
+- `src/views/SplitDetailView.js`
 
 ### Layout helper
 
@@ -56,21 +61,32 @@ The current code base already contains:
 ### Plugins
 
 - `src/plugins/createStorageStatePlugin.js`
-- `src/plugins/ColumnVisibilityPlugin.js`
 - `src/plugins/SearchPlugin.js`
+- `src/plugins/FiltersPlugin.js`
+- `src/plugins/HeaderMenuPlugin.js`
 - `src/plugins/PageSizePlugin.js`
 - `src/plugins/InfoPlugin.js`
+- `src/plugins/SummaryPlugin.js`
 - `src/plugins/PagingPlugin.js`
 - `src/plugins/ResetPlugin.js`
 - `src/plugins/LocalStoragePlugin.js`
 - `src/plugins/SessionStoragePlugin.js`
+- `src/plugins/ColumnVisibilityPlugin.js`
 - `src/plugins/SelectionPlugin.js`
 - `src/plugins/RowActionsPlugin.js`
+- `src/plugins/BulkActionsPlugin.js`
+- `src/plugins/ExportPlugin.js`
+- `src/plugins/RowDetailPlugin.js`
+- `src/plugins/CardViewPlugin.js`
+- `src/plugins/SplitDetailViewPlugin.js`
+- `src/plugins/ViewSwitcherPlugin.js`
+- `src/plugins/ResponsiveViewPlugin.js`
 
 ### Utilities
 
 - `src/utils/dom.js`
 - `src/utils/object.js`
+- `src/utils/rowDetail.js`
 
 ### Styles
 
@@ -84,11 +100,14 @@ The following already work in the current foundation:
 - ajax-based data adapter
 - html table adapter
 - basic search via plugin
+- configurable external filters via plugin
 - search input focus is preserved across rerenders
 - basic sorting
+- header menu with sort and hide-column actions
 - basic paging with plugin UI
 - page size control via plugin
 - info display via plugin
+- summary metrics via plugin
 - reset via plugin
 - storage abstraction for browser storage-backed persistence
 - local storage state persistence via plugin
@@ -97,12 +116,29 @@ The following already work in the current foundation:
 - plugin-driven checkbox column
 - row actions via plugin
 - plugin-driven action column
-- table rendering
+- bulk action toolbar via plugin
+- export actions via plugin
+- column visibility plugin
+- formal view manager
+- plugin-registered views
+- table view
+- card view
+- split detail view
+- view switching control via plugin
+- responsive auto-switch to cards on narrow width
+- manual card/table view switching on wide layout with responsive plugin active
+- shared row-detail state via plugin
+- inline row details in table view
+- inline row details in card view
+- custom detail renderers via plugin options
+- server-mode data preparation in the core
+- watched server-state reload strategy
+- server-mode paging/search/sort/filter demo wiring via adapter request mapping
 - custom layout tree
 - named zones
 - plugin layout contributions
 - plugin column contributions
-- column visibility plugin
+- plugin view contributions
 - multiple independent grid instances on one page
 
 ## Current demos
@@ -118,6 +154,8 @@ The repo currently includes demos for:
 - selection plugin
 - row actions plugin
 - modern layout with session storage
+- responsive cards and split detail demo
+- multifunction ajax demo with plugin-driven search, filters, header menus, selection, row actions, bulk actions, export, summaries, row details and multiple views
 
 ## Current architectural direction
 
@@ -131,7 +169,7 @@ Instead it is being rebuilt as a modern modular framework with these priorities:
 4. extensibility over short-term hacks
 5. clean multiple-instance behavior
 
-## Current important design decision
+## Current important design decisions
 
 The core no longer hardcodes a top or bottom controls area.
 
@@ -144,20 +182,30 @@ That means:
 
 Controls are optional and layout-driven.
 
+The core now supports a dedicated `dataMode: 'server'` strategy for adapter-backed grids, while request shaping remains adapter-level and plugin state can participate through watched top-level state keys.
+
+Shared row-detail behavior is plugin-driven and view-integrated, not hardcoded as a one-off demo behavior.
+
+Filters, header menus, export, summaries and bulk actions are plugin-driven and can be composed through configuration without additional core work.
+
 ## Current known design intent
 
 The core should remain small and stable.
 
 The following should preferably be implemented as plugins instead of expanding the core:
 
+- search/filter UI
+- header menus
 - column visibility
 - reset
 - selection
 - row actions
+- bulk actions
+- export
+- summaries
+- row detail behavior
 - storage
 - grouping
-- export
-- detail view
 - responsive cards
 - charts
 - advanced filters
@@ -165,5 +213,5 @@ The following should preferably be implemented as plugins instead of expanding t
 
 ## Current important technical note
 
-`deepMerge()` must not destroy class instances such as adapters or other service objects.  
+`deepMerge()` must not destroy class instances such as adapters or other service objects.
 Only plain objects should be deeply merged.

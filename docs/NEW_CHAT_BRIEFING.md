@@ -42,23 +42,34 @@ The project already has:
 - data controller
 - command registry
 - plugin manager
+- view manager
 - table view
+- card view
+- split detail view
 - array adapter
 - ajax adapter
 - html table adapter
-- first layout helper for demos
 - plugin-based search
+- plugin-based external filters
+- plugin-based header menus
 - plugin-based page size control
 - plugin-based info display
+- plugin-based summaries
 - plugin-based paging control
 - column visibility plugin
 - reset plugin
-- local storage plugin
+- storage plugins
 - selection plugin
 - row actions plugin
+- bulk actions plugin
+- export plugin
+- row detail plugin
 - plugin-driven render-column contributions
+- responsive view switching
+- server-mode data handling in the core
+- multifunction ajax demo using watched server state sections and many plugins together
 
-## Important current design rule
+## Important current design rules
 
 The core default layout is view-only.
 
@@ -69,6 +80,8 @@ Any controls should be added by:
 - plugins
 - explicit layout zones
 - optional layout helpers
+
+Shared inline detail behavior should remain plugin-driven and view-integrated, not become a one-off core special case.
 
 ## Working rule
 
@@ -84,6 +97,15 @@ Prefer implementing new features through:
 ## Output preference
 
 Please provide full files with paths, not partial fragments, unless a tiny change is clearly enough.
+
+## Continuation rule
+
+If the current task changes stable user-visible behavior, also keep these files aligned:
+
+- `README.md`
+- `docs/CURRENT_STATUS.md`
+- `docs/todo/FEATURE_TODO.md`
+- `tests/browser-smoke/smoke.js`
 
 ## Current task
 
@@ -102,5 +124,5 @@ with something like:
 - `Add a storage adapter abstraction without breaking the current local storage plugin.`
 - `Add a card view without bloating the core.`
 - `Design grouping so that it remains plugin-driven.`
-- `Add a header menu plugin using layout and column contributions.`
-- `Implement a view manager for table and card view switching.`
+- `Add a header menu plugin using state and existing view rendering.`
+- `Extend the configurable filters plugin without coupling backend request shape into the core.`

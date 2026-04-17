@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>ModularGrid Demo - Multifunction Ajax</title>
+	<link rel="stylesheet" href="../../src/styles/modulargrid.css">
+	<style>
+		body {
+			margin: 16px;
+			font-family: Inter, system-ui, sans-serif;
+			color: #222;
+			background: #fafafa;
+		}
+
+		h1 {
+			margin: 0 0 8px 0;
+			font-size: 24px;
+			line-height: 1.2;
+			font-weight: 600;
+		}
+
+		p {
+			margin: 0 0 16px 0;
+			max-width: 1100px;
+			color: #555;
+			line-height: 1.45;
+		}
+
+		.workspace-shell {
+			max-width: 1500px;
+		}
+
+		.workspace-top-row,
+		.workspace-bottom-row {
+			display: grid;
+			gap: 10px;
+			align-items: stretch;
+		}
+
+		.workspace-top-row {
+			grid-template-columns: minmax(0, 1.8fr) auto minmax(0, 1.3fr);
+		}
+
+		.workspace-bottom-row {
+			grid-template-columns: minmax(0, 1fr) auto;
+		}
+
+		.workspace-panel {
+			display: flex;
+			align-items: center;
+			flex-wrap: nowrap;
+			gap: 8px;
+			min-width: 0;
+			padding: 8px 10px;
+			border: 1px solid #e2e2e2;
+			border-radius: 8px;
+			background: #fff;
+			overflow-x: auto;
+			scrollbar-width: thin;
+		}
+
+		.workspace-panel > * {
+			flex: 0 0 auto;
+		}
+
+		.workspace-main {
+			border: 1px solid #e2e2e2;
+			border-radius: 8px;
+			background: #fff;
+			padding: 4px 0;
+		}
+
+		.workspace-grid .mg-control-group {
+			flex-direction: row;
+			align-items: center;
+			gap: 6px;
+			min-width: auto;
+		}
+
+		.workspace-grid .mg-label {
+			white-space: nowrap;
+			color: #666;
+			font-size: 12px;
+		}
+
+		.workspace-grid .mg-inline-buttons {
+			flex-wrap: nowrap;
+		}
+
+		.workspace-grid .mg-input,
+		.workspace-grid .mg-select,
+		.workspace-grid .mg-button {
+			min-height: 28px;
+			font-size: 13px;
+		}
+
+		.workspace-grid .mg-input {
+			width: auto;
+		}
+
+		.workspace-grid input[type="search"].mg-input {
+			width: 220px;
+		}
+
+		.workspace-grid .mg-select {
+			width: auto;
+			min-width: 96px;
+		}
+
+		.workspace-grid .mg-table th,
+		.workspace-grid .mg-table td {
+			padding: 6px 8px;
+			font-size: 13px;
+		}
+
+		.workspace-grid .mg-summary-item,
+		.workspace-grid .mg-bulk-actions-label {
+			font-size: 12px;
+		}
+
+		.workspace-grid .mg-view-switcher .mg-button:disabled {
+			background: #f1f1f1;
+			color: #222;
+			opacity: 1;
+		}
+
+		.demo-pill-row {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 4px;
+			align-items: center;
+		}
+
+		.demo-pill {
+			display: inline-flex;
+			align-items: center;
+			padding: 1px 6px;
+			border: 1px solid #d6d6d6;
+			border-radius: 999px;
+			background: #fafafa;
+			font-size: 11px;
+			line-height: 1.35;
+			color: #444;
+			white-space: nowrap;
+		}
+
+		.demo-pill-strong {
+			background: #f0f0f0;
+			color: #222;
+			border-color: #cfcfcf;
+		}
+
+		.demo-cell-stack {
+			display: grid;
+			gap: 2px;
+		}
+
+		.demo-cell-main {
+			font-weight: 600;
+			color: #222;
+		}
+
+		.demo-cell-sub {
+			font-size: 12px;
+			color: #666;
+		}
+
+		.demo-log {
+			margin-top: 12px;
+			padding: 8px 0 0 0;
+			border-top: 1px solid #e2e2e2;
+			font-size: 13px;
+			color: #555;
+		}
+
+		.demo-log strong {
+			color: #222;
+		}
+
+		@media (max-width: 1100px) {
+			.workspace-top-row,
+			.workspace-bottom-row {
+				grid-template-columns: 1fr;
+			}
+		}
+
+		@media (max-width: 720px) {
+			body {
+				margin: 12px;
+			}
+
+			h1 {
+				font-size: 21px;
+			}
+		}
+	</style>
+</head>
+<body>
+	<div class="workspace-shell">
+		<h1>ModularGrid - Multifunction Ajax Workbench</h1>
+		<p>
+			This demo keeps the ajax source and composes the grid mainly through plugins and configuration:
+			search, filters, header menus, paging, page size, info, summaries, selection, row actions, bulk actions,
+			export, column visibility, reset, row detail, table/cards/split views, responsive switching and state persistence.
+		</p>
+
+		<div class="workspace-grid">
+			<div id="extended-ajax-grid"></div>
+			<div id="extended-ajax-log" class="demo-log"></div>
+		</div>
+	</div>
+
+	<script type="module" src="./extended-ajax.js"></script>
+</body>
+</html>

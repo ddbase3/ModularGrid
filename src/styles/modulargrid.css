@@ -240,6 +240,33 @@
 	font-weight: 600;
 }
 
+.mg-row-actions {
+	display: inline-flex;
+	justify-content: flex-end;
+	width: 100%;
+}
+
+.mg-row-actions-trigger {
+	min-width: 40px;
+	justify-content: center;
+	padding: 6px 10px;
+}
+
+.mg-row-actions-menu {
+	min-width: 180px;
+}
+
+.mg-row-actions-list {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.mg-row-action-button {
+	width: 100%;
+	text-align: left;
+}
+
 @media (max-width: 720px) {
 	.mg-layout-row {
 		flex-direction: column;

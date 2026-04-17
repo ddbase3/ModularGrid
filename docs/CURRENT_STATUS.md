@@ -57,6 +57,7 @@ The current code base already contains:
 - `src/plugins/ResetPlugin.js`
 - `src/plugins/LocalStoragePlugin.js`
 - `src/plugins/SelectionPlugin.js`
+- `src/plugins/RowActionsPlugin.js`
 
 ### Utilities
 
@@ -83,6 +84,8 @@ The following already work in the current foundation:
 - local storage state persistence via plugin
 - selection via plugin
 - plugin-driven checkbox column
+- row actions via plugin
+- plugin-driven action column
 - table rendering
 - custom layout tree
 - named zones
@@ -102,6 +105,7 @@ The repo currently includes demos for:
 - column visibility plugin
 - reset and local storage
 - selection plugin
+- row actions plugin
 
 ## Current architectural direction
 

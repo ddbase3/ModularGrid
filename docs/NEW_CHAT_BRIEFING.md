@@ -55,6 +55,7 @@ The project already has:
 - reset plugin
 - local storage plugin
 - selection plugin
+- row actions plugin
 - plugin-driven render-column contributions
 
 ## Important current design rule
@@ -98,8 +99,8 @@ When starting a new chat, replace:
 
 with something like:
 
-- `Implement a row actions plugin.`
+- `Add a storage adapter abstraction without breaking the current local storage plugin.`
 - `Add a card view without bloating the core.`
 - `Design grouping so that it remains plugin-driven.`
-- `Add a storage adapter abstraction without breaking the current local storage plugin.`
 - `Add a header menu plugin using layout and column contributions.`
+- `Implement a view manager for table and card view switching.`

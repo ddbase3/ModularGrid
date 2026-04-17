@@ -14,3 +14,4 @@ export { PagingPlugin } from './plugins/PagingPlugin.js';
 export { ResetPlugin } from './plugins/ResetPlugin.js';
 export { LocalStoragePlugin } from './plugins/LocalStoragePlugin.js';
 export { SelectionPlugin } from './plugins/SelectionPlugin.js';
+export { RowActionsPlugin } from './plugins/RowActionsPlugin.js';

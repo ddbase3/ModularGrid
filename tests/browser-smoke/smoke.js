@@ -3,6 +3,7 @@ import {
 	ModularGrid,
 	PageSizePlugin,
 	PagingPlugin,
+	RowActionsPlugin,
 	SearchPlugin,
 	SelectionPlugin,
 	createClassicLayout
@@ -38,6 +39,7 @@ const data = [
 ];
 
 try {
+	const actionCalls = [];
 	const layout = createClassicLayout({
 		top: ['toolbar', 'actions'],
 		bottom: ['footerInfo', 'footerPaging']
@@ -52,8 +54,22 @@ try {
 			PageSizePlugin,
 			InfoPlugin,
 			PagingPlugin,
-			SelectionPlugin
+			SelectionPlugin,
+			RowActionsPlugin
 		],
+		pluginOptions: {
+			rowActions: {
+				items: [
+					{
+						key: 'inspect',
+						label: 'Inspect',
+						onClick({ row }) {
+							actionCalls.push(row.id);
+						}
+					}
+				]
+			}
+		},
 		columns: [
 			{ key: 'id', label: 'ID' },
 			{ key: 'name', label: 'Name' },
@@ -67,6 +83,7 @@ try {
 	assert(document.querySelectorAll('#test-grid tbody tr').length === 2, 'First grid renders first page with 2 rows');
 	assert(document.querySelectorAll('#test-grid input[type="search"]').length === 1, 'Search plugin renders into the layout');
 	assert(document.querySelectorAll('#test-grid thead input[type="checkbox"]').length === 1, 'Selection plugin renders a header checkbox');
+	assert(document.querySelectorAll('#test-grid .mg-row-actions').length > 0, 'Row actions plugin renders action menus');
 
 	grid.setSearch('Berlin');
 	assert(document.querySelectorAll('#test-grid tbody tr').length === 2, 'Search filters rows correctly');
@@ -87,6 +104,10 @@ try {
 
 	const selectedLabel = document.querySelector('#test-grid .mg-selection-label');
 	assert(selectedLabel && selectedLabel.textContent.includes('1'), 'Selection summary updates after selecting a row');
+
+	const firstActionButton = document.querySelector('#test-grid tbody tr .mg-row-action-button');
+	firstActionButton.click();
+	assert(actionCalls.length === 1 && actionCalls[0] === 3, 'Row action callback runs for the visible first row');
 
 	grid.setPage(2);
 	const firstCellPage2 = document.querySelector('#test-grid tbody tr td:nth-child(2)');

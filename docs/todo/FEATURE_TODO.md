@@ -129,9 +129,9 @@ It is based on the originally requested feature set, translated into a more stru
 - [x] Checkbox first column
 - [~] Select all / clear selection
 - [~] Bulk action toolbar
-- [ ] Row actions plugin
-- [ ] Three-dot row menu
-- [ ] Row menu extension mechanism
+- [x] Row actions plugin
+- [x] Three-dot row menu
+- [~] Row menu extension mechanism
 
 ---
 
@@ -253,7 +253,7 @@ It is based on the originally requested feature set, translated into a more stru
 
 - [ ] Header menu plugin
 - [ ] Header menu contributions by plugins
-- [ ] Row menu contributions by plugins
+- [x] Row menu contributions by plugins
 - [x] Toolbar contributions by plugins
 - [x] Footer contributions by plugins
 - [x] Column contributions by plugins
@@ -271,7 +271,7 @@ It is based on the originally requested feature set, translated into a more stru
 - [x] Reset demo
 - [x] Storage demo
 - [x] Selection demo
-- [ ] Row actions demo
+- [x] Row actions demo
 - [ ] Card view demo
 - [ ] Grouping demo
 - [ ] Export demo
@@ -282,9 +282,8 @@ It is based on the originally requested feature set, translated into a more stru
 
 The next good steps are:
 
-1. row actions plugin
-2. storage adapter abstraction
-3. view manager and card view
-4. header menu foundation
-5. grouping
-6. export
+1. storage adapter abstraction
+2. view manager and card view
+3. header menu foundation
+4. grouping
+5. export

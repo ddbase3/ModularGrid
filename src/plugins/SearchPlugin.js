@@ -35,6 +35,7 @@ export const SearchPlugin = {
 					input.className = 'mg-input';
 					input.placeholder = options.placeholder;
 					input.value = viewModel.search || '';
+					input.dataset.mgFocusKey = 'search-input';
 
 					input.addEventListener('input', () => {
 						context.execute('setSearch', input.value);

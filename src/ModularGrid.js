@@ -180,6 +180,61 @@ export class ModularGrid {
 		return cloneValue(this.initialStateSnapshot);
 	}
 
+	captureFocusState() {
+		const activeElement = document.activeElement;
+
+		if (!(activeElement instanceof HTMLElement)) {
+			return null;
+		}
+
+		if (!this.container.contains(activeElement)) {
+			return null;
+		}
+
+		const focusKey = activeElement.dataset.mgFocusKey;
+
+		if (!focusKey) {
+			return null;
+		}
+
+		const focusState = {
+			focusKey
+		};
+
+		if (typeof activeElement.selectionStart === 'number') {
+			focusState.selectionStart = activeElement.selectionStart;
+			focusState.selectionEnd = activeElement.selectionEnd;
+		}
+
+		return focusState;
+	}
+
+	restoreFocusState(focusState) {
+		if (!focusState || !focusState.focusKey) {
+			return;
+		}
+
+		const selector = `[data-mg-focus-key="${focusState.focusKey}"]`;
+		const target = this.container.querySelector(selector);
+
+		if (!(target instanceof HTMLElement)) {
+			return;
+		}
+
+		target.focus();
+
+		if (typeof target.setSelectionRange === 'function' && typeof focusState.selectionStart === 'number') {
+			try {
+				target.setSelectionRange(
+					focusState.selectionStart,
+					typeof focusState.selectionEnd === 'number' ? focusState.selectionEnd : focusState.selectionStart
+				);
+			} catch (error) {
+				// Ignore selection restoration errors for unsupported elements.
+			}
+		}
+	}
+
 	async init() {
 		if (this.initialized) {
 			return this;
@@ -386,9 +441,11 @@ export class ModularGrid {
 		}
 
 		const viewModel = this.buildViewModel();
+		const focusState = this.captureFocusState();
 
 		this.renderAllZones(viewModel);
 		this.view.render(this.viewContainer, this, viewModel);
+		this.restoreFocusState(focusState);
 	}
 
 	setSearch(value) {

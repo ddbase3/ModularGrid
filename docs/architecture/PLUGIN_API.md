@@ -99,11 +99,6 @@ commands
 
 Optional object of command handlers.
 
-Example:
-
-commands: {
-	toggleSomething(context, payload) {}
-}
 layoutContributions(context)
 
 Optional. Returns an array of layout contributions.
@@ -155,37 +150,37 @@ Layout contributions
 
 Layout contributions allow plugins to render UI into named layout zones.
 
-Typical contribution shape:
-
-{
-	zone: 'toolbar',
-	order: 100,
-	render({ grid, viewModel, zone }) {
-		const button = document.createElement('button');
-		button.textContent = 'Action';
-		return button;
-	}
-}
 Column contributions
 
 Column contributions allow plugins to prepend or append extra render columns without mutating the grid's core data columns.
 
-Typical contribution shape:
+Storage abstraction
 
-{
-	position: 'start',
-	order: 10,
-	column: {
-		key: '__selection__',
-		label: '',
-		sortable: false,
-		render(value, row, column, grid) {
-			const checkbox = document.createElement('input');
-			checkbox.type = 'checkbox';
-			return checkbox;
-		}
-	}
-}
+Storage-backed state persistence should be implemented with:
+
+a storage plugin
+a storage adapter
+
+The plugin is responsible for:
+
+deciding which sections of state are persisted
+deciding when save/restore occurs
+mapping plugin options to persistence behavior
+
+The adapter is responsible for:
+
+reading stored values
+writing stored values
+removing stored values
+
+This separation keeps persistence transport-specific logic out of the grid core.
+
+Examples of adapters:
+
+local storage adapter
+session storage adapter
+ajax/database storage adapter
+custom browser or app storage adapter
 Important layout rule
 
 Plugins must not assume that all grids have all zones.
@@ -212,56 +207,6 @@ export
 storage
 grouping
 responsive cards
-
-Bad example:
-
-one giant plugin that tries to own half the framework
-State usage recommendations
-
-Plugins may update state, but they should do so carefully.
-
-Recommended pattern:
-
-read current state
-derive a focused patch
-update only the relevant slice
-emit domain events if useful
-
-Avoid large blind state rewrites unless necessary.
-
-Event usage recommendations
-
-Use events for loose coordination.
-
-Useful plugin patterns:
-
-react to grid:init
-react to state:changed
-emit columns:changed
-emit selection:changed
-emit filters:changed
-emit grid:reset
-
-Do not rely on unrelated private implementation details.
-
-Command usage recommendations
-
-Commands are useful when:
-
-UI actions should be callable from multiple places
-plugins should expose reusable actions
-the same behavior may later be triggered by menus, buttons, hotkeys or tests
-
-Good examples:
-
-setColumnVisibility
-toggleColumn
-resetGridState
-saveStoredState
-restoreStoredState
-clearStoredState
-toggleRowSelection
-clearSelection
 Plugin options
 
 Plugin options should live under:
@@ -271,38 +216,24 @@ pluginOptions: {
 		...
 	}
 }
-
-Example:
-
-pluginOptions: {
-	selection: {
-		zone: 'actions',
-		rowIdKey: 'id'
-	}
-}
 Example usage
 import {
 	ModularGrid,
 	SearchPlugin,
-	SelectionPlugin,
-	ResetPlugin,
-	createClassicLayout
+	SessionStoragePlugin
 } from './src/index.js';
 
 const grid = new ModularGrid('#grid', {
-	layout: createClassicLayout({
-		top: ['toolbar', 'actions'],
-		bottom: ['footerInfo', 'footerPaging']
-	}),
+	layout,
 	data,
 	plugins: [
 		SearchPlugin,
-		SelectionPlugin,
-		ResetPlugin
+		SessionStoragePlugin
 	],
 	pluginOptions: {
-		selection: {
-			zone: 'actions'
+		sessionStorage: {
+			key: 'example-grid',
+			sections: ['query', 'columns']
 		}
 	}
 });

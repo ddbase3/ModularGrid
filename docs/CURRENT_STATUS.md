@@ -47,8 +47,15 @@ The current code base already contains:
 
 - `src/layouts/createClassicLayout.js`
 
+### Storage adapters
+
+- `src/storage/BrowserStorageStateAdapter.js`
+- `src/storage/LocalStorageStateAdapter.js`
+- `src/storage/SessionStorageStateAdapter.js`
+
 ### Plugins
 
+- `src/plugins/createStorageStatePlugin.js`
 - `src/plugins/ColumnVisibilityPlugin.js`
 - `src/plugins/SearchPlugin.js`
 - `src/plugins/PageSizePlugin.js`
@@ -56,6 +63,7 @@ The current code base already contains:
 - `src/plugins/PagingPlugin.js`
 - `src/plugins/ResetPlugin.js`
 - `src/plugins/LocalStoragePlugin.js`
+- `src/plugins/SessionStoragePlugin.js`
 - `src/plugins/SelectionPlugin.js`
 - `src/plugins/RowActionsPlugin.js`
 
@@ -76,12 +84,15 @@ The following already work in the current foundation:
 - ajax-based data adapter
 - html table adapter
 - basic search via plugin
+- search input focus is preserved across rerenders
 - basic sorting
 - basic paging with plugin UI
 - page size control via plugin
 - info display via plugin
 - reset via plugin
+- storage abstraction for browser storage-backed persistence
 - local storage state persistence via plugin
+- session storage state persistence via plugin
 - selection via plugin
 - plugin-driven checkbox column
 - row actions via plugin
@@ -106,6 +117,7 @@ The repo currently includes demos for:
 - reset and local storage
 - selection plugin
 - row actions plugin
+- modern layout with session storage
 
 ## Current architectural direction
 

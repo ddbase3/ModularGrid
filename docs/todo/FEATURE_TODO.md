@@ -100,6 +100,7 @@ It is based on the originally requested feature set, translated into a more stru
 
 - [x] Basic global search
 - [x] Move global search into a plugin
+- [x] Preserve search input focus during rerender
 - [ ] Column filter plugin foundation
 - [ ] Header filter row
 - [ ] External filters
@@ -173,6 +174,7 @@ It is based on the originally requested feature set, translated into a more stru
 # 12. Responsive behavior
 
 - [~] Basic mobile-safe layout behavior
+- [x] Demo-specific modern control layout with CSS
 - [ ] Responsive cards plugin
 - [ ] Adaptive column hiding strategy
 - [ ] Narrow viewport table strategy
@@ -182,13 +184,14 @@ It is based on the originally requested feature set, translated into a more stru
 
 # 13. Persistence and saved configurations
 
-- [ ] Storage adapter contract
+- [x] Storage adapter contract
 - [x] Local storage plugin
-- [ ] Session storage plugin
+- [x] Session storage plugin
 - [ ] Ajax/database storage plugin
 - [~] Persisted filters
 - [x] Persisted sorting
 - [x] Persisted column visibility
+- [~] Persisted selection
 - [ ] Persisted layout/view settings
 - [ ] Saved named grid configurations
 
@@ -272,6 +275,7 @@ It is based on the originally requested feature set, translated into a more stru
 - [x] Storage demo
 - [x] Selection demo
 - [x] Row actions demo
+- [x] Modern layout demo
 - [ ] Card view demo
 - [ ] Grouping demo
 - [ ] Export demo
@@ -282,8 +286,8 @@ It is based on the originally requested feature set, translated into a more stru
 
 The next good steps are:
 
-1. storage adapter abstraction
-2. view manager and card view
-3. header menu foundation
-4. grouping
-5. export
+1. view manager and card view
+2. header menu foundation
+3. grouping
+4. export
+5. ajax/database storage adapter

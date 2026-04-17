@@ -85,7 +85,12 @@ try {
 	assert(document.querySelectorAll('#test-grid thead input[type="checkbox"]').length === 1, 'Selection plugin renders a header checkbox');
 	assert(document.querySelectorAll('#test-grid .mg-row-actions').length > 0, 'Row actions plugin renders action menus');
 
-	grid.setSearch('Berlin');
+	const searchInput = document.querySelector('#test-grid input[type="search"]');
+	searchInput.focus();
+	searchInput.value = 'Berlin';
+	searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+
+	assert(document.activeElement === document.querySelector('#test-grid input[type="search"]'), 'Search input keeps focus after rerender');
 	assert(document.querySelectorAll('#test-grid tbody tr').length === 2, 'Search filters rows correctly');
 
 	grid.clearSearch();

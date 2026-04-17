@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>ModularGrid Demo - Basic Array</title>
+	<link rel="stylesheet" href="../../src/styles/modulargrid.css">
+	<style>
+		body {
+			margin: 0;
+			padding: 32px;
+			font-family: Arial, sans-serif;
+			background: #f5f7fb;
+			color: #1b1b1b;
+		}
+
+		h1 {
+			margin-top: 0;
+			margin-bottom: 8px;
+		}
+
+		p {
+			margin-top: 0;
+			margin-bottom: 24px;
+			color: #555;
+		}
+
+		.demo-card {
+			background: #fff;
+			border: 1px solid #ddd;
+			border-radius: 12px;
+			padding: 20px;
+			box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+		}
+
+		.badge {
+			display: inline-block;
+			padding: 4px 8px;
+			border-radius: 999px;
+			font-size: 12px;
+			font-weight: 700;
+		}
+
+		.badge--active {
+			background: #e8f7ed;
+			color: #1d7f3a;
+		}
+
+		.badge--pending {
+			background: #fff4db;
+			color: #946200;
+		}
+
+		.badge--blocked {
+			background: #fde8e8;
+			color: #b42318;
+		}
+	</style>
+</head>
+<body>
+	<h1>ModularGrid - Basic Array Demo</h1>
+	<p>This first demo shows the minimal runnable version with search, sorting and paging.</p>
+
+	<div class="demo-card">
+		<div id="demo-grid"></div>
+	</div>
+
+	<script type="module" src="./basic.js"></script>
+</body>
+</html>

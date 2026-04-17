@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>ModularGrid Demo - Two Grids</title>
+	<link rel="stylesheet" href="../../src/styles/modulargrid.css">
+	<style>
+		body {
+			margin: 0;
+			padding: 32px;
+			font-family: Arial, sans-serif;
+			background: #f5f7fb;
+			color: #1b1b1b;
+		}
+
+		h1 {
+			margin-top: 0;
+		}
+
+		.grid-stack {
+			display: grid;
+			grid-template-columns: 1fr;
+			gap: 24px;
+		}
+
+		.demo-card {
+			background: #fff;
+			border: 1px solid #ddd;
+			border-radius: 12px;
+			padding: 20px;
+			box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+		}
+	</style>
+</head>
+<body>
+	<h1>ModularGrid - Two Independent Grids</h1>
+
+	<div class="grid-stack">
+		<div class="demo-card">
+			<h2>Users</h2>
+			<div id="users-grid"></div>
+		</div>
+
+		<div class="demo-card">
+			<h2>Projects</h2>
+			<div id="projects-grid"></div>
+		</div>
+	</div>
+
+	<script type="module" src="./two-grids.js"></script>
+</body>
+</html>

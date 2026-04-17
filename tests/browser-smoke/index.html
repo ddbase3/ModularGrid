@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>ModularGrid Browser Smoke Test</title>
+	<link rel="stylesheet" href="../../src/styles/modulargrid.css">
+	<style>
+		body {
+			margin: 0;
+			padding: 32px;
+			font-family: Arial, sans-serif;
+			background: #f5f7fb;
+			color: #1b1b1b;
+		}
+
+		.test-layout {
+			display: grid;
+			grid-template-columns: 1fr;
+			gap: 24px;
+		}
+
+		.test-card {
+			background: #fff;
+			border: 1px solid #ddd;
+			border-radius: 12px;
+			padding: 20px;
+		}
+
+		.test-log {
+			font-family: monospace;
+			white-space: pre-wrap;
+			background: #111;
+			color: #eee;
+			padding: 16px;
+			border-radius: 10px;
+			min-height: 200px;
+		}
+
+		.pass {
+			color: #7CFC98;
+		}
+
+		.fail {
+			color: #FF8A8A;
+		}
+	</style>
+</head>
+<body>
+	<h1>Browser Smoke Test</h1>
+
+	<div class="test-layout">
+		<div class="test-card">
+			<h2>Grid Under Test</h2>
+			<div id="test-grid"></div>
+		</div>
+
+		<div class="test-card">
+			<h2>Second Grid</h2>
+			<div id="second-grid"></div>
+		</div>
+
+		<div class="test-card">
+			<h2>Log</h2>
+			<div id="log" class="test-log"></div>
+		</div>
+	</div>
+
+	<script type="module" src="./smoke.js"></script>
+</body>
+</html>

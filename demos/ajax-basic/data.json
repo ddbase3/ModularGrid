@@ -1,0 +1,23 @@
+{
+	"data": [
+		{ "id": 1, "name": "Alice", "department": "Sales", "city": "Berlin", "status": "Active" },
+		{ "id": 2, "name": "Bob", "department": "Support", "city": "Hamburg", "status": "Pending" },
+		{ "id": 3, "name": "Charlie", "department": "Engineering", "city": "Munich", "status": "Blocked" },
+		{ "id": 4, "name": "Diana", "department": "Engineering", "city": "Cologne", "status": "Active" },
+		{ "id": 5, "name": "Eli", "department": "Marketing", "city": "Leipzig", "status": "Pending" },
+		{ "id": 6, "name": "Finn", "department": "Sales", "city": "Stuttgart", "status": "Active" },
+		{ "id": 7, "name": "Grace", "department": "HR", "city": "Frankfurt", "status": "Blocked" },
+		{ "id": 8, "name": "Hank", "department": "Support", "city": "Bremen", "status": "Pending" },
+		{ "id": 9, "name": "Ivy", "department": "Engineering", "city": "Dresden", "status": "Active" },
+		{ "id": 10, "name": "John", "department": "Marketing", "city": "Hanover", "status": "Blocked" },
+		{ "id": 11, "name": "Kira", "department": "HR", "city": "Bonn", "status": "Active" },
+		{ "id": 12, "name": "Liam", "department": "Engineering", "city": "Dortmund", "status": "Pending" },
+		{ "id": 13, "name": "Mia", "department": "Sales", "city": "Essen", "status": "Active" },
+		{ "id": 14, "name": "Noah", "department": "Support", "city": "Nuremberg", "status": "Blocked" },
+		{ "id": 15, "name": "Olivia", "department": "Engineering", "city": "Mannheim", "status": "Pending" }
+	],
+	"page": 1,
+	"pageSize": 15,
+	"total": 15,
+	"totalPages": 1
+}

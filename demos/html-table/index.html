@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>ModularGrid Demo - HTML Table Adapter</title>
+	<link rel="stylesheet" href="../../src/styles/modulargrid.css">
+	<style>
+		body {
+			margin: 0;
+			padding: 32px;
+			font-family: Arial, sans-serif;
+			background: #f5f7fb;
+			color: #1b1b1b;
+		}
+
+		h1 {
+			margin-top: 0;
+			margin-bottom: 8px;
+		}
+
+		p {
+			margin-top: 0;
+			margin-bottom: 24px;
+			color: #555;
+		}
+
+		.demo-card {
+			background: #fff;
+			border: 1px solid #ddd;
+			border-radius: 12px;
+			padding: 20px;
+			box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+		}
+
+		.source-table {
+			width: 100%;
+			border-collapse: collapse;
+			margin-bottom: 24px;
+			background: #fff;
+		}
+
+		.source-table th,
+		.source-table td {
+			padding: 10px 12px;
+			border: 1px solid #ddd;
+			text-align: left;
+		}
+	</style>
+</head>
+<body>
+	<h1>ModularGrid - HTML Table Adapter Demo</h1>
+	<p>The adapter reads a regular HTML table and turns it into a ModularGrid instance.</p>
+
+	<div class="demo-card">
+		<table id="source-table" class="source-table">
+			<thead>
+				<tr>
+					<th>ID</th>
+					<th>Name</th>
+					<th>Role</th>
+					<th>City</th>
+				</tr>
+			</thead>
+			<tbody>
+				<tr><td>1</td><td>Alice</td><td>Admin</td><td>Berlin</td></tr>
+				<tr><td>2</td><td>Bob</td><td>Editor</td><td>Hamburg</td></tr>
+				<tr><td>3</td><td>Charlie</td><td>Viewer</td><td>Munich</td></tr>
+				<tr><td>4</td><td>Diana</td><td>Admin</td><td>Cologne</td></tr>
+				<tr><td>5</td><td>Eli</td><td>Editor</td><td>Leipzig</td></tr>
+				<tr><td>6</td><td>Finn</td><td>Viewer</td><td>Bremen</td></tr>
+				<tr><td>7</td><td>Grace</td><td>Admin</td><td>Frankfurt</td></tr>
+			</tbody>
+		</table>
+
+		<div id="html-grid"></div>
+	</div>
+
+	<script type="module" src="./html-table.js"></script>
+</body>
+</html>

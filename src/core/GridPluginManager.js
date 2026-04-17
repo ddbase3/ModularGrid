@@ -82,6 +82,19 @@ export class GridPluginManager {
 		return [];
 	}
 
+	resolveColumnContributions(plugin, context) {
+		if (typeof plugin.columnContributions === 'function') {
+			const contributions = plugin.columnContributions(context) || [];
+			return Array.isArray(contributions) ? contributions : [];
+		}
+
+		if (Array.isArray(plugin.columnContributions)) {
+			return plugin.columnContributions;
+		}
+
+		return [];
+	}
+
 	async installAll(pluginDefinitions = []) {
 		for (const pluginDefinition of pluginDefinitions) {
 			const plugin = this.resolvePlugin(pluginDefinition);
@@ -98,13 +111,49 @@ export class GridPluginManager {
 			}
 
 			const layoutContributions = this.resolveLayoutContributions(plugin, context);
+			const columnContributions = this.resolveColumnContributions(plugin, context);
 
 			this.plugins.push({
 				plugin,
 				context,
-				layoutContributions
+				layoutContributions,
+				columnContributions
 			});
 		}
+	}
+
+	getRenderColumns(baseColumns = []) {
+		const startColumns = [];
+		const endColumns = [];
+
+		this.plugins.forEach((entry) => {
+			(entry.columnContributions || []).forEach((contribution) => {
+				if (!contribution || !contribution.column) {
+					return;
+				}
+
+				if (contribution.position === 'end') {
+					endColumns.push(contribution);
+					return;
+				}
+
+				startColumns.push(contribution);
+			});
+		});
+
+		startColumns.sort((a, b) => {
+			return Number(a.order || 0) - Number(b.order || 0);
+		});
+
+		endColumns.sort((a, b) => {
+			return Number(a.order || 0) - Number(b.order || 0);
+		});
+
+		return [
+			...startColumns.map((entry) => entry.column),
+			...baseColumns,
+			...endColumns.map((entry) => entry.column)
+		];
 	}
 
 	renderZone(zoneKey, container, viewModel) {

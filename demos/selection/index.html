@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>ModularGrid Demo - Selection Plugin</title>
+	<link rel="stylesheet" href="../../src/styles/modulargrid.css">
+	<style>
+		body {
+			margin: 0;
+			padding: 32px;
+			font-family: Arial, sans-serif;
+			background: #f5f7fb;
+			color: #1b1b1b;
+		}
+
+		h1 {
+			margin-top: 0;
+			margin-bottom: 8px;
+		}
+
+		p {
+			margin-top: 0;
+			margin-bottom: 24px;
+			color: #555;
+		}
+
+		.demo-card {
+			background: #fff;
+			border: 1px solid #ddd;
+			border-radius: 12px;
+			padding: 20px;
+			box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+		}
+	</style>
+</head>
+<body>
+	<h1>ModularGrid - Selection Plugin Demo</h1>
+	<p>This demo shows a plugin-driven checkbox column, page selection and selection summary.</p>
+
+	<div class="demo-card">
+		<div id="selection-grid"></div>
+	</div>
+
+	<script type="module" src="./selection.js"></script>
+</body>
+</html>

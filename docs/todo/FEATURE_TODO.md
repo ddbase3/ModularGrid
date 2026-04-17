@@ -27,7 +27,7 @@ It is based on the originally requested feature set, translated into a more stru
 - [~] Keep the core stable and small
 - [ ] Add a formal view manager
 - [ ] Add formal renderer registries
-- [ ] Add driver concept for DnD / resizing / integrations
+- [~] Add driver concept for DnD / resizing / integrations
 
 ## 1.2 Documentation and continuation
 
@@ -58,7 +58,7 @@ It is based on the originally requested feature set, translated into a more stru
 - [x] Overridable cell rendering
 - [x] Overridable header rendering
 - [~] Free layout composition
-- [ ] Formal row renderer extension point
+- [~] Formal row renderer extension point
 - [ ] Formal header row renderer extension point
 - [ ] Formal filter row renderer extension point
 - [ ] Formal group row renderer extension point
@@ -125,10 +125,10 @@ It is based on the originally requested feature set, translated into a more stru
 
 # 8. Selection and row actions
 
-- [ ] Selection plugin
-- [ ] Checkbox first column
-- [ ] Select all / clear selection
-- [ ] Bulk action toolbar
+- [x] Selection plugin
+- [x] Checkbox first column
+- [~] Select all / clear selection
+- [~] Bulk action toolbar
 - [ ] Row actions plugin
 - [ ] Three-dot row menu
 - [ ] Row menu extension mechanism
@@ -256,6 +256,7 @@ It is based on the originally requested feature set, translated into a more stru
 - [ ] Row menu contributions by plugins
 - [x] Toolbar contributions by plugins
 - [x] Footer contributions by plugins
+- [x] Column contributions by plugins
 
 ---
 
@@ -269,7 +270,7 @@ It is based on the originally requested feature set, translated into a more stru
 - [x] Browser smoke test
 - [x] Reset demo
 - [x] Storage demo
-- [ ] Selection demo
+- [x] Selection demo
 - [ ] Row actions demo
 - [ ] Card view demo
 - [ ] Grouping demo
@@ -281,10 +282,9 @@ It is based on the originally requested feature set, translated into a more stru
 
 The next good steps are:
 
-1. selection plugin
-2. row actions plugin
+1. row actions plugin
+2. storage adapter abstraction
 3. view manager and card view
-4. storage adapter abstraction
-5. header menu foundation
-6. grouping
-7. export
+4. header menu foundation
+5. grouping
+6. export

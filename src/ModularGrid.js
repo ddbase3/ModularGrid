@@ -348,9 +348,11 @@ export class ModularGrid {
 	buildViewModel() {
 		const state = this.store.peek();
 		const prepared = this.getPreparedRows();
+		const renderColumns = this.pluginManager.getRenderColumns(state.columns);
 
 		return {
 			columns: state.columns,
+			renderColumns,
 			rows: prepared.rows,
 			total: state.data.total,
 			filteredTotal: prepared.filteredTotal,

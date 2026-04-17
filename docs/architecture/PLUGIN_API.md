@@ -17,6 +17,7 @@ A plugin may:
 - register commands
 - listen to events
 - contribute UI into layout zones
+- contribute render columns
 - read and update grid state
 - request rendering
 - request reloading
@@ -49,6 +50,22 @@ export const ExamplePlugin = {
 				order: 100,
 				render(renderContext) {
 					return document.createTextNode('Example');
+				}
+			}
+		];
+	},
+
+	columnContributions(context) {
+		return [
+			{
+				position: 'start',
+				order: 10,
+				column: {
+					key: '__example__',
+					sortable: false,
+					render() {
+						return document.createTextNode('X');
+					}
 				}
 			}
 		];
@@ -96,6 +113,22 @@ Each contribution typically contains:
 zone
 order
 render(...)
+columnContributions(context)
+
+Optional. Returns an array of render-column contributions.
+
+Each contribution typically contains:
+
+position (start or end)
+order
+column
+
+This is useful for plugin-driven utility columns such as:
+
+selection checkboxes
+row action buttons
+drag handles
+detail toggles
 Plugin context
 
 The plugin context should be treated as the safe plugin API surface.
@@ -131,6 +164,26 @@ Typical contribution shape:
 		const button = document.createElement('button');
 		button.textContent = 'Action';
 		return button;
+	}
+}
+Column contributions
+
+Column contributions allow plugins to prepend or append extra render columns without mutating the grid's core data columns.
+
+Typical contribution shape:
+
+{
+	position: 'start',
+	order: 10,
+	column: {
+		key: '__selection__',
+		label: '',
+		sortable: false,
+		render(value, row, column, grid) {
+			const checkbox = document.createElement('input');
+			checkbox.type = 'checkbox';
+			return checkbox;
+		}
 	}
 }
 Important layout rule
@@ -207,7 +260,7 @@ resetGridState
 saveStoredState
 restoreStoredState
 clearStoredState
-selectRow
+toggleRowSelection
 clearSelection
 Plugin options
 
@@ -222,17 +275,17 @@ pluginOptions: {
 Example:
 
 pluginOptions: {
-	columnVisibility: {
+	selection: {
 		zone: 'actions',
-		buttonLabel: 'Choose columns'
+		rowIdKey: 'id'
 	}
 }
 Example usage
 import {
 	ModularGrid,
-	ColumnVisibilityPlugin,
-	ResetPlugin,
 	SearchPlugin,
+	SelectionPlugin,
+	ResetPlugin,
 	createClassicLayout
 } from './src/index.js';
 
@@ -244,11 +297,11 @@ const grid = new ModularGrid('#grid', {
 	data,
 	plugins: [
 		SearchPlugin,
-		ColumnVisibilityPlugin,
+		SelectionPlugin,
 		ResetPlugin
 	],
 	pluginOptions: {
-		columnVisibility: {
+		selection: {
 			zone: 'actions'
 		}
 	}

@@ -18,9 +18,9 @@ export class TableView {
 			return;
 		}
 
-		const visibleColumns = viewModel.columns.filter((column) => column.visible !== false);
+		const renderColumns = (viewModel.renderColumns || viewModel.columns || []).filter((column) => column.visible !== false);
 
-		if (visibleColumns.length === 0) {
+		if (renderColumns.length === 0) {
 			const emptyColumnsBox = createElement('div', 'mg-state');
 			emptyColumnsBox.textContent = 'No visible columns selected.';
 			container.appendChild(emptyColumnsBox);
@@ -32,7 +32,7 @@ export class TableView {
 		const tbody = createElement('tbody', 'mg-table-body');
 		const headerRow = createElement('tr', 'mg-header-row');
 
-		visibleColumns.forEach((column) => {
+		renderColumns.forEach((column) => {
 			const th = createElement('th', 'mg-header-cell');
 
 			if (column.width) {
@@ -69,7 +69,7 @@ export class TableView {
 		if (viewModel.rows.length === 0) {
 			const emptyRow = createElement('tr', 'mg-empty-row');
 			const emptyCell = createElement('td', 'mg-empty-cell');
-			emptyCell.colSpan = Math.max(visibleColumns.length, 1);
+			emptyCell.colSpan = Math.max(renderColumns.length, 1);
 			emptyCell.textContent = 'No rows found.';
 			emptyRow.appendChild(emptyCell);
 			tbody.appendChild(emptyRow);
@@ -85,7 +85,7 @@ export class TableView {
 					});
 				}
 
-				visibleColumns.forEach((column) => {
+				renderColumns.forEach((column) => {
 					const td = createElement('td', 'mg-cell');
 					const content = grid.renderCellContent(row, column);
 

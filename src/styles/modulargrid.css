@@ -219,6 +219,27 @@
 	color: #333;
 }
 
+.mg-selection-toggle {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 100%;
+}
+
+.mg-selection-toggle input {
+	cursor: pointer;
+}
+
+.mg-selection-summary {
+	min-height: 40px;
+}
+
+.mg-selection-label {
+	font-size: 14px;
+	color: #333;
+	font-weight: 600;
+}
+
 @media (max-width: 720px) {
 	.mg-layout-row {
 		flex-direction: column;

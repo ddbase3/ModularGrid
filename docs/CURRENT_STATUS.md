@@ -56,6 +56,7 @@ The current code base already contains:
 - `src/plugins/PagingPlugin.js`
 - `src/plugins/ResetPlugin.js`
 - `src/plugins/LocalStoragePlugin.js`
+- `src/plugins/SelectionPlugin.js`
 
 ### Utilities
 
@@ -80,10 +81,13 @@ The following already work in the current foundation:
 - info display via plugin
 - reset via plugin
 - local storage state persistence via plugin
+- selection via plugin
+- plugin-driven checkbox column
 - table rendering
 - custom layout tree
 - named zones
 - plugin layout contributions
+- plugin column contributions
 - column visibility plugin
 - multiple independent grid instances on one page
 
@@ -97,6 +101,7 @@ The repo currently includes demos for:
 - html table source
 - column visibility plugin
 - reset and local storage
+- selection plugin
 
 ## Current architectural direction
 

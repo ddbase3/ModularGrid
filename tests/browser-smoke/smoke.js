@@ -4,6 +4,7 @@ import {
 	PageSizePlugin,
 	PagingPlugin,
 	SearchPlugin,
+	SelectionPlugin,
 	createClassicLayout
 } from '../../src/index.js';
 
@@ -38,7 +39,7 @@ const data = [
 
 try {
 	const layout = createClassicLayout({
-		top: ['toolbar'],
+		top: ['toolbar', 'actions'],
 		bottom: ['footerInfo', 'footerPaging']
 	});
 
@@ -50,7 +51,8 @@ try {
 			SearchPlugin,
 			PageSizePlugin,
 			InfoPlugin,
-			PagingPlugin
+			PagingPlugin,
+			SelectionPlugin
 		],
 		columns: [
 			{ key: 'id', label: 'ID' },
@@ -64,6 +66,7 @@ try {
 
 	assert(document.querySelectorAll('#test-grid tbody tr').length === 2, 'First grid renders first page with 2 rows');
 	assert(document.querySelectorAll('#test-grid input[type="search"]').length === 1, 'Search plugin renders into the layout');
+	assert(document.querySelectorAll('#test-grid thead input[type="checkbox"]').length === 1, 'Selection plugin renders a header checkbox');
 
 	grid.setSearch('Berlin');
 	assert(document.querySelectorAll('#test-grid tbody tr').length === 2, 'Search filters rows correctly');
@@ -71,16 +74,22 @@ try {
 	grid.clearSearch();
 	grid.toggleSort('age');
 
-	const firstAgeCell = document.querySelector('#test-grid tbody tr td:nth-child(3)');
-	assert(firstAgeCell.textContent === '22', 'Sorting by age ascending works');
+	const firstAgeCell = document.querySelector('#test-grid tbody tr td:nth-child(4)');
+	assert(firstAgeCell.textContent === '22', 'Sorting by age ascending works with selection column present');
 
 	grid.toggleSort('age');
 
-	const firstAgeCellDesc = document.querySelector('#test-grid tbody tr td:nth-child(3)');
-	assert(firstAgeCellDesc.textContent === '35', 'Sorting by age descending works');
+	const firstAgeCellDesc = document.querySelector('#test-grid tbody tr td:nth-child(4)');
+	assert(firstAgeCellDesc.textContent === '35', 'Sorting by age descending works with selection column present');
+
+	const firstRowCheckbox = document.querySelector('#test-grid tbody tr td:first-child input[type="checkbox"]');
+	firstRowCheckbox.click();
+
+	const selectedLabel = document.querySelector('#test-grid .mg-selection-label');
+	assert(selectedLabel && selectedLabel.textContent.includes('1'), 'Selection summary updates after selecting a row');
 
 	grid.setPage(2);
-	const firstCellPage2 = document.querySelector('#test-grid tbody tr td:first-child');
+	const firstCellPage2 = document.querySelector('#test-grid tbody tr td:nth-child(2)');
 	assert(firstCellPage2.textContent !== '', 'Paging moves to another page');
 
 	const secondGrid = new ModularGrid('#second-grid', {

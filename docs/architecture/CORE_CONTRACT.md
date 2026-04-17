@@ -84,6 +84,7 @@ The core owns:
 - plugin installation lifecycle
 - plugin command registration
 - plugin layout contributions
+- plugin column contributions
 - plugin teardown
 
 ## What should NOT go into the core if avoidable
@@ -121,6 +122,7 @@ Good examples of acceptable core changes:
 - a missing plugin contribution type
 - a missing view activation mechanism
 - a missing adapter normalization contract
+- a missing plugin-driven render-column extension point
 
 Bad examples of unnecessary core changes:
 
@@ -145,6 +147,7 @@ Over time, most future growth should use these extension points:
 - events
 - commands
 - layout contributions
+- column contributions
 - views
 - adapters
 - renderers

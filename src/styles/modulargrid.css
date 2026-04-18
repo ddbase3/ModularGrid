@@ -148,6 +148,30 @@
 	opacity: 0.8;
 }
 
+.mg-text-display {
+	display: block;
+	min-width: 0;
+	max-width: 100%;
+}
+
+.mg-text-display-wrap {
+	white-space: normal;
+	overflow-wrap: anywhere;
+	word-break: break-word;
+}
+
+.mg-text-display-ellipsis {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.mg-text-display-nowrap {
+	overflow: hidden;
+	text-overflow: clip;
+	white-space: nowrap;
+}
+
 .mg-row-odd {
 	background: #fff;
 }
@@ -383,9 +407,33 @@
 	gap: 6px;
 }
 
+.mg-menu-action {
+	display: block;
+	width: 100%;
+	font: inherit;
+	font-weight: 400;
+	line-height: 1.3;
+	padding: 4px 2px;
+	border: 0;
+	border-radius: 0;
+	background: transparent;
+	color: #222;
+	cursor: pointer;
+	text-align: left;
+}
+
+.mg-menu-action:hover {
+	background: #f5f5f5;
+}
+
+.mg-menu-action:disabled {
+	opacity: 0.6;
+	cursor: default;
+	background: transparent;
+}
+
 .mg-row-action-button {
 	width: 100%;
-	text-align: left;
 }
 
 .mg-row-actions-header-section {
@@ -397,6 +445,12 @@
 	font-size: 12px;
 	font-weight: 600;
 	color: #555;
+}
+
+.mg-row-actions-header-reset {
+	width: auto;
+	padding-left: 0;
+	padding-right: 0;
 }
 
 .mg-bulk-actions-label,
@@ -527,28 +581,6 @@
 	z-index: 30;
 }
 
-.mg-header-menu-action {
-	font: inherit;
-	line-height: 1.3;
-	padding: 4px 2px;
-	border: 0;
-	border-radius: 0;
-	background: transparent;
-	color: #222;
-	cursor: pointer;
-	text-align: left;
-}
-
-.mg-header-menu-action:hover {
-	background: #f5f5f5;
-}
-
-.mg-header-menu-action:disabled {
-	opacity: 0.6;
-	cursor: default;
-	background: transparent;
-}
-
 .mg-cards {
 	display: grid;
 	gap: 8px;
@@ -586,23 +618,27 @@
 	display: flex;
 	flex-direction: column;
 	gap: 8px;
+	min-width: 0;
 }
 
 .mg-card-header {
 	display: flex;
 	flex-direction: column;
 	gap: 2px;
+	min-width: 0;
 }
 
 .mg-card-title {
 	font-size: 15px;
 	font-weight: 600;
 	color: #222;
+	min-width: 0;
 }
 
 .mg-card-subtitle {
 	font-size: 12px;
 	color: #666;
+	min-width: 0;
 }
 
 .mg-card-fields {
@@ -613,6 +649,7 @@
 .mg-card-field {
 	display: grid;
 	gap: 2px;
+	min-width: 0;
 }
 
 .mg-card-label {
@@ -626,6 +663,7 @@
 .mg-card-value {
 	font-size: 13px;
 	color: #222;
+	min-width: 0;
 }
 
 .mg-card-detail {
@@ -671,33 +709,44 @@
 .mg-split-item-header {
 	display: grid;
 	gap: 2px;
+	min-width: 0;
 }
 
 .mg-split-item-title {
 	font-size: 14px;
 	font-weight: 600;
 	color: #222;
+	min-width: 0;
 }
 
 .mg-split-item-subtitle {
 	font-size: 12px;
 	color: #666;
+	min-width: 0;
 }
 
 .mg-split-item-preview {
 	display: grid;
 	gap: 2px;
+	min-width: 0;
 }
 
 .mg-split-item-preview-line {
 	display: flex;
+	align-items: flex-start;
 	gap: 6px;
 	font-size: 12px;
 	color: #444;
+	min-width: 0;
 }
 
 .mg-split-item-preview-label {
 	font-weight: 600;
+}
+
+.mg-split-item-preview-value {
+	flex: 1 1 auto;
+	min-width: 0;
 }
 
 .mg-split-item-utilities {
@@ -724,17 +773,20 @@
 .mg-split-detail-header {
 	display: grid;
 	gap: 2px;
+	min-width: 0;
 }
 
 .mg-split-detail-title {
 	font-size: 18px;
 	font-weight: 600;
 	color: #222;
+	min-width: 0;
 }
 
 .mg-split-detail-subtitle {
 	font-size: 13px;
 	color: #666;
+	min-width: 0;
 }
 
 .mg-split-detail-custom {
@@ -750,6 +802,7 @@
 .mg-split-detail-field {
 	display: grid;
 	gap: 2px;
+	min-width: 0;
 }
 
 .mg-split-detail-label {
@@ -763,6 +816,7 @@
 .mg-split-detail-value {
 	font-size: 13px;
 	color: #222;
+	min-width: 0;
 }
 
 @media (max-width: 900px) {

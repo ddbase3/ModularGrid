@@ -232,9 +232,9 @@ It is based on the originally requested feature set, translated into a more stru
 # 16. Styling and display options
 
 - [x] Zebra rows option
-- [ ] Long text display strategies
-- [ ] Ellipsis strategy
-- [ ] Multi-line wrapping strategy
+- [x] Long text display strategies
+- [x] Ellipsis strategy
+- [x] Multi-line wrapping strategy
 - [ ] Clamp / expand strategy
 - [ ] Theme organization
 
@@ -295,6 +295,7 @@ It is based on the originally requested feature set, translated into a more stru
 - [x] Smoke coverage for header menu sort actions
 - [x] Smoke coverage for grouping plugin
 - [x] Smoke coverage for group summary rendering
+- [x] Smoke coverage for text display and ellipsis handling
 - [ ] Export demo
 
 ---

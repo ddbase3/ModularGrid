@@ -31,6 +31,7 @@ const defaultOptions = {
 	table: {
 		zebraRows: true
 	},
+	textDisplay: null,
 	features: {
 		paging: true
 	},

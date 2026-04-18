@@ -5,6 +5,11 @@ import {
 	isDetailRowActive,
 	resolveRowDetailOptions
 } from '../utils/rowDetail.js';
+import {
+	getDisplayValue,
+	getTextDisplayContent,
+	wrapTextDisplayContent
+} from '../utils/textDisplay.js';
 
 function resolveOptions(grid) {
 	return {
@@ -28,14 +33,6 @@ function findColumn(columns, key) {
 	}
 
 	return columns.find((column) => column.key === key) || null;
-}
-
-function getTextValue(value, placeholder) {
-	if (value === null || value === undefined || value === '') {
-		return placeholder;
-	}
-
-	return value;
 }
 
 function isInteractiveTarget(target) {
@@ -129,9 +126,20 @@ export class CardView {
 				if (typeof options.titleRenderer === 'function') {
 					const titleContent = options.titleRenderer(row, grid, viewModel);
 					appendContent(title, titleContent ?? options.emptyPlaceholder);
-				} else if (titleColumn) {
-					appendContent(title, getTextValue(row[titleColumn.key], options.emptyPlaceholder));
-				} else {
+				}
+				else if (titleColumn) {
+					appendContent(
+						title,
+						getTextDisplayContent(
+							row[titleColumn.key],
+							options.emptyPlaceholder,
+							grid,
+							titleColumn,
+							'mg-card-title-text'
+						)
+					);
+				}
+				else {
 					appendContent(title, options.emptyPlaceholder);
 				}
 
@@ -143,9 +151,21 @@ export class CardView {
 
 					appendContent(subtitle, subtitleContent ?? options.emptyPlaceholder);
 					header.appendChild(subtitle);
-				} else if (subtitleColumn && (!titleColumn || subtitleColumn.key !== titleColumn.key)) {
+				}
+				else if (subtitleColumn && (!titleColumn || subtitleColumn.key !== titleColumn.key)) {
 					const subtitle = createElement('div', 'mg-card-subtitle');
-					appendContent(subtitle, getTextValue(row[subtitleColumn.key], options.emptyPlaceholder));
+
+					appendContent(
+						subtitle,
+						getTextDisplayContent(
+							row[subtitleColumn.key],
+							options.emptyPlaceholder,
+							grid,
+							subtitleColumn,
+							'mg-card-subtitle-text'
+						)
+					);
+
 					header.appendChild(subtitle);
 				}
 
@@ -179,7 +199,9 @@ export class CardView {
 
 				const value = createElement('div', 'mg-card-value');
 				const contentValue = grid.renderCellContent(row, column);
-				appendContent(value, contentValue);
+				const displayContent = wrapTextDisplayContent(contentValue, grid, column, 'mg-card-value-text');
+
+				appendContent(value, displayContent || getDisplayValue(contentValue, options.emptyPlaceholder));
 				field.appendChild(value);
 
 				fields.appendChild(field);

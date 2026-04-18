@@ -78,7 +78,7 @@ function resolveItems(row, context, options) {
 function createMenuButton(action, row, context, details) {
 	const button = document.createElement('button');
 	button.type = 'button';
-	button.className = 'mg-button mg-row-action-button';
+	button.className = 'mg-menu-action mg-row-action-button';
 	button.textContent = action.label;
 	button.disabled = action.disabled === true;
 
@@ -195,7 +195,7 @@ function renderColumnVisibilitySection(context, item, details) {
 
 		const resetButton = document.createElement('button');
 		resetButton.type = 'button';
-		resetButton.className = 'mg-button mg-row-actions-header-reset';
+		resetButton.className = 'mg-menu-action mg-row-actions-header-reset';
 		resetButton.textContent = item.resetLabel || 'Reset columns';
 
 		resetButton.addEventListener('click', () => {
@@ -235,7 +235,7 @@ function renderHeaderMenuItem(context, item, details) {
 
 	const button = document.createElement('button');
 	button.type = 'button';
-	button.className = 'mg-header-menu-action';
+	button.className = 'mg-menu-action mg-header-menu-action';
 	button.textContent = item.label || item.key || 'Action';
 	button.disabled = item.disabled === true;
 

@@ -53,6 +53,8 @@ The current code base already includes:
 - shared inline row detail behavior
 - group summary rendering in table view
 - configurable zebra rows in table view
+- per-column long-text display strategies
+- unified lightweight dropdown action styling
 - server-mode loading strategy for ajax-backed grids
 
 ## Project structure
@@ -100,6 +102,42 @@ const grid = new ModularGrid('#grid', {
 		zebraRows: false
 	}
 });
+Long text display strategies
+
+Columns can define how text should be displayed across table, card and split-detail rendering.
+
+Supported strategies:
+
+wrap
+ellipsis
+nowrap
+
+Example:
+
+const grid = new ModularGrid('#grid', {
+	columns: [
+		{
+			key: 'notes',
+			label: 'Notes',
+			textDisplay: 'ellipsis'
+		},
+		{
+			key: 'shortCode',
+			label: 'Short code',
+			textDisplay: 'nowrap'
+		},
+		{
+			key: 'description',
+			label: 'Description',
+			textDisplay: {
+				strategy: 'wrap'
+			}
+		}
+	]
+});
+
+For ellipsis, the full value is exposed through the title attribute by default.
+
 Documentation
 
 For continuation across chats, start with:

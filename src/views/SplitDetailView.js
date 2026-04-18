@@ -1,4 +1,9 @@
 import { appendContent, clearElement, createElement } from '../utils/dom.js';
+import {
+	getDisplayValue,
+	getTextDisplayContent,
+	wrapTextDisplayContent
+} from '../utils/textDisplay.js';
 
 function resolveOptions(grid) {
 	return {
@@ -23,14 +28,6 @@ function findColumn(columns, key) {
 	}
 
 	return columns.find((column) => column.key === key) || null;
-}
-
-function getTextValue(value, placeholder) {
-	if (value === null || value === undefined || value === '') {
-		return placeholder;
-	}
-
-	return value;
 }
 
 function getRowId(row, options) {
@@ -118,12 +115,34 @@ export class SplitDetailView {
 			const itemHeader = createElement('div', 'mg-split-item-header');
 
 			const title = createElement('div', 'mg-split-item-title');
-			appendContent(title, titleColumn ? getTextValue(row[titleColumn.key], options.emptyPlaceholder) : options.emptyPlaceholder);
+			appendContent(
+				title,
+				titleColumn
+					? getTextDisplayContent(
+						row[titleColumn.key],
+						options.emptyPlaceholder,
+						grid,
+						titleColumn,
+						'mg-split-item-title-text'
+					)
+					: options.emptyPlaceholder
+			);
 			itemHeader.appendChild(title);
 
 			if (subtitleColumn && (!titleColumn || subtitleColumn.key !== titleColumn.key)) {
 				const subtitle = createElement('div', 'mg-split-item-subtitle');
-				appendContent(subtitle, getTextValue(row[subtitleColumn.key], options.emptyPlaceholder));
+
+				appendContent(
+					subtitle,
+					getTextDisplayContent(
+						row[subtitleColumn.key],
+						options.emptyPlaceholder,
+						grid,
+						subtitleColumn,
+						'mg-split-item-subtitle-text'
+					)
+				);
+
 				itemHeader.appendChild(subtitle);
 			}
 
@@ -134,10 +153,21 @@ export class SplitDetailView {
 
 				effectivePreviewColumns.forEach((column) => {
 					const line = createElement('div', 'mg-split-item-preview-line');
-					const label = createElement('span', 'mg-split-item-preview-label');
+					const label = createElement('div', 'mg-split-item-preview-label');
 					label.textContent = `${column.label}:`;
-					const value = createElement('span', 'mg-split-item-preview-value');
-					appendContent(value, getTextValue(row[column.key], options.emptyPlaceholder));
+
+					const value = createElement('div', 'mg-split-item-preview-value');
+					appendContent(
+						value,
+						getTextDisplayContent(
+							row[column.key],
+							options.emptyPlaceholder,
+							grid,
+							column,
+							'mg-split-item-preview-value-text'
+						)
+					);
+
 					line.appendChild(label);
 					line.appendChild(value);
 					preview.appendChild(line);
@@ -167,13 +197,35 @@ export class SplitDetailView {
 
 			if (titleColumn) {
 				const detailTitle = createElement('div', 'mg-split-detail-title');
-				appendContent(detailTitle, getTextValue(selectedRow[titleColumn.key], options.emptyPlaceholder));
+
+				appendContent(
+					detailTitle,
+					getTextDisplayContent(
+						selectedRow[titleColumn.key],
+						options.emptyPlaceholder,
+						grid,
+						titleColumn,
+						'mg-split-detail-title-text'
+					)
+				);
+
 				detailHeader.appendChild(detailTitle);
 			}
 
 			if (subtitleColumn && (!titleColumn || subtitleColumn.key !== titleColumn.key)) {
 				const detailSubtitle = createElement('div', 'mg-split-detail-subtitle');
-				appendContent(detailSubtitle, getTextValue(selectedRow[subtitleColumn.key], options.emptyPlaceholder));
+
+				appendContent(
+					detailSubtitle,
+					getTextDisplayContent(
+						selectedRow[subtitleColumn.key],
+						options.emptyPlaceholder,
+						grid,
+						subtitleColumn,
+						'mg-split-detail-subtitle-text'
+					)
+				);
+
 				detailHeader.appendChild(detailSubtitle);
 			}
 
@@ -187,7 +239,8 @@ export class SplitDetailView {
 					appendContent(customWrapper, customContent);
 					detail.appendChild(customWrapper);
 				}
-			} else {
+			}
+			else {
 				const fields = createElement('div', 'mg-split-detail-fields');
 
 				dataColumns.forEach((column) => {
@@ -201,7 +254,9 @@ export class SplitDetailView {
 
 					const value = createElement('div', 'mg-split-detail-value');
 					const content = grid.renderCellContent(selectedRow, column);
-					appendContent(value, content);
+					const displayContent = wrapTextDisplayContent(content, grid, column, 'mg-split-detail-value-text');
+
+					appendContent(value, displayContent || getDisplayValue(content, options.emptyPlaceholder));
 					field.appendChild(value);
 
 					fields.appendChild(field);

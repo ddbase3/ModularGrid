@@ -84,6 +84,8 @@ The core owns:
 
 Important: concrete row-detail UI remains a view/plugin concern even when the core provides the state and render coordination needed to support it.
 
+Important: text wrapping, overflow and long-text presentation strategy remain view/rendering concerns even when columns expose configuration for those strategies.
+
 ### 8. Plugin installation
 
 The core owns:

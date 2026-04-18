@@ -80,11 +80,61 @@ function findCheckboxRowByText(container, text) {
 }
 
 const data = [
-	{ id: 1, firstname: 'Alice', lastname: 'Alpha', email: 'alice@example.com', age: 31, city: 'Berlin', status: 'active', amount: 1200 },
-	{ id: 2, firstname: 'Bob', lastname: 'Bravo', email: 'bob@example.com', age: 28, city: 'Hamburg', status: 'pending', amount: 850 },
-	{ id: 3, firstname: 'Charlie', lastname: 'Charlie', email: 'charlie@example.com', age: 35, city: 'Berlin', status: 'active', amount: 930 },
-	{ id: 4, firstname: 'Diana', lastname: 'Delta', email: 'diana@example.com', age: 22, city: 'Cologne', status: 'new', amount: 410 },
-	{ id: 5, firstname: 'Eli', lastname: 'Echo', email: 'eli@example.com', age: 29, city: 'Bremen', status: 'pending', amount: 760 }
+	{
+		id: 1,
+		firstname: 'Alice',
+		lastname: 'Alpha',
+		email: 'alice@example.com',
+		age: 31,
+		city: 'Berlin',
+		status: 'active',
+		amount: 1200,
+		notes: 'Alice note content that is intentionally very long so the ellipsis strategy can be verified in the browser smoke test.'
+	},
+	{
+		id: 2,
+		firstname: 'Bob',
+		lastname: 'Bravo',
+		email: 'bob@example.com',
+		age: 28,
+		city: 'Hamburg',
+		status: 'pending',
+		amount: 850,
+		notes: 'Bob note content that is also intentionally long to keep the configured text display strategy consistent across views.'
+	},
+	{
+		id: 3,
+		firstname: 'Charlie',
+		lastname: 'Charlie',
+		email: 'charlie@example.com',
+		age: 35,
+		city: 'Berlin',
+		status: 'active',
+		amount: 930,
+		notes: 'Charlie note content used for grouped rendering coverage with ellipsis and wrapping behaviour checks.'
+	},
+	{
+		id: 4,
+		firstname: 'Diana',
+		lastname: 'Delta',
+		email: 'diana@example.com',
+		age: 22,
+		city: 'Cologne',
+		status: 'new',
+		amount: 410,
+		notes: 'Diana note content for additional long-text display coverage in alternate layouts.'
+	},
+	{
+		id: 5,
+		firstname: 'Eli',
+		lastname: 'Echo',
+		email: 'eli@example.com',
+		age: 29,
+		city: 'Bremen',
+		status: 'pending',
+		amount: 760,
+		notes: 'Eli note content with a long value to exercise table, card and split preview rendering.'
+	}
 ];
 
 try {
@@ -239,7 +289,8 @@ try {
 			splitDetailView: {
 				rowIdKey: 'id',
 				titleKey: 'person',
-				subtitleKey: 'city'
+				subtitleKey: 'city',
+				previewKeys: ['notes']
 			},
 			responsiveView: {
 				breakpoint: 10,
@@ -305,6 +356,17 @@ try {
 					wrapper.textContent = String(row.amount);
 					return wrapper;
 				}
+			},
+			{
+				key: 'notes',
+				label: 'Notes',
+				textDisplay: 'ellipsis',
+				headerMenu: {
+					defaultSortKey: 'notes',
+					sortOptions: [
+						{ key: 'notes', label: 'Notes' }
+					]
+				}
 			}
 		]
 	});
@@ -329,6 +391,18 @@ try {
 	assert(document.querySelectorAll('#test-grid .mg-export-button').length === 1, 'Export plugin renders configured export button');
 	assert(document.querySelectorAll('#test-grid .mg-header-menu-trigger').length >= 1, 'Header menu renders in data headers');
 	assert(document.querySelectorAll('#test-grid .mg-filter-group').length === 1, 'Filters plugin renders configured filter control');
+
+	const firstEllipsisCell = document.querySelector('#test-grid tbody tr.mg-row .mg-text-display-ellipsis');
+	assert(!!firstEllipsisCell, 'Table view renders ellipsis wrapper for configured long-text columns');
+	assert(firstEllipsisCell.title.includes('Alice note content'), 'Ellipsis wrapper exposes the full value as title text');
+
+	const firstRowActionMenuButton = document.querySelector('#test-grid tbody tr.mg-row .mg-row-action-button');
+	assert(
+		firstRowActionMenuButton &&
+		firstRowActionMenuButton.classList.contains('mg-menu-action') &&
+		!firstRowActionMenuButton.classList.contains('mg-button'),
+		'Row action menu items use the unified lightweight menu style'
+	);
 
 	grid.setState({
 		query: {
@@ -360,6 +434,12 @@ try {
 
 	const personSortActions = Array.from(personHeaderCell.querySelectorAll('[data-mg-header-menu-action^="sort-"]'));
 	assert(personSortActions.length === 6, 'Person header menu exposes 6 sort actions for lastname, firstname and email');
+	assert(
+		personSortActions.every((button) => {
+			return button.classList.contains('mg-menu-action') && !button.classList.contains('mg-button');
+		}),
+		'Header menu sort actions use the unified lightweight menu style'
+	);
 
 	const emailDescAction = findActionByKey(personHeaderCell, 'sort-email-desc');
 	assert(!!emailDescAction, 'Configured email descending sort action exists');
@@ -459,6 +539,7 @@ try {
 
 	assert(document.querySelectorAll('#test-grid .mg-card').length >= 1, 'Card view renders card items after manual view switch');
 	assert(grid.getState().view.mode === 'cards', 'Manual card view remains active on wide layout with responsive plugin enabled');
+	assert(document.querySelector('#test-grid .mg-card .mg-text-display-ellipsis'), 'Card view reuses the configured ellipsis strategy for long-text columns');
 
 	const firstCard = document.querySelector('#test-grid .mg-card');
 	dispatchClick(firstCard);
@@ -470,6 +551,7 @@ try {
 	await settleFrames(2);
 
 	assert(document.querySelectorAll('#test-grid .mg-split-view').length === 1, 'Split view renders after view switch');
+	assert(document.querySelector('#test-grid .mg-split-item .mg-text-display-ellipsis'), 'Split view reuses the configured ellipsis strategy in preview content');
 
 	const firstSplitItem = document.querySelector('#test-grid .mg-split-item');
 	dispatchClick(firstSplitItem);

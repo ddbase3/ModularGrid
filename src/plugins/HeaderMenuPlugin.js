@@ -252,7 +252,8 @@ function renderHeaderLabel(column, grid, context, options) {
 				columnKey: column.key
 			});
 		});
-	} else {
+	}
+	else {
 		button.disabled = true;
 	}
 
@@ -303,7 +304,7 @@ function renderHeaderMenu(column, grid, context, options) {
 			return;
 		}
 
-		const button = createElement('button', 'mg-header-menu-action');
+		const button = createElement('button', 'mg-menu-action mg-header-menu-action');
 		button.type = 'button';
 		button.textContent = item.label || item.key || 'Action';
 		button.dataset.mgHeaderMenuAction = item.key || 'action';

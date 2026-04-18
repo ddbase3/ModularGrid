@@ -89,6 +89,7 @@ The current code base already contains:
 - `src/utils/object.js`
 - `src/utils/rowDetail.js`
 - `src/utils/summary.js`
+- `src/utils/textDisplay.js`
 
 ### Styles
 
@@ -115,6 +116,10 @@ The following already work in the current foundation:
 - group summary rendering in table view
 - zebra row classes in table view with per-grid on/off option
 - zebra row parity classes also applied to inline detail rows
+- per-column text display strategies across table, card and split-detail rendering
+- ellipsis strategy with title tooltip support
+- nowrap and wrap text strategies
+- unified lightweight dropdown action styling for header menus and row menus
 - reset via plugin
 - storage abstraction for browser storage-backed persistence
 - local storage state persistence via plugin
@@ -197,6 +202,8 @@ Shared row-detail behavior is plugin-driven and view-integrated, not hardcoded a
 Filters, grouping, header menus, export, summaries and bulk actions are plugin-driven and can be composed through configuration without additional core work.
 
 Table zebra row styling is handled in the table view with explicit parity classes on rendered data rows, so grouping rows and group summaries do not break the alternating pattern.
+
+Long-text display is handled in the views through per-column rendering options, so wrapping and overflow strategy remain presentation concerns instead of becoming adapter or core logic.
 
 ## Current known design intent
 

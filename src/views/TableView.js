@@ -6,6 +6,7 @@ import {
 	resolveRowDetailOptions
 } from '../utils/rowDetail.js';
 import { computeSummaryMetric, formatSummaryMetric } from '../utils/summary.js';
+import { wrapTextDisplayContent } from '../utils/textDisplay.js';
 
 function isInteractiveTarget(target) {
 	return target instanceof Element && !!target.closest('a, button, input, select, textarea, label, summary, details');
@@ -192,8 +193,9 @@ function appendDataRow(tbody, row, grid, viewModel, renderColumns, rowDetailOpti
 	renderColumns.forEach((column) => {
 		const td = createElement('td', 'mg-cell');
 		const content = grid.renderCellContent(row, column);
+		const displayContent = wrapTextDisplayContent(content, grid, column, 'mg-cell-text-display');
 
-		appendContent(td, content);
+		appendContent(td, displayContent);
 		tr.appendChild(td);
 	});
 

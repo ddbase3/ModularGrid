@@ -231,7 +231,7 @@ It is based on the originally requested feature set, translated into a more stru
 
 # 16. Styling and display options
 
-- [ ] Zebra rows option
+- [x] Zebra rows option
 - [ ] Long text display strategies
 - [ ] Ellipsis strategy
 - [ ] Multi-line wrapping strategy

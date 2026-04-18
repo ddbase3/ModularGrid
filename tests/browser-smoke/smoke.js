@@ -316,7 +316,11 @@ try {
 	await grid.init();
 	await settleFrames(2);
 
+	const initialRows = Array.from(document.querySelectorAll('#test-grid tbody tr.mg-row'));
+
 	assert(document.querySelectorAll('#test-grid tbody tr.mg-row').length === 2, 'First grid renders first page with 2 data rows');
+	assert(initialRows[0]?.classList.contains('mg-row-odd') === true, 'First visible table row gets the odd zebra class');
+	assert(initialRows[1]?.classList.contains('mg-row-even') === true, 'Second visible table row gets the even zebra class');
 	assert(document.querySelectorAll('#test-grid input[type="search"]').length === 1, 'Search plugin renders into the layout');
 	assert(document.querySelectorAll('#test-grid thead .mg-selection-toggle input[type="checkbox"]').length === 1, 'Selection plugin renders a header checkbox');
 	assert(document.querySelectorAll('#test-grid .mg-row-actions').length > 0, 'Row actions plugin renders action menus');
@@ -386,6 +390,7 @@ try {
 	await settleFrames(2);
 
 	assert(document.querySelectorAll('#test-grid .mg-row-detail').length === 1, 'Row detail renders inline in table view');
+	assert(document.querySelector('#test-grid tbody tr.mg-detail-row')?.classList.contains('mg-detail-row-odd') === true, 'Detail row keeps the zebra parity class of its owning row');
 
 	dispatchClick(firstDataRow);
 	await settleFrames(2);
@@ -419,6 +424,10 @@ try {
 	assert(grid.getState().grouping.key === 'city', 'Grouping plugin updates grouping state');
 	assert(document.querySelectorAll('#test-grid .mg-group-row').length >= 1, 'Table view renders group header rows');
 	assert(document.querySelectorAll('#test-grid .mg-group-summary-row').length >= 1, 'Table view renders group summary rows');
+
+	const groupedRows = Array.from(document.querySelectorAll('#test-grid tbody tr.mg-row'));
+	assert(groupedRows[0]?.classList.contains('mg-row-odd') === true, 'Grouped table rows keep zebra classes on the first visible data row');
+	assert(groupedRows[1]?.classList.contains('mg-row-even') === true, 'Grouped table rows keep zebra classes on the second visible data row');
 
 	const firstRowCheckbox = document.querySelector('#test-grid tbody tr.mg-row td:first-child input[type="checkbox"]');
 	dispatchClick(firstRowCheckbox);
@@ -479,6 +488,9 @@ try {
 			{ id: 11, title: 'Project B' }
 		],
 		pageSize: 1,
+		table: {
+			zebraRows: false
+		},
 		columns: [
 			{ key: 'id', label: 'ID' },
 			{ key: 'title', label: 'Title' }
@@ -488,7 +500,15 @@ try {
 	await secondGrid.init();
 	await settleFrames(2);
 
+	const secondGridRow = document.querySelector('#second-grid tbody tr.mg-row');
+
 	assert(document.querySelectorAll('.mg-table').length >= 2, 'Two independent grid instances can exist on one page');
+	assert(
+		secondGridRow &&
+		!secondGridRow.classList.contains('mg-row-odd') &&
+		!secondGridRow.classList.contains('mg-row-even'),
+		'Table zebra rows can be disabled per grid instance'
+	);
 
 	log('Smoke test completed successfully.', 'pass');
 } catch (error) {

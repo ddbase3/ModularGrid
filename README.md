@@ -52,6 +52,7 @@ The current code base already includes:
 - responsive view switching
 - shared inline row detail behavior
 - group summary rendering in table view
+- configurable zebra rows in table view
 - server-mode loading strategy for ajax-backed grids
 
 ## Project structure
@@ -76,6 +77,29 @@ http://localhost:8000/demos/basic-array/
 http://localhost:8000/demos/card-view/
 http://localhost:8000/demos/extended-ajax/
 http://localhost:8000/tests/browser-smoke/
+Table zebra rows
+
+The table view supports zebra row classes by default.
+
+Visible data rows receive alternating classes:
+
+mg-row-odd
+mg-row-even
+
+Inline detail rows receive matching classes:
+
+mg-detail-row-odd
+mg-detail-row-even
+
+This keeps zebra styling stable even when grouped table sections insert additional non-data rows.
+
+You can disable zebra classes per grid instance like this:
+
+const grid = new ModularGrid('#grid', {
+	table: {
+		zebraRows: false
+	}
+});
 Documentation
 
 For continuation across chats, start with:

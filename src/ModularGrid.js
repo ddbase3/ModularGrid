@@ -28,6 +28,9 @@ const defaultOptions = {
 	view: {
 		mode: 'table'
 	},
+	table: {
+		zebraRows: true
+	},
 	features: {
 		paging: true
 	},

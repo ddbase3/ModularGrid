@@ -25,6 +25,13 @@ function resolveGroupingOptions(grid) {
 	};
 }
 
+function resolveTableOptions(grid) {
+	return {
+		zebraRows: true,
+		...grid.options.table
+	};
+}
+
 function getGroupingState(grid, options) {
 	const state = grid.store.peek();
 	return state[options.stateKey] || {
@@ -131,13 +138,34 @@ function createGroupSummaryRow(renderColumns, groupRows, groupingOptions) {
 	return tr;
 }
 
-function appendDataRow(tbody, row, grid, viewModel, renderColumns, rowDetailOptions) {
+function getZebraClassNames(rowNumber, tableOptions) {
+	if (tableOptions.zebraRows === false) {
+		return {
+			rowClassName: '',
+			detailRowClassName: ''
+		};
+	}
+
+	const parity = rowNumber % 2 === 0 ? 'even' : 'odd';
+
+	return {
+		rowClassName: `mg-row-${parity}`,
+		detailRowClassName: `mg-detail-row-${parity}`
+	};
+}
+
+function appendDataRow(tbody, row, grid, viewModel, renderColumns, rowDetailOptions, tableOptions, rowNumber) {
 	const rowId = getRowDetailRowId(row, rowDetailOptions);
 	const canToggleDetail = rowDetailOptions.enabled !== false && rowDetailOptions.renderInTable !== false && rowDetailOptions.toggleOnRowClick !== false && rowId !== null;
 	const isActiveDetailRow = rowDetailOptions.enabled !== false && rowDetailOptions.renderInTable !== false && isDetailRowActive(row, grid, rowDetailOptions);
 	const hasExternalRowClick = typeof grid.options.onRowClick === 'function';
+	const zebraClassNames = getZebraClassNames(rowNumber, tableOptions);
 
 	const tr = createElement('tr', 'mg-row');
+
+	if (zebraClassNames.rowClassName) {
+		tr.classList.add(zebraClassNames.rowClassName);
+	}
 
 	if (canToggleDetail || hasExternalRowClick) {
 		tr.classList.add('mg-row-clickable');
@@ -179,6 +207,10 @@ function appendDataRow(tbody, row, grid, viewModel, renderColumns, rowDetailOpti
 			const detailCell = createElement('td', 'mg-detail-cell');
 			const detailWrapper = createElement('div', 'mg-row-detail');
 
+			if (zebraClassNames.detailRowClassName) {
+				detailRow.classList.add(zebraClassNames.detailRowClassName);
+			}
+
 			detailCell.colSpan = Math.max(renderColumns.length, 1);
 			appendContent(detailWrapper, detailContent);
 			detailCell.appendChild(detailWrapper);
@@ -208,6 +240,7 @@ export class TableView {
 
 		const renderColumns = (viewModel.renderColumns || viewModel.columns || []).filter((column) => column.visible !== false);
 		const rowDetailOptions = resolveRowDetailOptions(grid);
+		const tableOptions = resolveTableOptions(grid);
 
 		if (renderColumns.length === 0) {
 			const emptyColumnsBox = createElement('div', 'mg-state');
@@ -220,6 +253,22 @@ export class TableView {
 		const thead = createElement('thead', 'mg-table-head');
 		const tbody = createElement('tbody', 'mg-table-body');
 		const headerRow = createElement('tr', 'mg-header-row');
+		let visualRowNumber = 0;
+
+		const appendNumberedDataRow = (row) => {
+			visualRowNumber += 1;
+
+			appendDataRow(
+				tbody,
+				row,
+				grid,
+				viewModel,
+				renderColumns,
+				rowDetailOptions,
+				tableOptions,
+				visualRowNumber
+			);
+		};
 
 		renderColumns.forEach((column) => {
 			const th = createElement('th', 'mg-header-cell');
@@ -285,7 +334,7 @@ export class TableView {
 					);
 
 					group.rows.forEach((row) => {
-						appendDataRow(tbody, row, grid, viewModel, renderColumns, rowDetailOptions);
+						appendNumberedDataRow(row);
 					});
 
 					const summaryRow = createGroupSummaryRow(renderColumns, group.rows, groupingOptions);
@@ -297,7 +346,7 @@ export class TableView {
 			}
 			else {
 				viewModel.rows.forEach((row) => {
-					appendDataRow(tbody, row, grid, viewModel, renderColumns, rowDetailOptions);
+					appendNumberedDataRow(row);
 				});
 			}
 		}

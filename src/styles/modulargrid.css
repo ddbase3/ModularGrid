@@ -148,8 +148,16 @@
 	opacity: 0.8;
 }
 
-.mg-row:hover {
+.mg-row-odd {
+	background: #fff;
+}
+
+.mg-row-even {
 	background: #fafafa;
+}
+
+.mg-row:hover {
+	background: #f5f5f5;
 }
 
 .mg-row-clickable {
@@ -157,7 +165,7 @@
 }
 
 .mg-row-active {
-	background: #fafafa;
+	background: #f3f3f3;
 }
 
 .mg-group-row > td,
@@ -197,6 +205,13 @@
 .mg-detail-row > td {
 	padding-top: 0;
 	padding-bottom: 8px;
+}
+
+.mg-detail-row-odd > td {
+	background: #fff;
+}
+
+.mg-detail-row-even > td {
 	background: #fafafa;
 }
 

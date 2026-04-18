@@ -104,8 +104,23 @@
 	gap: 4px;
 }
 
-.mg-table {
+.mg-table-scroll {
 	width: 100%;
+	max-width: 100%;
+	overflow-x: auto;
+	overflow-y: hidden;
+	-webkit-overflow-scrolling: touch;
+}
+
+.mg-table-scroll-inner {
+	display: inline-block;
+	min-width: 100%;
+	vertical-align: top;
+}
+
+.mg-table {
+	width: max-content;
+	min-width: 100%;
 	border-collapse: collapse;
 	background: transparent;
 }
@@ -154,6 +169,13 @@
 	max-width: 100%;
 }
 
+.mg-text-display-block {
+	display: grid;
+	gap: 4px;
+	min-width: 0;
+	max-width: 100%;
+}
+
 .mg-text-display-wrap {
 	white-space: normal;
 	overflow-wrap: anywhere;
@@ -170,6 +192,45 @@
 	overflow: hidden;
 	text-overflow: clip;
 	white-space: nowrap;
+}
+
+.mg-text-display-clamp {
+	display: -webkit-box;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: var(--mg-text-clamp-lines, 2);
+	overflow: hidden;
+	white-space: normal;
+	overflow-wrap: anywhere;
+	word-break: break-word;
+}
+
+.mg-text-display-clamp.mg-text-display-expanded {
+	display: block;
+	-webkit-line-clamp: unset;
+	overflow: visible;
+}
+
+.mg-text-display-toggle {
+	display: inline-flex;
+	align-items: center;
+	justify-content: flex-start;
+	width: fit-content;
+	padding: 0;
+	margin: 0;
+	border: 0;
+	background: transparent;
+	font: inherit;
+	font-size: 12px;
+	font-weight: 400;
+	line-height: 1.2;
+	color: #555;
+	cursor: pointer;
+	text-align: left;
+}
+
+.mg-text-display-toggle:hover {
+	color: #222;
+	text-decoration: underline;
 }
 
 .mg-row-odd {

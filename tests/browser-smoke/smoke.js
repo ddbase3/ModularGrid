@@ -89,7 +89,8 @@ const data = [
 		city: 'Berlin',
 		status: 'active',
 		amount: 1200,
-		notes: 'Alice note content that is intentionally very long so the ellipsis strategy can be verified in the browser smoke test.'
+		notes: 'Alice note content that is intentionally very long so the ellipsis strategy can be verified in the browser smoke test.',
+		description: 'Alice description content that is intentionally long enough to verify the clamp strategy and the expand collapse behaviour in the browser smoke test.'
 	},
 	{
 		id: 2,
@@ -100,7 +101,8 @@ const data = [
 		city: 'Hamburg',
 		status: 'pending',
 		amount: 850,
-		notes: 'Bob note content that is also intentionally long to keep the configured text display strategy consistent across views.'
+		notes: 'Bob note content that is also intentionally long to keep the configured text display strategy consistent across views.',
+		description: 'Bob description content is also long enough to verify multi line clamp rendering and state driven expansion in different views.'
 	},
 	{
 		id: 3,
@@ -111,7 +113,8 @@ const data = [
 		city: 'Berlin',
 		status: 'active',
 		amount: 930,
-		notes: 'Charlie note content used for grouped rendering coverage with ellipsis and wrapping behaviour checks.'
+		notes: 'Charlie note content used for grouped rendering coverage with ellipsis and wrapping behaviour checks.',
+		description: 'Charlie description text is present to keep grouped view behaviour stable while clamp and expand remain available.'
 	},
 	{
 		id: 4,
@@ -122,7 +125,8 @@ const data = [
 		city: 'Cologne',
 		status: 'new',
 		amount: 410,
-		notes: 'Diana note content for additional long-text display coverage in alternate layouts.'
+		notes: 'Diana note content for additional long-text display coverage in alternate layouts.',
+		description: 'Diana description is available to verify the same text display contract in card and split rendering.'
 	},
 	{
 		id: 5,
@@ -133,7 +137,8 @@ const data = [
 		city: 'Bremen',
 		status: 'pending',
 		amount: 760,
-		notes: 'Eli note content with a long value to exercise table, card and split preview rendering.'
+		notes: 'Eli note content with a long value to exercise table, card and split preview rendering.',
+		description: 'Eli description remains long enough for clamp and expand checks across multiple rendered views.'
 	}
 ];
 
@@ -145,6 +150,9 @@ try {
 		top: ['toolbar', 'filtersZone', 'bulkZone', 'viewZone', 'actions'],
 		bottom: ['footerInfo', 'footerPaging']
 	});
+
+	document.querySelector('#test-grid').style.width = '760px';
+	document.querySelector('#test-grid').style.maxWidth = '760px';
 
 	const grid = new ModularGrid('#test-grid', {
 		layout,
@@ -290,7 +298,7 @@ try {
 				rowIdKey: 'id',
 				titleKey: 'person',
 				subtitleKey: 'city',
-				previewKeys: ['notes']
+				previewKeys: ['notes', 'description']
 			},
 			responsiveView: {
 				breakpoint: 10,
@@ -302,6 +310,7 @@ try {
 			{
 				key: 'person',
 				label: 'Person',
+				width: 240,
 				headerMenu: {
 					defaultSortKey: 'lastname',
 					defaultSortDirection: 'asc',
@@ -320,6 +329,7 @@ try {
 			{
 				key: 'city',
 				label: 'City',
+				width: 150,
 				headerMenu: {
 					defaultSortKey: 'city',
 					sortOptions: [
@@ -330,6 +340,7 @@ try {
 			{
 				key: 'status_display',
 				label: 'Status',
+				width: 170,
 				headerMenu: {
 					defaultSortKey: 'status',
 					sortOptions: [
@@ -345,6 +356,7 @@ try {
 			{
 				key: 'amount_display',
 				label: 'Amount',
+				width: 150,
 				headerMenu: {
 					defaultSortKey: 'amount',
 					sortOptions: [
@@ -360,11 +372,28 @@ try {
 			{
 				key: 'notes',
 				label: 'Notes',
+				width: 280,
 				textDisplay: 'ellipsis',
 				headerMenu: {
 					defaultSortKey: 'notes',
 					sortOptions: [
 						{ key: 'notes', label: 'Notes' }
+					]
+				}
+			},
+			{
+				key: 'description',
+				label: 'Description',
+				width: 320,
+				textDisplay: {
+					strategy: 'clamp',
+					lines: 2,
+					expandable: true
+				},
+				headerMenu: {
+					defaultSortKey: 'description',
+					sortOptions: [
+						{ key: 'description', label: 'Description' }
 					]
 				}
 			}
@@ -378,8 +407,11 @@ try {
 	await grid.init();
 	await settleFrames(2);
 
+	const tableScroll = document.querySelector('#test-grid .mg-table-scroll');
 	const initialRows = Array.from(document.querySelectorAll('#test-grid tbody tr.mg-row'));
 
+	assert(!!tableScroll, 'Table view renders a horizontal scroll container');
+	assert(tableScroll.scrollWidth > tableScroll.clientWidth, 'Wide table content can overflow horizontally inside the scroll container');
 	assert(document.querySelectorAll('#test-grid tbody tr.mg-row').length === 2, 'First grid renders first page with 2 data rows');
 	assert(initialRows[0]?.classList.contains('mg-row-odd') === true, 'First visible table row gets the odd zebra class');
 	assert(initialRows[1]?.classList.contains('mg-row-even') === true, 'Second visible table row gets the even zebra class');
@@ -395,6 +427,26 @@ try {
 	const firstEllipsisCell = document.querySelector('#test-grid tbody tr.mg-row .mg-text-display-ellipsis');
 	assert(!!firstEllipsisCell, 'Table view renders ellipsis wrapper for configured long-text columns');
 	assert(firstEllipsisCell.title.includes('Alice note content'), 'Ellipsis wrapper exposes the full value as title text');
+
+	const firstClampCell = document.querySelector('#test-grid tbody tr.mg-row .mg-text-display-clamp');
+	assert(!!firstClampCell, 'Table view renders clamp wrapper for configured long-text columns');
+
+	const firstClampToggle = document.querySelector('#test-grid tbody tr.mg-row .mg-text-display-toggle');
+	assert(!!firstClampToggle, 'Clamp strategy renders an expand toggle button when configured');
+	assert(firstClampToggle.textContent === 'More', 'Clamp strategy starts in collapsed mode');
+
+	const clampStateKey = firstClampToggle.dataset.mgTextDisplayToggleKey;
+	dispatchClick(firstClampToggle);
+	await settleFrames(2);
+
+	assert(grid.getState().textDisplay.expanded[clampStateKey] === true, 'Clamp toggle stores expanded state in the grid state');
+	assert(document.querySelector(`#test-grid [data-mg-text-display-key="${clampStateKey}"]`)?.classList.contains('mg-text-display-expanded') === true, 'Expanded clamp cell receives the expanded class');
+	assert(document.querySelector(`#test-grid [data-mg-text-display-toggle-key="${clampStateKey}"]`)?.textContent === 'Less', 'Clamp toggle button switches to collapse label');
+
+	dispatchClick(document.querySelector(`#test-grid [data-mg-text-display-toggle-key="${clampStateKey}"]`));
+	await settleFrames(2);
+
+	assert(grid.getState().textDisplay.expanded[clampStateKey] === false, 'Clamp toggle can collapse the state again');
 
 	const firstRowActionMenuButton = document.querySelector('#test-grid tbody tr.mg-row .mg-row-action-button');
 	assert(
@@ -540,6 +592,8 @@ try {
 	assert(document.querySelectorAll('#test-grid .mg-card').length >= 1, 'Card view renders card items after manual view switch');
 	assert(grid.getState().view.mode === 'cards', 'Manual card view remains active on wide layout with responsive plugin enabled');
 	assert(document.querySelector('#test-grid .mg-card .mg-text-display-ellipsis'), 'Card view reuses the configured ellipsis strategy for long-text columns');
+	assert(document.querySelector('#test-grid .mg-card .mg-text-display-clamp'), 'Card view reuses the configured clamp strategy for long-text columns');
+	assert(document.querySelector('#test-grid .mg-card .mg-text-display-toggle'), 'Card view renders the clamp toggle button');
 
 	const firstCard = document.querySelector('#test-grid .mg-card');
 	dispatchClick(firstCard);
@@ -552,6 +606,8 @@ try {
 
 	assert(document.querySelectorAll('#test-grid .mg-split-view').length === 1, 'Split view renders after view switch');
 	assert(document.querySelector('#test-grid .mg-split-item .mg-text-display-ellipsis'), 'Split view reuses the configured ellipsis strategy in preview content');
+	assert(document.querySelector('#test-grid .mg-split-item .mg-text-display-clamp'), 'Split view reuses the configured clamp strategy in preview content');
+	assert(document.querySelector('#test-grid .mg-split-item .mg-text-display-toggle'), 'Split view renders the clamp toggle button');
 
 	const firstSplitItem = document.querySelector('#test-grid .mg-split-item');
 	dispatchClick(firstSplitItem);
@@ -563,6 +619,7 @@ try {
 	await settleFrames(2);
 
 	assert(document.querySelectorAll('#test-grid tbody tr.mg-row').length >= 1, 'Switching back to table view works');
+	assert(document.querySelectorAll('#test-grid .mg-table-scroll').length === 1, 'Switching back to table view keeps the horizontal scroll wrapper');
 
 	const secondGrid = new ModularGrid('#second-grid', {
 		data: [

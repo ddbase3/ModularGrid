@@ -123,6 +123,7 @@ export class SplitDetailView {
 						options.emptyPlaceholder,
 						grid,
 						titleColumn,
+						row,
 						'mg-split-item-title-text'
 					)
 					: options.emptyPlaceholder
@@ -139,6 +140,7 @@ export class SplitDetailView {
 						options.emptyPlaceholder,
 						grid,
 						subtitleColumn,
+						row,
 						'mg-split-item-subtitle-text'
 					)
 				);
@@ -157,6 +159,7 @@ export class SplitDetailView {
 					label.textContent = `${column.label}:`;
 
 					const value = createElement('div', 'mg-split-item-preview-value');
+
 					appendContent(
 						value,
 						getTextDisplayContent(
@@ -164,6 +167,7 @@ export class SplitDetailView {
 							options.emptyPlaceholder,
 							grid,
 							column,
+							row,
 							'mg-split-item-preview-value-text'
 						)
 					);
@@ -205,6 +209,7 @@ export class SplitDetailView {
 						options.emptyPlaceholder,
 						grid,
 						titleColumn,
+						selectedRow,
 						'mg-split-detail-title-text'
 					)
 				);
@@ -222,6 +227,7 @@ export class SplitDetailView {
 						options.emptyPlaceholder,
 						grid,
 						subtitleColumn,
+						selectedRow,
 						'mg-split-detail-subtitle-text'
 					)
 				);
@@ -254,7 +260,7 @@ export class SplitDetailView {
 
 					const value = createElement('div', 'mg-split-detail-value');
 					const content = grid.renderCellContent(selectedRow, column);
-					const displayContent = wrapTextDisplayContent(content, grid, column, 'mg-split-detail-value-text');
+					const displayContent = wrapTextDisplayContent(content, grid, column, selectedRow, 'mg-split-detail-value-text');
 
 					appendContent(value, displayContent || getDisplayValue(content, options.emptyPlaceholder));
 					field.appendChild(value);

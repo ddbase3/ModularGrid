@@ -116,9 +116,14 @@ The following already work in the current foundation:
 - group summary rendering in table view
 - zebra row classes in table view with per-grid on/off option
 - zebra row parity classes also applied to inline detail rows
+- dedicated horizontal scroll container for wide table layouts
+- width-based column sizing for wide table rendering
 - per-column text display strategies across table, card and split-detail rendering
 - ellipsis strategy with title tooltip support
 - nowrap and wrap text strategies
+- clamp strategy with configurable line count
+- expand / collapse support for clamped text
+- state-backed text expansion handling
 - unified lightweight dropdown action styling for header menus and row menus
 - reset via plugin
 - storage abstraction for browser storage-backed persistence
@@ -168,7 +173,7 @@ The repo currently includes demos for:
 - row actions plugin
 - modern layout with session storage
 - responsive cards and split detail demo
-- multifunction ajax demo with plugin-driven search, filters, grouping, header menus, selection, row actions, bulk actions, export, summaries, row details and multiple views
+- multifunction ajax demo with plugin-driven search, filters, grouping, header menus, selection, row actions, bulk actions, export, summaries, row details, multiple views and a wide-table baseline with horizontal scrolling and clamp-based long-text rendering
 
 ## Current architectural direction
 
@@ -203,7 +208,11 @@ Filters, grouping, header menus, export, summaries and bulk actions are plugin-d
 
 Table zebra row styling is handled in the table view with explicit parity classes on rendered data rows, so grouping rows and group summaries do not break the alternating pattern.
 
+Wide table rendering is handled through a dedicated scroll container in the table view, so future pinned-column work can build on a stable baseline instead of relying on ad-hoc demo CSS.
+
 Long-text display is handled in the views through per-column rendering options, so wrapping and overflow strategy remain presentation concerns instead of becoming adapter or core logic.
+
+Clamp expansion is state-backed, so rerendering and view switching do not depend on DOM-only toggle state.
 
 ## Current known design intent
 

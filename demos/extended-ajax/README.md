@@ -15,6 +15,9 @@ The demo shows the framework-level combination of:
 - shared row-detail rendering in both table and card view
 - responsive automatic switching between table and cards
 - manual view switching that still works on wide screens
+- wide table rendering with horizontal scrolling
+- long-text clamp rendering using a combined `free_text` + `notes` column
+- optional extra columns exposed through the column selector
 
 ## Relevant framework features
 
@@ -31,12 +34,40 @@ This demo uses:
 ```js
 server: {
 	searchDebounceMs: 220,
-	watchStateKeys: ['query', 'serverFilters']
+	watchStateKeys: ['query', 'filters']
 }
 
-That is why changes in the custom serverFilters plugin also trigger a reload.
+That is why changes in the query state and the external filters state trigger backend reloads.
 
-RowDetailPlugin
+Wide table rendering
+
+The table view now renders inside a dedicated horizontal scroll container.
+
+This matters for this demo because the visible baseline now includes several wide render columns:
+
+person
+address
+status
+metrics
+activity
+text overview
+
+Additional optional fields can be enabled through the column selector without breaking the overall layout.
+
+Combined long-text column
+
+The demo includes a synthetic render column:
+
+text_overview
+
+It combines:
+
+free_text
+notes
+
+The column uses the clamp strategy so that longer text stays compact in table, card and split detail rendering.
+
+Row detail behavior
 
 The same detail state is used in both the table and card view.
 
@@ -44,8 +75,7 @@ The demo configures it like this:
 
 rowDetail: {
 	rowIdKey: 'id',
-	clearOnDataReload: true,
-	detailRenderer: renderPersonDetail
+	clearOnDataReload: true
 }
 Expected backend request shape
 
@@ -79,22 +109,12 @@ At minimum:
 
 Optional fields such as columns can also be returned and are accepted by AjaxAdapter.
 
+Related architecture notes
+Server mode
 
----
+ModularGrid supports:
 
-## `docs/architecture/SERVER_MODE_AND_ROW_DETAIL.md`
-```markdown
-# Server Mode and Shared Row Detail
-
-This document describes the framework additions introduced for the extended ajax demo.
-
-## 1. Server mode
-
-`ModularGrid` now supports:
-
-```js
 dataMode: 'server'
-Behavior
 
 In server mode, the grid does not apply client-side:
 
@@ -104,28 +124,9 @@ paging
 
 The loaded rows are treated as the final page returned by the backend, while data.total is used to compute pager information.
 
-2. Automatic reload on watched state keys
+Shared row detail state
 
-The server mode can watch top-level state sections and trigger reloads when they change.
-
-Example:
-
-server: {
-	searchDebounceMs: 220,
-	watchStateKeys: ['query', 'serverFilters']
-}
-Notes
-query should normally always be watched.
-additional plugin state can be watched if it affects the backend request
-search changes are debounced
-non-search changes reload immediately
-3. Shared row detail state
-
-A new plugin is available:
-
-RowDetailPlugin
-
-It provides:
+RowDetailPlugin provides:
 
 setDetailRow
 clearDetailRow
@@ -134,9 +135,9 @@ toggleDetailRow
 Default state key:
 
 detailView.rowId
-4. Rendering row details in multiple views
+Rendering row details in multiple views
 
-Both TableView and CardView now understand pluginOptions.rowDetail.
+Both TableView and CardView understand pluginOptions.rowDetail.
 
 Example:
 
@@ -147,7 +148,9 @@ rowDetail: {
 		return ...
 	}
 }
-Supported options
+
+Supported options include:
+
 stateKey
 rowIdKey
 toggleOnRowClick
@@ -157,18 +160,9 @@ showLabels
 emptyPlaceholder
 detailRenderer
 clearOnDataReload
-5. Card view title and subtitle renderers
+Responsive view switching fix
 
-CardView now supports:
-
-titleRenderer(row, grid, viewModel)
-subtitleRenderer(row, grid, viewModel)
-
-This allows card headers that are independent from a single raw data field.
-
-6. Responsive view switching fix
-
-ResponsiveViewPlugin now switches only on breakpoint transitions.
+ResponsiveViewPlugin switches only on breakpoint transitions.
 
 That means:
 

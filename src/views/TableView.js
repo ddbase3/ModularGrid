@@ -193,7 +193,7 @@ function appendDataRow(tbody, row, grid, viewModel, renderColumns, rowDetailOpti
 	renderColumns.forEach((column) => {
 		const td = createElement('td', 'mg-cell');
 		const content = grid.renderCellContent(row, column);
-		const displayContent = wrapTextDisplayContent(content, grid, column, 'mg-cell-text-display');
+		const displayContent = wrapTextDisplayContent(content, grid, column, row, 'mg-cell-text-display');
 
 		appendContent(td, displayContent);
 		tr.appendChild(td);
@@ -251,6 +251,8 @@ export class TableView {
 			return;
 		}
 
+		const scroll = createElement('div', 'mg-table-scroll');
+		const scrollInner = createElement('div', 'mg-table-scroll-inner');
 		const table = createElement('table', 'mg-table');
 		const thead = createElement('thead', 'mg-table-head');
 		const tbody = createElement('tbody', 'mg-table-body');
@@ -277,6 +279,7 @@ export class TableView {
 
 			if (column.width) {
 				th.style.width = `${column.width}px`;
+				th.style.minWidth = `${column.width}px`;
 			}
 
 			if (column.sortable === false) {
@@ -354,6 +357,8 @@ export class TableView {
 		}
 
 		table.appendChild(tbody);
-		container.appendChild(table);
+		scrollInner.appendChild(table);
+		scroll.appendChild(scrollInner);
+		container.appendChild(scroll);
 	}
 }

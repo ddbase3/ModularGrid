@@ -71,6 +71,7 @@ It is based on the originally requested feature set, translated into a more stru
 # 4. Column features
 
 - [x] Column visibility plugin
+- [x] Horizontal table scroll container
 - [ ] Column pinning left
 - [ ] Column pinning right
 - [ ] Column width configuration
@@ -142,6 +143,7 @@ It is based on the originally requested feature set, translated into a more stru
 - [x] Grouping plugin
 - [x] Group by one field
 - [ ] Group by multiple fields
+- [ ] Server-side grouping over full filtered dataset
 - [ ] Aggregate other fields automatically
 - [ ] Expand / collapse groups
 - [x] Group summary rendering
@@ -210,6 +212,8 @@ It is based on the originally requested feature set, translated into a more stru
 - [x] Export plugin
 - [ ] Export all rows
 - [ ] Export filtered rows
+- [ ] Backend-driven export for `all` scope in ajax-backed grids
+- [ ] Backend-driven export for `filtered` scope in ajax-backed grids
 - [x] Export selected rows
 - [x] Export with selected columns
 - [x] CSV export
@@ -235,7 +239,7 @@ It is based on the originally requested feature set, translated into a more stru
 - [x] Long text display strategies
 - [x] Ellipsis strategy
 - [x] Multi-line wrapping strategy
-- [ ] Clamp / expand strategy
+- [x] Clamp / expand strategy
 - [ ] Theme organization
 
 ---
@@ -296,6 +300,8 @@ It is based on the originally requested feature set, translated into a more stru
 - [x] Smoke coverage for grouping plugin
 - [x] Smoke coverage for group summary rendering
 - [x] Smoke coverage for text display and ellipsis handling
+- [x] Smoke coverage for clamp and expand handling
+- [x] Smoke coverage for wide-table horizontal scrolling
 - [ ] Export demo
 
 ---
@@ -304,8 +310,8 @@ It is based on the originally requested feature set, translated into a more stru
 
 The next good steps are:
 
-1. header filter row
-2. grouping expansion and collapse
-3. export refinement for filtered/all rows
-4. ajax/database storage adapter
-5. responsive mobile card refinement
+1. column pinning left and right on top of the horizontal scroll baseline
+2. header filter row
+3. server-side grouping over the full filtered dataset
+4. export refinement for filtered/all rows via backend service
+5. ajax/database storage adapter

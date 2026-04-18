@@ -135,6 +135,7 @@ export class CardView {
 							options.emptyPlaceholder,
 							grid,
 							titleColumn,
+							row,
 							'mg-card-title-text'
 						)
 					);
@@ -162,6 +163,7 @@ export class CardView {
 							options.emptyPlaceholder,
 							grid,
 							subtitleColumn,
+							row,
 							'mg-card-subtitle-text'
 						)
 					);
@@ -199,7 +201,7 @@ export class CardView {
 
 				const value = createElement('div', 'mg-card-value');
 				const contentValue = grid.renderCellContent(row, column);
-				const displayContent = wrapTextDisplayContent(contentValue, grid, column, 'mg-card-value-text');
+				const displayContent = wrapTextDisplayContent(contentValue, grid, column, row, 'mg-card-value-text');
 
 				appendContent(value, displayContent || getDisplayValue(contentValue, options.emptyPlaceholder));
 				field.appendChild(value);

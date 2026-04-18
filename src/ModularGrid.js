@@ -184,6 +184,9 @@ export class ModularGrid {
 			view: {
 				mode: this.options.view?.mode || 'table'
 			},
+			textDisplay: {
+				expanded: {}
+			},
 			columns
 		};
 	}
@@ -213,6 +216,9 @@ export class ModularGrid {
 			})
 			.register('setViewMode', ({ grid }, payload) => {
 				return grid.setViewMode(payload);
+			})
+			.register('toggleTextDisplayExpanded', ({ grid }, payload) => {
+				return grid.toggleTextDisplayExpanded(payload?.key || '');
 			});
 	}
 
@@ -668,6 +674,31 @@ export class ModularGrid {
 			grid: this,
 			sortKey: key,
 			sortDirection: nextDirection
+		});
+
+		return this;
+	}
+
+	toggleTextDisplayExpanded(key) {
+		if (!key) {
+			return this;
+		}
+
+		const current = this.store.peek().textDisplay?.expanded?.[key] === true;
+		const nextExpanded = !current;
+
+		this.store.setState({
+			textDisplay: {
+				expanded: {
+					[key]: nextExpanded
+				}
+			}
+		});
+
+		this.events.emit('textDisplay:changed', {
+			grid: this,
+			key,
+			expanded: nextExpanded
 		});
 
 		return this;

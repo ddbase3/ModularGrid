@@ -35,15 +35,25 @@ const SORT_TYPES = {
 	zipcode: 'string',
 	city: 'string',
 	country: 'string',
-	status: 'string',
-	category: 'string',
+	birthday: 'date',
+	is_active: 'bool',
 	is_verified: 'bool',
+	children_count: 'int',
 	score: 'int',
 	amount: 'decimal',
 	rating: 'float',
+	latitude: 'float',
+	longitude: 'float',
+	phone: 'string',
+	website: 'string',
+	status: 'string',
+	category: 'string',
+	free_text: 'string',
+	notes: 'string',
 	created: 'datetime',
 	changed: 'datetime',
-	last_login: 'datetime'
+	last_login: 'datetime',
+	deleted_at: 'datetime'
 };
 
 const layout = {
@@ -104,6 +114,24 @@ function getText(value, placeholder = '—') {
 
 function getFullName(row) {
 	return [row.firstname, row.lastname].filter(Boolean).join(' ').trim() || `#${row.id}`;
+}
+
+function formatDate(value) {
+	if (!value) {
+		return '—';
+	}
+
+	const date = new Date(value);
+
+	if (Number.isNaN(date.getTime())) {
+		return String(value);
+	}
+
+	return new Intl.DateTimeFormat(undefined, {
+		year: 'numeric',
+		month: '2-digit',
+		day: '2-digit'
+	}).format(date);
 }
 
 function formatDateTime(value) {
@@ -177,6 +205,24 @@ function renderPerson(value, row) {
 	return wrapper;
 }
 
+function renderAddress(value, row) {
+	const wrapper = document.createElement('div');
+	wrapper.className = 'demo-cell-stack';
+
+	const main = document.createElement('div');
+	main.className = 'demo-cell-main';
+	main.textContent = `${getText(row.street)} ${getText(row.housenumber, '')}`.trim();
+
+	const sub = document.createElement('div');
+	sub.className = 'demo-cell-sub';
+	sub.textContent = `${getText(row.zipcode)} ${getText(row.city)} · ${getText(row.country)}`;
+
+	wrapper.appendChild(main);
+	wrapper.appendChild(sub);
+
+	return wrapper;
+}
+
 function renderStatus(value, row) {
 	const wrapper = document.createElement('div');
 	wrapper.className = 'demo-cell-stack';
@@ -238,6 +284,67 @@ function renderActivity(value, row) {
 	wrapper.appendChild(sub);
 
 	return wrapper;
+}
+
+function renderContact(value, row) {
+	const wrapper = document.createElement('div');
+	wrapper.className = 'demo-cell-stack';
+
+	const main = document.createElement('div');
+	main.className = 'demo-cell-main';
+	main.textContent = getText(row.email);
+
+	const sub = document.createElement('div');
+	sub.className = 'demo-cell-sub';
+	sub.textContent = [getText(row.phone, ''), getText(row.website, '')].filter(Boolean).join(' · ') || '—';
+
+	wrapper.appendChild(main);
+	wrapper.appendChild(sub);
+
+	return wrapper;
+}
+
+function renderFlags(value, row) {
+	const wrapper = document.createElement('div');
+	wrapper.className = 'demo-cell-stack';
+
+	const pills = document.createElement('div');
+	pills.className = 'demo-pill-row';
+
+	const active = document.createElement('span');
+	active.className = 'demo-pill demo-pill-strong';
+	active.textContent = row.is_active ? 'Active' : 'Inactive';
+
+	const verified = document.createElement('span');
+	verified.className = 'demo-pill';
+	verified.textContent = row.is_verified ? 'Verified' : 'Unverified';
+
+	const children = document.createElement('span');
+	children.className = 'demo-pill';
+	children.textContent = `${formatNumber(row.children_count)} children`;
+
+	pills.appendChild(active);
+	pills.appendChild(verified);
+	pills.appendChild(children);
+
+	wrapper.appendChild(pills);
+	return wrapper;
+}
+
+function renderGeo(value, row) {
+	return `${formatNumber(row.latitude, 4)}, ${formatNumber(row.longitude, 4)}`;
+}
+
+function renderBirthday(value, row) {
+	return formatDate(row.birthday);
+}
+
+function buildTextOverview(row) {
+	return [getText(row.free_text, ''), getText(row.notes, '')].filter(Boolean).join(' ');
+}
+
+function renderTextOverview(value, row) {
+	return buildTextOverview(row) || '—';
 }
 
 function buildFilterPayload(filters) {
@@ -570,6 +677,7 @@ grid = new ModularGrid('#extended-ajax-grid', {
 		{
 			key: 'person',
 			label: 'Person',
+			width: 260,
 			headerMenu: {
 				defaultSortKey: 'lastname',
 				defaultSortDirection: 'asc',
@@ -584,19 +692,27 @@ grid = new ModularGrid('#extended-ajax-grid', {
 			}
 		},
 		{
-			key: 'city',
-			label: 'City',
+			key: 'address',
+			label: 'Address',
+			width: 260,
 			headerMenu: {
 				defaultSortKey: 'city',
 				defaultSortDirection: 'asc',
 				sortOptions: [
-					{ key: 'city', label: 'City' }
+					{ key: 'street', label: 'Street' },
+					{ key: 'zipcode', label: 'Zip code' },
+					{ key: 'city', label: 'City' },
+					{ key: 'country', label: 'Country' }
 				]
+			},
+			render(value, row) {
+				return renderAddress(value, row);
 			}
 		},
 		{
 			key: 'status_display',
 			label: 'Status',
+			width: 180,
 			headerMenu: {
 				defaultSortKey: 'status',
 				defaultSortDirection: 'asc',
@@ -613,6 +729,7 @@ grid = new ModularGrid('#extended-ajax-grid', {
 		{
 			key: 'metrics',
 			label: 'Metrics',
+			width: 190,
 			headerMenu: {
 				defaultSortKey: 'amount',
 				defaultSortDirection: 'desc',
@@ -629,6 +746,7 @@ grid = new ModularGrid('#extended-ajax-grid', {
 		{
 			key: 'activity',
 			label: 'Activity',
+			width: 220,
 			headerMenu: {
 				defaultSortKey: 'changed',
 				defaultSortDirection: 'desc',
@@ -640,6 +758,158 @@ grid = new ModularGrid('#extended-ajax-grid', {
 			},
 			render(value, row) {
 				return renderActivity(value, row);
+			}
+		},
+		{
+			key: 'text_overview',
+			label: 'Text overview',
+			width: 360,
+			textDisplay: {
+				strategy: 'clamp',
+				lines: 3,
+				expandable: true
+			},
+			headerMenu: {
+				defaultSortKey: 'notes',
+				defaultSortDirection: 'asc',
+				sortOptions: [
+					{ key: 'free_text', label: 'Free text' },
+					{ key: 'notes', label: 'Notes' }
+				]
+			},
+			render(value, row) {
+				return renderTextOverview(value, row);
+			}
+		},
+		{
+			key: 'city',
+			label: 'City',
+			width: 150,
+			visible: false,
+			headerMenu: {
+				defaultSortKey: 'city',
+				defaultSortDirection: 'asc',
+				sortOptions: [
+					{ key: 'city', label: 'City' }
+				]
+			}
+		},
+		{
+			key: 'country',
+			label: 'Country',
+			width: 150,
+			visible: false,
+			headerMenu: {
+				defaultSortKey: 'country',
+				defaultSortDirection: 'asc',
+				sortOptions: [
+					{ key: 'country', label: 'Country' }
+				]
+			}
+		},
+		{
+			key: 'birthday_display',
+			label: 'Birthday',
+			width: 130,
+			visible: false,
+			headerMenu: {
+				defaultSortKey: 'birthday',
+				defaultSortDirection: 'asc',
+				sortOptions: [
+					{ key: 'birthday', label: 'Birthday' }
+				]
+			},
+			render(value, row) {
+				return renderBirthday(value, row);
+			}
+		},
+		{
+			key: 'contact',
+			label: 'Contact',
+			width: 280,
+			visible: false,
+			headerMenu: {
+				defaultSortKey: 'email',
+				defaultSortDirection: 'asc',
+				sortOptions: [
+					{ key: 'email', label: 'Email' },
+					{ key: 'phone', label: 'Phone' },
+					{ key: 'website', label: 'Website' }
+				]
+			},
+			render(value, row) {
+				return renderContact(value, row);
+			}
+		},
+		{
+			key: 'flags',
+			label: 'Flags',
+			width: 210,
+			visible: false,
+			headerMenu: {
+				defaultSortKey: 'is_active',
+				defaultSortDirection: 'asc',
+				sortOptions: [
+					{ key: 'is_active', label: 'Active' },
+					{ key: 'is_verified', label: 'Verified' },
+					{ key: 'children_count', label: 'Children' }
+				]
+			},
+			render(value, row) {
+				return renderFlags(value, row);
+			}
+		},
+		{
+			key: 'geo',
+			label: 'Geo',
+			width: 190,
+			visible: false,
+			headerMenu: {
+				defaultSortKey: 'latitude',
+				defaultSortDirection: 'asc',
+				sortOptions: [
+					{ key: 'latitude', label: 'Latitude' },
+					{ key: 'longitude', label: 'Longitude' }
+				]
+			},
+			render(value, row) {
+				return renderGeo(value, row);
+			}
+		},
+		{
+			key: 'free_text',
+			label: 'Free text',
+			width: 320,
+			visible: false,
+			textDisplay: {
+				strategy: 'clamp',
+				lines: 3,
+				expandable: true
+			},
+			headerMenu: {
+				defaultSortKey: 'free_text',
+				defaultSortDirection: 'asc',
+				sortOptions: [
+					{ key: 'free_text', label: 'Free text' }
+				]
+			}
+		},
+		{
+			key: 'notes',
+			label: 'Notes',
+			width: 360,
+			visible: false,
+			textDisplay: {
+				strategy: 'clamp',
+				lines: 4,
+				expandable: true
+			},
+			headerMenu: {
+				defaultSortKey: 'notes',
+				defaultSortDirection: 'asc',
+				sortOptions: [
+					{ key: 'notes', label: 'Notes' }
+				]
 			}
 		}
 	]

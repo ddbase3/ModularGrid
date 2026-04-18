@@ -54,7 +54,9 @@ The current code base already includes:
 - group summary rendering in table view
 - configurable zebra rows in table view
 - per-column long-text display strategies
+- clamp / expand strategy for long text
 - unified lightweight dropdown action styling
+- horizontal scroll foundation for wide tables
 - server-mode loading strategy for ajax-backed grids
 
 ## Project structure
@@ -102,6 +104,18 @@ const grid = new ModularGrid('#grid', {
 		zebraRows: false
 	}
 });
+Wide table rendering
+
+The table view now renders inside a dedicated horizontal scroll container.
+
+This provides a stable baseline for:
+
+wide render-column setups
+optional extra columns from the column selector
+future pinned-column support
+
+The table will grow to its natural content width while the outer container handles horizontal scrolling.
+
 Long text display strategies
 
 Columns can define how text should be displayed across table, card and split-detail rendering.
@@ -111,6 +125,7 @@ Supported strategies:
 wrap
 ellipsis
 nowrap
+clamp
 
 Example:
 
@@ -132,11 +147,22 @@ const grid = new ModularGrid('#grid', {
 			textDisplay: {
 				strategy: 'wrap'
 			}
+		},
+		{
+			key: 'summary',
+			label: 'Summary',
+			textDisplay: {
+				strategy: 'clamp',
+				lines: 3,
+				expandable: true
+			}
 		}
 	]
 });
 
 For ellipsis, the full value is exposed through the title attribute by default.
+
+For clamp, the rendered text is limited to a configured number of lines and can optionally be expanded through a small view-level toggle. The expanded state is stored in the grid state instead of being handled only in the DOM.
 
 Documentation
 

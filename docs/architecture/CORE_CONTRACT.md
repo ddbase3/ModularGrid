@@ -86,6 +86,8 @@ Important: concrete row-detail UI remains a view/plugin concern even when the co
 
 Important: text wrapping, overflow and long-text presentation strategy remain view/rendering concerns even when columns expose configuration for those strategies.
 
+Important: when a rendering feature needs stable interaction state across rerenders, a small generic state-backed command hook in the core is acceptable, as long as the concrete UI stays inside views.
+
 ### 8. Plugin installation
 
 The core owns:
@@ -137,6 +139,7 @@ Good examples of acceptable core changes:
 - a missing plugin-driven view registration point
 - a missing data preparation strategy such as explicit server mode
 - a missing watched-state reload mechanism for adapter-backed grids
+- a small generic state-backed command needed for stable rendering interactions across rerenders
 
 Bad examples of unnecessary core changes:
 

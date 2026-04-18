@@ -1,3 +1,5 @@
+import { normalizeColumnPinning } from '../utils/columnPinning.js';
+
 function resolveOptions(context) {
 	return {
 		zone: 'actions',
@@ -19,13 +21,16 @@ function isUtilityColumn(column) {
 
 function updateColumns(context, updater) {
 	const columns = context.peekState().columns || [];
-
-	context.setState({
-		columns: columns.map((column) => {
+	const nextColumns = normalizeColumnPinning(
+		columns.map((column) => {
 			return updater({
 				...column
 			});
 		})
+	);
+
+	context.setState({
+		columns: nextColumns
 	});
 
 	return context.grid;

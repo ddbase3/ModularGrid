@@ -5,6 +5,7 @@ function resolveOptions(context) {
 		showSortActions: true,
 		showClearSortAction: true,
 		showHideColumnAction: true,
+		showPinActions: true,
 		includeColumnKeys: null,
 		excludeColumnKeys: [],
 		includeCustomHeaderColumns: false,
@@ -15,7 +16,11 @@ function resolveOptions(context) {
 			sortBy: 'Sort by',
 			clearSort: 'Clear sort',
 			hideColumn: 'Hide column',
-			sortedBy: 'sorted by'
+			sortedBy: 'sorted by',
+			pinLeft: 'Pin left',
+			pinRight: 'Pin right',
+			unpinLeft: 'Unpin left',
+			unpinRight: 'Unpin right'
 		},
 		items: null,
 		...context.getPluginOptions('headerMenu')
@@ -56,6 +61,60 @@ function getColumnByKey(context, columnKey) {
 	return (context.peekState().columns || []).find((column) => column.key === columnKey) || null;
 }
 
+function normalizePinnedSide(column) {
+	if (column?.pinned === 'left' || column?.pinned === 'right') {
+		return column.pinned;
+	}
+
+	return '';
+}
+
+function getPinningContext(context) {
+	const visibleColumns = getVisibleNonUtilityColumns(context.peekState().columns || []);
+	const leftPinned = visibleColumns.filter((column) => normalizePinnedSide(column) === 'left');
+	const rightPinned = visibleColumns.filter((column) => normalizePinnedSide(column) === 'right');
+	const unpinned = visibleColumns.filter((column) => normalizePinnedSide(column) === '');
+
+	return {
+		visibleColumns,
+		leftPinned,
+		rightPinned,
+		unpinned,
+		firstUnpinned: unpinned[0] || null,
+		lastUnpinned: unpinned[unpinned.length - 1] || null,
+		lastLeftPinned: leftPinned[leftPinned.length - 1] || null,
+		firstRightPinned: rightPinned[0] || null
+	};
+}
+
+function resolveMenuAlignmentClass(context, column) {
+	const pinningContext = getPinningContext(context);
+	const visibleColumns = pinningContext.visibleColumns || [];
+	const pinnedSide = normalizePinnedSide(column);
+
+	if (pinnedSide === 'left') {
+		return 'mg-header-menu-align-start';
+	}
+
+	if (pinnedSide === 'right') {
+		return 'mg-header-menu-align-end';
+	}
+
+	const index = visibleColumns.findIndex((entry) => entry.key === column?.key);
+
+	if (index === -1) {
+		return 'mg-header-menu-align-end';
+	}
+
+	const midpoint = Math.floor((visibleColumns.length - 1) / 2);
+
+	if (index <= midpoint) {
+		return 'mg-header-menu-align-start';
+	}
+
+	return 'mg-header-menu-align-end';
+}
+
 function clearSort(context) {
 	context.setState({
 		query: {
@@ -87,6 +146,31 @@ function setSort(context, key, direction) {
 		grid: context.grid,
 		sortKey: key,
 		sortDirection: direction
+	});
+
+	return context.grid;
+}
+
+function setPinnedState(context, key, pinned) {
+	const columns = context.peekState().columns || [];
+
+	context.setState({
+		columns: columns.map((column) => {
+			if (column.key !== key) {
+				return column;
+			}
+
+			return {
+				...column,
+				pinned: pinned || null
+			};
+		})
+	});
+
+	context.events.emit('columnPinning:changed', {
+		grid: context.grid,
+		columnKey: key,
+		pinned: pinned || null
 	});
 
 	return context.grid;
@@ -161,6 +245,8 @@ function buildDefaultItems(context, column, options) {
 	const visibleColumnCount = getVisibleNonUtilityColumns(state.columns || []).length;
 	const isLocked = Array.isArray(options.lockedColumnKeys) && options.lockedColumnKeys.includes(column.key);
 	const sortConfig = resolveSortConfig(column);
+	const pinningContext = getPinningContext(context);
+	const pinnedSide = normalizePinnedSide(column);
 	const items = [];
 
 	if (options.showSortActions !== false && originalSortable) {
@@ -183,6 +269,52 @@ function buildDefaultItems(context, column, options) {
 				}
 			});
 		});
+	}
+
+	if (options.showPinActions !== false) {
+		if (pinnedSide === 'left') {
+			if (pinningContext.lastLeftPinned?.key === column.key) {
+				items.push({
+					key: 'unpin-left',
+					label: options.labels.unpinLeft,
+					onClick() {
+						setPinnedState(context, column.key, null);
+					}
+				});
+			}
+		}
+		else if (pinnedSide === 'right') {
+			if (pinningContext.firstRightPinned?.key === column.key) {
+				items.push({
+					key: 'unpin-right',
+					label: options.labels.unpinRight,
+					onClick() {
+						setPinnedState(context, column.key, null);
+					}
+				});
+			}
+		}
+		else {
+			if (pinningContext.firstUnpinned?.key === column.key) {
+				items.push({
+					key: 'pin-left',
+					label: options.labels.pinLeft,
+					onClick() {
+						setPinnedState(context, column.key, 'left');
+					}
+				});
+			}
+
+			if (pinningContext.lastUnpinned?.key === column.key) {
+				items.push({
+					key: 'pin-right',
+					label: options.labels.pinRight,
+					onClick() {
+						setPinnedState(context, column.key, 'right');
+					}
+				});
+			}
+		}
 	}
 
 	if (options.showClearSortAction !== false && currentSortKey !== '') {
@@ -272,7 +404,8 @@ function renderHeaderLabel(column, grid, context, options) {
 }
 
 function renderHeaderMenu(column, grid, context, options) {
-	const wrapper = createElement('div', 'mg-header-menu-bar');
+	const alignmentClassName = resolveMenuAlignmentClass(context, column);
+	const wrapper = createElement('div', `mg-header-menu-bar ${alignmentClassName}`.trim());
 	const label = renderHeaderLabel(column, grid, context, options);
 	const details = createElement('details', 'mg-header-menu');
 	const summary = createElement('summary', 'mg-header-menu-trigger');

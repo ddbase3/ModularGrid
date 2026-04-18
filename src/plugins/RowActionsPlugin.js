@@ -1,3 +1,5 @@
+import { hasPinnedDataColumns, normalizeColumnPinning } from '../utils/columnPinning.js';
+
 function resolveOptions(context) {
 	return {
 		columnKey: '__mg_row_actions__',
@@ -164,9 +166,8 @@ function renderColumnVisibilitySection(context, item, details) {
 
 			input.addEventListener('change', () => {
 				const columns = context.peekState().columns || [];
-
-				context.setState({
-					columns: columns.map((entry) => {
+				const nextColumns = normalizeColumnPinning(
+					columns.map((entry) => {
 						if (entry.key !== column.key) {
 							return entry;
 						}
@@ -176,6 +177,10 @@ function renderColumnVisibilitySection(context, item, details) {
 							visible: input.checked
 						};
 					})
+				);
+
+				context.setState({
+					columns: nextColumns
 				});
 			});
 
@@ -195,21 +200,23 @@ function renderColumnVisibilitySection(context, item, details) {
 
 		const resetButton = document.createElement('button');
 		resetButton.type = 'button';
-		resetButton.className = 'mg-menu-action mg-row-actions-header-reset';
+		resetButton.className = 'mg-button mg-row-actions-header-reset';
 		resetButton.textContent = item.resetLabel || 'Reset columns';
 
 		resetButton.addEventListener('click', () => {
 			context.setState({
-				columns: (context.peekState().columns || []).map((column) => {
-					if (isUtilityColumn(column)) {
-						return column;
-					}
+				columns: normalizeColumnPinning(
+					(context.peekState().columns || []).map((column) => {
+						if (isUtilityColumn(column)) {
+							return column;
+						}
 
-					return {
-						...column,
-						visible: true
-					};
-				})
+						return {
+							...column,
+							visible: true
+						};
+					})
+				)
 			});
 
 			if (details) {
@@ -237,6 +244,7 @@ function renderHeaderMenuItem(context, item, details) {
 	button.type = 'button';
 	button.className = 'mg-menu-action mg-header-menu-action';
 	button.textContent = item.label || item.key || 'Action';
+	button.dataset.mgRowActionsHeaderAction = item.key || 'action';
 	button.disabled = item.disabled === true;
 
 	button.addEventListener('click', () => {
@@ -262,6 +270,21 @@ function renderHeaderMenuItem(context, item, details) {
 	return button;
 }
 
+function buildHeaderMenuItems(context, options) {
+	const headerMenu = options.headerMenu || {};
+	const items = Array.isArray(headerMenu.items) ? [...headerMenu.items] : [];
+
+	if (hasPinnedDataColumns(context.peekState().columns || [])) {
+		items.push({
+			key: 'unpin-all',
+			label: 'Unpin all',
+			command: 'unpinAllDataColumns'
+		});
+	}
+
+	return items;
+}
+
 function createHeaderMenu(context, options) {
 	const headerMenu = options.headerMenu || {};
 
@@ -269,7 +292,7 @@ function createHeaderMenu(context, options) {
 		return '';
 	}
 
-	const items = Array.isArray(headerMenu.items) ? headerMenu.items : [];
+	const items = buildHeaderMenuItems(context, options);
 
 	if (items.length === 0) {
 		return '';
@@ -339,6 +362,29 @@ export const RowActionsPlugin = {
 				action,
 				row,
 				event
+			});
+
+			return context.grid;
+		},
+
+		unpinAllDataColumns(context) {
+			context.setState({
+				columns: (context.peekState().columns || []).map((column) => {
+					if (isUtilityColumn(column)) {
+						return column;
+					}
+
+					return {
+						...column,
+						pinned: null
+					};
+				})
+			});
+
+			context.events.emit('columnPinning:changed', {
+				grid: context.grid,
+				columnKey: '*',
+				pinned: null
 			});
 
 			return context.grid;

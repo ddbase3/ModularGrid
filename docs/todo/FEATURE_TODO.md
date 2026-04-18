@@ -72,8 +72,11 @@ It is based on the originally requested feature set, translated into a more stru
 
 - [x] Column visibility plugin
 - [x] Horizontal table scroll container
-- [ ] Column pinning left
-- [ ] Column pinning right
+- [x] Column pinning left
+- [x] Column pinning right
+- [x] Default pinned utility columns
+- [x] Unpin-all action for pinned data columns
+- [x] Automatic repinning for newly visible outer columns
 - [ ] Column width configuration
 - [ ] Column resize by drag handle
 - [ ] Column reorder by drag and drop
@@ -302,6 +305,10 @@ It is based on the originally requested feature set, translated into a more stru
 - [x] Smoke coverage for text display and ellipsis handling
 - [x] Smoke coverage for clamp and expand handling
 - [x] Smoke coverage for wide-table horizontal scrolling
+- [x] Smoke coverage for column pinning
+- [x] Smoke coverage for default pinned utility columns
+- [x] Smoke coverage for unpin-all handling
+- [x] Smoke coverage for automatic repinning when hidden outer columns become visible
 - [ ] Export demo
 
 ---
@@ -310,8 +317,8 @@ It is based on the originally requested feature set, translated into a more stru
 
 The next good steps are:
 
-1. column pinning left and right on top of the horizontal scroll baseline
-2. header filter row
-3. server-side grouping over the full filtered dataset
-4. export refinement for filtered/all rows via backend service
-5. ajax/database storage adapter
+1. header filter row
+2. server-side grouping over the full filtered dataset
+3. export refinement for filtered/all rows via backend service
+4. ajax/database storage adapter
+5. column pinning polish for more advanced edge cases

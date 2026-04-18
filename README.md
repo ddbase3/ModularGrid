@@ -45,6 +45,9 @@ The current code base already includes:
 - plugin-based bulk actions
 - plugin-based export
 - column visibility plugin
+- left/right column pinning via header menu
+- default pinned selection and row-actions utility columns
+- unpin-all action in the row-actions header menu
 - reset plugin
 - storage plugins
 - card view
@@ -106,15 +109,42 @@ const grid = new ModularGrid('#grid', {
 });
 Wide table rendering
 
-The table view now renders inside a dedicated horizontal scroll container.
+The table view renders inside a dedicated horizontal scroll container.
 
 This provides a stable baseline for:
 
 wide render-column setups
 optional extra columns from the column selector
-future pinned-column support
+pinned-column support
 
-The table will grow to its natural content width while the outer container handles horizontal scrolling.
+The table grows to its natural content width while the outer container handles horizontal scrolling.
+
+Column pinning
+
+Columns can be pinned through the header menu.
+
+The current baseline supports:
+
+Pin left
+Pin right
+Unpin left
+Unpin right
+
+The current implementation also keeps utility columns stable:
+
+the selection column is always pinned left
+the row-actions column is always pinned right
+
+In the row-actions header menu, an additional Unpin all action becomes available whenever at least one data column is pinned.
+
+The first implementation intentionally uses strict boundary rules:
+
+only the current left boundary of the unpinned visible columns can be pinned left
+only the current right boundary of the unpinned visible columns can be pinned right
+unpinning also happens step by step at the current pinned edge
+when a hidden column is shown again beyond an already pinned edge, it is automatically added to that same pinned edge
+
+This keeps the feature predictable while the table still uses a simple DOM order.
 
 Long text display strategies
 

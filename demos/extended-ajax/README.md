@@ -16,7 +16,10 @@ The demo shows the framework-level combination of:
 - responsive automatic switching between table and cards
 - manual view switching that still works on wide screens
 - wide table rendering with horizontal scrolling
-- long-text clamp rendering using a combined `free_text` + `notes` column
+- left/right column pinning through the header menu
+- default pinned utility columns for selection and row actions
+- row-actions header menu support for unpinning all pinned data columns
+- long-text clamp rendering using a combined text column
 - optional extra columns exposed through the column selector
 
 ## Relevant framework features
@@ -41,31 +44,31 @@ That is why changes in the query state and the external filters state trigger ba
 
 Wide table rendering
 
-The table view now renders inside a dedicated horizontal scroll container.
+The table view renders inside a dedicated horizontal scroll container.
 
-This matters for this demo because the visible baseline now includes several wide render columns:
+This matters for this demo because the visible baseline includes several wide render columns and optional extra columns.
 
-person
-address
-status
-metrics
-activity
-text overview
+Column pinning
 
-Additional optional fields can be enabled through the column selector without breaking the overall layout.
+The header menu can pin columns to the left or right edge of the table viewport.
 
-Combined long-text column
+The current baseline intentionally keeps the pinning rules strict:
 
-The demo includes a synthetic render column:
+only the outermost still-unpinned visible column on the left can be pinned left
+only the outermost still-unpinned visible column on the right can be pinned right
+unpinning also happens step by step at the current pinned boundary
+if hidden columns are shown again beyond an already pinned boundary, they automatically join that same pinned boundary
 
-text_overview
+Utility columns stay pinned by default:
 
-It combines:
+selection stays pinned left
+row actions stay pinned right
 
-free_text
-notes
+The row-actions header menu also exposes an Unpin all action whenever pinned data columns exist.
 
-The column uses the clamp strategy so that longer text stays compact in table, card and split detail rendering.
+Long-text column
+
+The demo includes a long-text render column so that clamp behaviour remains visible in the table, card and split views.
 
 Row detail behavior
 
@@ -171,3 +174,6 @@ leaving narrow mode restores the last wide view
 manually selecting the card view on a wide screen is no longer reverted immediately
 
 This removes the previous issue where the view switcher button could not keep the card view active on wide screens.
+
+
+Der nächste saubere Schritt ist jetzt weiterhin: **server-side grouping over full filtered dataset**.

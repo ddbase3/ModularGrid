@@ -7,6 +7,7 @@ import {
 } from '../utils/rowDetail.js';
 import { computeSummaryMetric, formatSummaryMetric } from '../utils/summary.js';
 import { wrapTextDisplayContent } from '../utils/textDisplay.js';
+import { resolveEffectivePinnedSide } from '../utils/columnPinning.js';
 
 function isInteractiveTarget(target) {
 	return target instanceof Element && !!target.closest('a, button, input, select, textarea, label, summary, details');
@@ -155,6 +156,78 @@ function getZebraClassNames(rowNumber, tableOptions) {
 	};
 }
 
+function getMeasuredWidth(cell) {
+	if (!(cell instanceof HTMLElement)) {
+		return 0;
+	}
+
+	return Math.ceil(cell.getBoundingClientRect().width || cell.offsetWidth || 0);
+}
+
+function applyPinnedColumnStyles(table, renderColumns) {
+	const headerCells = Array.from(table.querySelectorAll('thead tr:first-child > [data-mg-column-index]'));
+
+	if (headerCells.length === 0) {
+		return;
+	}
+
+	const pinnedColumns = renderColumns
+		.map((column, index) => {
+			return {
+				column,
+				index,
+				side: resolveEffectivePinnedSide(column),
+				width: getMeasuredWidth(headerCells[index])
+			};
+		})
+		.filter((entry) => entry.side !== '');
+
+	const leftPinned = pinnedColumns.filter((entry) => entry.side === 'left');
+	const rightPinned = pinnedColumns.filter((entry) => entry.side === 'right');
+
+	let leftOffset = 0;
+	leftPinned.forEach((entry) => {
+		entry.offset = leftOffset;
+		leftOffset += entry.width;
+	});
+
+	let rightOffset = 0;
+	rightPinned.slice().reverse().forEach((entry) => {
+		entry.offset = rightOffset;
+		rightOffset += entry.width;
+	});
+
+	const lastLeftPinnedIndex = leftPinned.length > 0 ? leftPinned[leftPinned.length - 1].index : -1;
+	const firstRightPinnedIndex = rightPinned.length > 0 ? rightPinned[0].index : -1;
+
+	pinnedColumns.forEach((entry) => {
+		const cells = table.querySelectorAll(`[data-mg-column-index="${entry.index}"]`);
+
+		cells.forEach((cell) => {
+			if (!(cell instanceof HTMLElement)) {
+				return;
+			}
+
+			cell.classList.add('mg-cell-pinned', `mg-cell-pinned-${entry.side}`);
+
+			if (entry.side === 'left') {
+				cell.style.left = `${entry.offset}px`;
+			}
+			else {
+				cell.style.right = `${entry.offset}px`;
+			}
+
+			if (entry.index === lastLeftPinnedIndex && entry.side === 'left') {
+				cell.classList.add('mg-cell-pinned-shadow-right');
+			}
+
+			if (entry.index === firstRightPinnedIndex && entry.side === 'right') {
+				cell.classList.add('mg-cell-pinned-shadow-left');
+			}
+		});
+	});
+}
+
 function appendDataRow(tbody, row, grid, viewModel, renderColumns, rowDetailOptions, tableOptions, rowNumber) {
 	const rowId = getRowDetailRowId(row, rowDetailOptions);
 	const canToggleDetail = rowDetailOptions.enabled !== false && rowDetailOptions.renderInTable !== false && rowDetailOptions.toggleOnRowClick !== false && rowId !== null;
@@ -190,11 +263,13 @@ function appendDataRow(tbody, row, grid, viewModel, renderColumns, rowDetailOpti
 		tr.classList.add('mg-row-active');
 	}
 
-	renderColumns.forEach((column) => {
+	renderColumns.forEach((column, index) => {
 		const td = createElement('td', 'mg-cell');
 		const content = grid.renderCellContent(row, column);
 		const displayContent = wrapTextDisplayContent(content, grid, column, row, 'mg-cell-text-display');
 
+		td.dataset.mgColumnIndex = String(index);
+		td.dataset.mgColumnKey = column.key;
 		appendContent(td, displayContent);
 		tr.appendChild(td);
 	});
@@ -274,8 +349,11 @@ export class TableView {
 			);
 		};
 
-		renderColumns.forEach((column) => {
+		renderColumns.forEach((column, index) => {
 			const th = createElement('th', 'mg-header-cell');
+
+			th.dataset.mgColumnIndex = String(index);
+			th.dataset.mgColumnKey = column.key;
 
 			if (column.width) {
 				th.style.width = `${column.width}px`;
@@ -360,5 +438,7 @@ export class TableView {
 		scrollInner.appendChild(table);
 		scroll.appendChild(scrollInner);
 		container.appendChild(scroll);
+
+		applyPinnedColumnStyles(table, renderColumns);
 	}
 }

@@ -73,10 +73,19 @@ function findActionByKey(container, key) {
 	return container.querySelector(`[data-mg-header-menu-action="${key}"]`);
 }
 
+function findRowActionsHeaderActionByKey(container, key) {
+	return container.querySelector(`[data-mg-row-actions-header-action="${key}"]`);
+}
+
 function findCheckboxRowByText(container, text) {
 	return Array.from(container.querySelectorAll('.mg-checkbox-row')).find((row) => {
 		return row.textContent.includes(text);
 	}) || null;
+}
+
+function getHeaderCell(columnKey) {
+	const gridRoot = document.querySelector('#test-grid');
+	return findHeaderLabelButtonByColumnKey(gridRoot, columnKey)?.closest('th') || null;
 }
 
 const data = [
@@ -90,7 +99,8 @@ const data = [
 		status: 'active',
 		amount: 1200,
 		notes: 'Alice note content that is intentionally very long so the ellipsis strategy can be verified in the browser smoke test.',
-		description: 'Alice description content that is intentionally long enough to verify the clamp strategy and the expand collapse behaviour in the browser smoke test.'
+		description: 'Alice description content that is intentionally long enough to verify the clamp strategy and the expand collapse behaviour in the browser smoke test.',
+		trailing_note: 'Alice trailing note is initially hidden and later revealed to verify automatic right-side repinning.'
 	},
 	{
 		id: 2,
@@ -102,7 +112,8 @@ const data = [
 		status: 'pending',
 		amount: 850,
 		notes: 'Bob note content that is also intentionally long to keep the configured text display strategy consistent across views.',
-		description: 'Bob description content is also long enough to verify multi line clamp rendering and state driven expansion in different views.'
+		description: 'Bob description content is also long enough to verify multi line clamp rendering and state driven expansion in different views.',
+		trailing_note: 'Bob trailing note stays hidden first so the visibility selector can reveal it after right-side pinning already exists.'
 	},
 	{
 		id: 3,
@@ -114,7 +125,8 @@ const data = [
 		status: 'active',
 		amount: 930,
 		notes: 'Charlie note content used for grouped rendering coverage with ellipsis and wrapping behaviour checks.',
-		description: 'Charlie description text is present to keep grouped view behaviour stable while clamp and expand remain available.'
+		description: 'Charlie description text is present to keep grouped view behaviour stable while clamp and expand remain available.',
+		trailing_note: 'Charlie trailing note helps keep the hidden column data shape stable across the smoke test.'
 	},
 	{
 		id: 4,
@@ -126,7 +138,8 @@ const data = [
 		status: 'new',
 		amount: 410,
 		notes: 'Diana note content for additional long-text display coverage in alternate layouts.',
-		description: 'Diana description is available to verify the same text display contract in card and split rendering.'
+		description: 'Diana description is available to verify the same text display contract in card and split rendering.',
+		trailing_note: 'Diana trailing note exists for the same reason and stays optional.'
 	},
 	{
 		id: 5,
@@ -138,7 +151,8 @@ const data = [
 		status: 'pending',
 		amount: 760,
 		notes: 'Eli note content with a long value to exercise table, card and split preview rendering.',
-		description: 'Eli description remains long enough for clamp and expand checks across multiple rendered views.'
+		description: 'Eli description remains long enough for clamp and expand checks across multiple rendered views.',
+		trailing_note: 'Eli trailing note keeps the hidden trailing column populated.'
 	}
 ];
 
@@ -396,6 +410,19 @@ try {
 						{ key: 'description', label: 'Description' }
 					]
 				}
+			},
+			{
+				key: 'trailing_note',
+				label: 'Trailing note',
+				width: 260,
+				visible: false,
+				textDisplay: 'ellipsis',
+				headerMenu: {
+					defaultSortKey: 'trailing_note',
+					sortOptions: [
+						{ key: 'trailing_note', label: 'Trailing note' }
+					]
+				}
 			}
 		]
 	});
@@ -409,9 +436,13 @@ try {
 
 	const tableScroll = document.querySelector('#test-grid .mg-table-scroll');
 	const initialRows = Array.from(document.querySelectorAll('#test-grid tbody tr.mg-row'));
+	const selectionHeaderCell = document.querySelector('#test-grid thead .mg-selection-toggle')?.closest('th');
+	const rowActionsHeaderCellInitial = document.querySelector('#test-grid thead .mg-row-actions .mg-row-actions-trigger')?.closest('th');
 
 	assert(!!tableScroll, 'Table view renders a horizontal scroll container');
 	assert(tableScroll.scrollWidth > tableScroll.clientWidth, 'Wide table content can overflow horizontally inside the scroll container');
+	assert(selectionHeaderCell?.classList.contains('mg-cell-pinned-left') === true, 'Selection header column is pinned left by default');
+	assert(rowActionsHeaderCellInitial?.classList.contains('mg-cell-pinned-right') === true, 'Row actions header column is pinned right by default');
 	assert(document.querySelectorAll('#test-grid tbody tr.mg-row').length === 2, 'First grid renders first page with 2 data rows');
 	assert(initialRows[0]?.classList.contains('mg-row-odd') === true, 'First visible table row gets the odd zebra class');
 	assert(initialRows[1]?.classList.contains('mg-row-even') === true, 'Second visible table row gets the even zebra class');
@@ -467,7 +498,10 @@ try {
 
 	assert(grid.getState().query.sortKey === '', 'Sort baseline is reset before header-label sorting test');
 
-	const personHeaderButton = findHeaderLabelButtonByColumnKey(document.querySelector('#test-grid'), 'person');
+	let personHeaderCell = getHeaderCell('person');
+	assert(!!personHeaderCell, 'Person header cell exists');
+
+	const personHeaderButton = personHeaderCell.querySelector('.mg-header-label-button');
 	assert(!!personHeaderButton, 'Person header label button exists');
 
 	dispatchClick(personHeaderButton);
@@ -477,7 +511,7 @@ try {
 	assert(document.querySelectorAll('#test-grid .mg-header-menu-label-sub').length === 1, 'Only the active sorted header shows a sort hint');
 	assert(document.querySelector('#test-grid .mg-header-menu-label-sub').textContent.includes('Last name'), 'Active header sort hint shows the configured database field');
 
-	const personHeaderCell = personHeaderButton.closest('th');
+	personHeaderCell = getHeaderCell('person');
 	const personHeaderMenuTrigger = personHeaderCell.querySelector('.mg-header-menu-trigger');
 	assert(!!personHeaderMenuTrigger, 'Person header menu trigger exists');
 
@@ -493,6 +527,10 @@ try {
 		'Header menu sort actions use the unified lightweight menu style'
 	);
 
+	const pinLeftAction = findActionByKey(personHeaderCell, 'pin-left');
+	assert(!!pinLeftAction, 'Leftmost unpinned visible column exposes the pin-left action');
+	assert(!findActionByKey(personHeaderCell, 'pin-right'), 'Non-rightmost visible column does not expose the pin-right action');
+
 	const emailDescAction = findActionByKey(personHeaderCell, 'sort-email-desc');
 	assert(!!emailDescAction, 'Configured email descending sort action exists');
 
@@ -502,7 +540,74 @@ try {
 	assert(grid.getState().query.sortKey === 'email' && grid.getState().query.sortDirection === 'desc', 'Header menu can sort by configured secondary field');
 	assert(document.querySelector('#test-grid .mg-header-menu-label-sub').textContent.includes('Email'), 'Active header sort hint switches to the selected database field');
 
-	const rowActionsHeaderTrigger = document.querySelector('#test-grid thead .mg-row-actions .mg-row-actions-trigger');
+	personHeaderCell = getHeaderCell('person');
+	dispatchClick(personHeaderCell.querySelector('.mg-header-menu-trigger'));
+	await settleFrames(1);
+	dispatchClick(findActionByKey(personHeaderCell, 'pin-left'));
+	await settleFrames(2);
+
+	assert(grid.getState().columns.find((column) => column.key === 'person').pinned === 'left', 'Header menu can pin the current left boundary column to the left side');
+	assert(document.querySelector('#test-grid thead [data-mg-column-key="person"]')?.classList.contains('mg-cell-pinned-left') === true, 'Pinned left header cell receives the sticky left class');
+	assert(document.querySelector('#test-grid tbody [data-mg-column-key="person"]')?.classList.contains('mg-cell-pinned-left') === true, 'Pinned left body cells receive the sticky left class');
+
+	let descriptionHeaderCell = getHeaderCell('description');
+	dispatchClick(descriptionHeaderCell.querySelector('.mg-header-menu-trigger'));
+	await settleFrames(1);
+
+	const pinRightAction = findActionByKey(descriptionHeaderCell, 'pin-right');
+	assert(!!pinRightAction, 'Rightmost unpinned visible column exposes the pin-right action');
+
+	dispatchClick(pinRightAction);
+	await settleFrames(2);
+
+	assert(grid.getState().columns.find((column) => column.key === 'description').pinned === 'right', 'Header menu can pin the current right boundary column to the right side');
+	assert(document.querySelector('#test-grid thead [data-mg-column-key="description"]')?.classList.contains('mg-cell-pinned-right') === true, 'Pinned right header cell receives the sticky right class');
+	assert(document.querySelector('#test-grid tbody [data-mg-column-key="description"]')?.classList.contains('mg-cell-pinned-right') === true, 'Pinned right body cells receive the sticky right class');
+
+	personHeaderCell = getHeaderCell('person');
+	dispatchClick(personHeaderCell.querySelector('.mg-header-menu-trigger'));
+	await settleFrames(1);
+
+	assert(!!findActionByKey(personHeaderCell, 'unpin-left'), 'The outermost pinned-left column exposes the unpin-left action');
+
+	descriptionHeaderCell = getHeaderCell('description');
+	dispatchClick(descriptionHeaderCell.querySelector('.mg-header-menu-trigger'));
+	await settleFrames(1);
+
+	assert(!!findActionByKey(descriptionHeaderCell, 'unpin-right'), 'The outermost pinned-right column exposes the unpin-right action');
+
+	let rowActionsHeaderTrigger = document.querySelector('#test-grid thead .mg-row-actions .mg-row-actions-trigger');
+	dispatchClick(rowActionsHeaderTrigger);
+	await settleFrames(1);
+
+	const trailingNoteVisibilityRow = findCheckboxRowByText(document.querySelector('#test-grid'), 'Trailing note');
+	assert(!!trailingNoteVisibilityRow, 'Hidden trailing column exists in the row-actions header column selector');
+
+	const trailingNoteCheckbox = trailingNoteVisibilityRow.querySelector('input');
+	dispatchClick(trailingNoteCheckbox);
+	await settleFrames(2);
+
+	assert(grid.getState().columns.find((column) => column.key === 'trailing_note').visible === true, 'Row-actions header menu can reveal a hidden trailing column');
+	assert(grid.getState().columns.find((column) => column.key === 'trailing_note').pinned === 'right', 'A newly visible column further right than the current pinned-right boundary is auto-pinned right');
+	assert(document.querySelector('#test-grid thead [data-mg-column-key="trailing_note"]')?.classList.contains('mg-cell-pinned-right') === true, 'Auto-pinned trailing header cell receives the sticky right class');
+
+	rowActionsHeaderTrigger = document.querySelector('#test-grid thead .mg-row-actions .mg-row-actions-trigger');
+	dispatchClick(rowActionsHeaderTrigger);
+	await settleFrames(1);
+
+	const unpinAllAction = findRowActionsHeaderActionByKey(document.querySelector('#test-grid'), 'unpin-all');
+	assert(!!unpinAllAction, 'Row-actions header menu exposes the unpin-all action when pinned data columns exist');
+
+	dispatchClick(unpinAllAction);
+	await settleFrames(2);
+
+	assert(!grid.getState().columns.find((column) => column.key === 'person').pinned, 'Unpin all clears left-side data pinning');
+	assert(!grid.getState().columns.find((column) => column.key === 'description').pinned, 'Unpin all clears right-side data pinning');
+	assert(!grid.getState().columns.find((column) => column.key === 'trailing_note').pinned, 'Unpin all also clears auto-added right-side pinning');
+	assert(document.querySelector('#test-grid thead .mg-selection-toggle')?.closest('th')?.classList.contains('mg-cell-pinned-left') === true, 'Unpin all does not remove the default pinned selection column');
+	assert(document.querySelector('#test-grid thead .mg-row-actions .mg-row-actions-trigger')?.closest('th')?.classList.contains('mg-cell-pinned-right') === true, 'Unpin all does not remove the default pinned row-actions column');
+
+	rowActionsHeaderTrigger = document.querySelector('#test-grid thead .mg-row-actions .mg-row-actions-trigger');
 	assert(!!rowActionsHeaderTrigger, 'Row actions header trigger exists');
 
 	dispatchClick(rowActionsHeaderTrigger);

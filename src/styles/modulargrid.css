@@ -253,6 +253,44 @@
 	background: #f3f3f3;
 }
 
+.mg-cell-pinned {
+	position: sticky;
+	background-clip: padding-box;
+}
+
+.mg-table th.mg-cell-pinned {
+	z-index: 6;
+	background: #fff;
+}
+
+.mg-table td.mg-cell-pinned {
+	z-index: 4;
+}
+
+.mg-row-odd > .mg-cell-pinned {
+	background: #fff;
+}
+
+.mg-row-even > .mg-cell-pinned {
+	background: #fafafa;
+}
+
+.mg-row:hover > .mg-cell-pinned {
+	background: #f5f5f5;
+}
+
+.mg-row-active > .mg-cell-pinned {
+	background: #f3f3f3;
+}
+
+.mg-cell-pinned-shadow-right {
+	box-shadow: 6px 0 8px -6px rgba(0, 0, 0, 0.18);
+}
+
+.mg-cell-pinned-shadow-left {
+	box-shadow: -6px 0 8px -6px rgba(0, 0, 0, 0.18);
+}
+
 .mg-group-row > td,
 .mg-group-summary-row > td {
 	background: #fcfcfc;
@@ -640,6 +678,16 @@
 	background: #fff;
 	box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
 	z-index: 30;
+}
+
+.mg-header-menu-align-start .mg-header-menu-dropdown {
+	left: 0;
+	right: auto;
+}
+
+.mg-header-menu-align-end .mg-header-menu-dropdown {
+	left: auto;
+	right: 0;
 }
 
 .mg-cards {

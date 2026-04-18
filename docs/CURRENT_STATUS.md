@@ -115,6 +115,13 @@ The following already work in the current foundation:
 - default pinned row-actions column on the right side
 - row-actions header menu support for unpinning all data columns at once
 - automatic right/left repinning when newly visible columns extend an already pinned boundary
+- formal column width configuration via `width`, `minWidth` and `maxWidth`
+- number and CSS-string based width values
+- width constraints applied consistently to table header and body cells
+- basic column resize by drag handle in table view
+- state-backed width persistence via `columns[].width`
+- configurable minimum resize width via `table.columnResizeMinWidth`
+- non-resizeable utility columns for selection and row actions
 - basic paging with plugin UI
 - page size control via plugin
 - info display via plugin
@@ -124,7 +131,7 @@ The following already work in the current foundation:
 - zebra row parity classes also applied to inline detail rows
 - dedicated horizontal scroll container for wide table layouts
 - sticky left/right rendering for pinned table columns
-- width-based column sizing for wide table rendering
+- stable size baseline for later resize and reorder work
 - per-column text display strategies across table, card and split-detail rendering
 - ellipsis strategy with title tooltip support
 - nowrap and wrap text strategies
@@ -220,6 +227,10 @@ Wide table rendering is handled through a dedicated scroll container in the tabl
 Column pinning currently keeps the original DOM order and applies sticky positioning only at the visible boundary columns that are explicitly pinned through the header menu, while the selection and row-actions utility columns remain pinned by default.
 
 Column visibility changes are normalized so that newly shown columns cannot appear outside an already pinned left or right boundary without joining that same pinned boundary.
+
+Column width configuration is handled in the normalized column metadata and applied in the table view, which keeps sizing declarative and avoids hidden CSS-only width behavior.
+
+Basic column resizing is currently handled directly in the table view through resize handles on normal data columns, while the final width is written back into column state on mouse release.
 
 Long-text display is handled in the views through per-column rendering options, so wrapping and overflow strategy remain presentation concerns instead of becoming adapter or core logic.
 

@@ -29,7 +29,9 @@ const defaultOptions = {
 		mode: 'table'
 	},
 	table: {
-		zebraRows: true
+		zebraRows: true,
+		resizableColumns: true,
+		columnResizeMinWidth: 80
 	},
 	textDisplay: null,
 	features: {
@@ -83,7 +85,10 @@ function normalizeColumns(columns) {
 			label: column.label || column.key || `Column ${index + 1}`,
 			visible: column.visible !== false,
 			sortable: column.sortable !== false,
-			width: column.width || null,
+			resizable: column.resizable !== false,
+			width: column.width ?? null,
+			minWidth: column.minWidth ?? null,
+			maxWidth: column.maxWidth ?? null,
 			render: column.render || null,
 			headerRender: column.headerRender || null,
 			headerMenu: column.headerMenu || null
@@ -219,6 +224,9 @@ export class ModularGrid {
 			})
 			.register('toggleTextDisplayExpanded', ({ grid }, payload) => {
 				return grid.toggleTextDisplayExpanded(payload?.key || '');
+			})
+			.register('setColumnWidth', ({ grid }, payload) => {
+				return grid.setColumnWidth(payload?.key || '', payload?.width);
 			});
 	}
 
@@ -699,6 +707,36 @@ export class ModularGrid {
 			grid: this,
 			key,
 			expanded: nextExpanded
+		});
+
+		return this;
+	}
+
+	setColumnWidth(key, width) {
+		const columnKey = String(key || '');
+		const numericWidth = Math.max(1, Math.round(Number(width) || 0));
+
+		if (!columnKey || !Number.isFinite(numericWidth) || numericWidth <= 0) {
+			return this;
+		}
+
+		this.store.setState({
+			columns: (this.store.peek().columns || []).map((column) => {
+				if (column.key !== columnKey) {
+					return column;
+				}
+
+				return {
+					...column,
+					width: numericWidth
+				};
+			})
+		});
+
+		this.events.emit('columnWidth:changed', {
+			grid: this,
+			columnKey,
+			width: numericWidth
 		});
 
 		return this;

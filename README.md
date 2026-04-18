@@ -48,6 +48,8 @@ The current code base already includes:
 - left/right column pinning via header menu
 - default pinned selection and row-actions utility columns
 - unpin-all action in the row-actions header menu
+- formal column width configuration
+- basic column resize by drag handle
 - reset plugin
 - storage plugins
 - card view
@@ -118,6 +120,78 @@ optional extra columns from the column selector
 pinned-column support
 
 The table grows to its natural content width while the outer container handles horizontal scrolling.
+
+Column width configuration
+
+Columns support formal size configuration through:
+
+width
+minWidth
+maxWidth
+
+Values can be numbers or CSS size strings.
+
+Examples:
+
+const grid = new ModularGrid('#grid', {
+	columns: [
+		{
+			key: 'id',
+			label: 'ID',
+			width: 80
+		},
+		{
+			key: 'city',
+			label: 'City',
+			width: '12rem'
+		},
+		{
+			key: 'notes',
+			label: 'Notes',
+			minWidth: 280,
+			maxWidth: 360
+		}
+	]
+});
+
+Number values are interpreted as pixels.
+
+The configured sizes are applied consistently to header and body cells, which gives the table a stable width baseline for later resize and reorder work.
+
+Column resize
+
+The table view now supports a basic resize handle on regular data columns.
+
+Current behavior:
+
+resize is available in the table view
+utility columns such as selection and row actions are not resizeable
+dragging the handle updates the rendered width immediately
+on mouse release, the final width is stored back into columns[].width
+the result is state-backed, so existing persistence for columns can keep the width
+
+Example baseline configuration:
+
+const grid = new ModularGrid('#grid', {
+	table: {
+		resizableColumns: true,
+		columnResizeMinWidth: 80
+	},
+	columns: [
+		{
+			key: 'name',
+			label: 'Name',
+			width: 220
+		},
+		{
+			key: 'notes',
+			label: 'Notes',
+			minWidth: 260
+		}
+	]
+});
+
+This step is intentionally limited to resize only. Reordering is still a separate next step.
 
 Column pinning
 

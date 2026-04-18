@@ -65,6 +65,16 @@ function dispatchClick(element) {
 	}));
 }
 
+function dispatchMouseEvent(target, type, clientX = 0, clientY = 0) {
+	target.dispatchEvent(new MouseEvent(type, {
+		bubbles: true,
+		cancelable: true,
+		view: window,
+		clientX,
+		clientY
+	}));
+}
+
 function findHeaderLabelButtonByColumnKey(container, columnKey) {
 	return container.querySelector(`.mg-header-label-button[data-mg-header-column-key="${columnKey}"]`);
 }
@@ -343,7 +353,7 @@ try {
 			{
 				key: 'city',
 				label: 'City',
-				width: 150,
+				width: '12rem',
 				headerMenu: {
 					defaultSortKey: 'city',
 					sortOptions: [
@@ -386,7 +396,8 @@ try {
 			{
 				key: 'notes',
 				label: 'Notes',
-				width: 280,
+				minWidth: 280,
+				maxWidth: 320,
 				textDisplay: 'ellipsis',
 				headerMenu: {
 					defaultSortKey: 'notes',
@@ -414,7 +425,7 @@ try {
 			{
 				key: 'trailing_note',
 				label: 'Trailing note',
-				width: 260,
+				width: '18rem',
 				visible: false,
 				textDisplay: 'ellipsis',
 				headerMenu: {
@@ -438,11 +449,69 @@ try {
 	const initialRows = Array.from(document.querySelectorAll('#test-grid tbody tr.mg-row'));
 	const selectionHeaderCell = document.querySelector('#test-grid thead .mg-selection-toggle')?.closest('th');
 	const rowActionsHeaderCellInitial = document.querySelector('#test-grid thead .mg-row-actions .mg-row-actions-trigger')?.closest('th');
+	const personHeaderCellInitial = getHeaderCell('person');
+	const cityHeaderCellInitial = getHeaderCell('city');
+	const notesHeaderCellInitial = getHeaderCell('notes');
+	const firstPersonBodyCell = document.querySelector('#test-grid tbody [data-mg-column-key="person"]');
+	const firstNotesBodyCell = document.querySelector('#test-grid tbody [data-mg-column-key="notes"]');
+	const selectionResizeHandle = selectionHeaderCell?.querySelector('.mg-column-resize-handle');
+	const rowActionsResizeHandle = rowActionsHeaderCellInitial?.querySelector('.mg-column-resize-handle');
+	const personResizeHandle = personHeaderCellInitial?.querySelector('.mg-column-resize-handle');
+	const personWidthBeforeResize = personHeaderCellInitial?.getBoundingClientRect().width || 0;
 
 	assert(!!tableScroll, 'Table view renders a horizontal scroll container');
 	assert(tableScroll.scrollWidth > tableScroll.clientWidth, 'Wide table content can overflow horizontally inside the scroll container');
 	assert(selectionHeaderCell?.classList.contains('mg-cell-pinned-left') === true, 'Selection header column is pinned left by default');
 	assert(rowActionsHeaderCellInitial?.classList.contains('mg-cell-pinned-right') === true, 'Row actions header column is pinned right by default');
+
+	const pinnedLeftHeaderRectBeforeScroll = selectionHeaderCell?.getBoundingClientRect();
+	const pinnedRightHeaderRectBeforeScroll = rowActionsHeaderCellInitial?.getBoundingClientRect();
+	const unpinnedHeaderRectBeforeScroll = cityHeaderCellInitial?.getBoundingClientRect();
+
+	tableScroll.scrollLeft = 180;
+	await settleFrames(2);
+
+	const pinnedLeftHeaderRectAfterScroll = selectionHeaderCell?.getBoundingClientRect();
+	const pinnedRightHeaderRectAfterScroll = rowActionsHeaderCellInitial?.getBoundingClientRect();
+	const unpinnedHeaderRectAfterScroll = cityHeaderCellInitial?.getBoundingClientRect();
+
+	assert(
+		Math.abs((pinnedLeftHeaderRectAfterScroll?.left || 0) - (pinnedLeftHeaderRectBeforeScroll?.left || 0)) < 2,
+		'Pinned left header cell stays fixed during horizontal scroll'
+	);
+	assert(
+		Math.abs((pinnedRightHeaderRectAfterScroll?.right || 0) - (pinnedRightHeaderRectBeforeScroll?.right || 0)) < 2,
+		'Pinned right header cell stays fixed during horizontal scroll'
+	);
+	assert(
+		(unpinnedHeaderRectAfterScroll?.left || 0) < (unpinnedHeaderRectBeforeScroll?.left || 0) - 40,
+		'Unpinned header cells continue to scroll horizontally'
+	);
+
+	tableScroll.scrollLeft = 0;
+	await settleFrames(2);
+
+	assert(personHeaderCellInitial?.style.width === '240px', 'Numeric column width configuration is applied to the header cell');
+	assert(personHeaderCellInitial?.style.minWidth === '240px', 'Numeric column width configuration also applies a matching header min-width');
+	assert(cityHeaderCellInitial?.style.width === '12rem', 'String based column width configuration is applied to the header cell');
+	assert(notesHeaderCellInitial?.style.minWidth === '280px', 'Column minWidth configuration is applied to the header cell');
+	assert(notesHeaderCellInitial?.style.maxWidth === '320px', 'Column maxWidth configuration is applied to the header cell');
+	assert(firstPersonBodyCell?.style.width === '240px', 'Numeric column width configuration is also applied to body cells');
+	assert(firstNotesBodyCell?.style.minWidth === '280px', 'Column minWidth configuration is also applied to body cells');
+	assert(firstNotesBodyCell?.style.maxWidth === '320px', 'Column maxWidth configuration is also applied to body cells');
+	assert(!selectionResizeHandle, 'Selection utility column does not render a resize handle');
+	assert(!rowActionsResizeHandle, 'Row actions utility column does not render a resize handle');
+	assert(!!personResizeHandle, 'Regular data columns render a resize handle');
+
+	dispatchMouseEvent(personResizeHandle, 'mousedown', 400, 10);
+	dispatchMouseEvent(window, 'mousemove', 460, 10);
+	dispatchMouseEvent(window, 'mouseup', 460, 10);
+	await settleFrames(2);
+
+	const resizedPersonWidth = grid.getState().columns.find((column) => column.key === 'person').width;
+	assert(resizedPersonWidth > personWidthBeforeResize, 'Dragging the resize handle updates the stored column width');
+	assert(getHeaderCell('person')?.style.width === `${resizedPersonWidth}px`, 'Resized column width is applied again after rerender');
+
 	assert(document.querySelectorAll('#test-grid tbody tr.mg-row').length === 2, 'First grid renders first page with 2 data rows');
 	assert(initialRows[0]?.classList.contains('mg-row-odd') === true, 'First visible table row gets the odd zebra class');
 	assert(initialRows[1]?.classList.contains('mg-row-even') === true, 'Second visible table row gets the even zebra class');
@@ -590,6 +659,7 @@ try {
 	assert(grid.getState().columns.find((column) => column.key === 'trailing_note').visible === true, 'Row-actions header menu can reveal a hidden trailing column');
 	assert(grid.getState().columns.find((column) => column.key === 'trailing_note').pinned === 'right', 'A newly visible column further right than the current pinned-right boundary is auto-pinned right');
 	assert(document.querySelector('#test-grid thead [data-mg-column-key="trailing_note"]')?.classList.contains('mg-cell-pinned-right') === true, 'Auto-pinned trailing header cell receives the sticky right class');
+	assert(getHeaderCell('trailing_note')?.style.width === '18rem', 'String based width configuration also works for newly shown columns');
 
 	rowActionsHeaderTrigger = document.querySelector('#test-grid thead .mg-row-actions .mg-row-actions-trigger');
 	dispatchClick(rowActionsHeaderTrigger);
@@ -736,8 +806,8 @@ try {
 			zebraRows: false
 		},
 		columns: [
-			{ key: 'id', label: 'ID' },
-			{ key: 'title', label: 'Title' }
+			{ key: 'id', label: 'ID', width: 80 },
+			{ key: 'title', label: 'Title', minWidth: 180 }
 		]
 	});
 
@@ -745,8 +815,14 @@ try {
 	await settleFrames(2);
 
 	const secondGridRow = document.querySelector('#second-grid tbody tr.mg-row');
+	const secondGridIdHeaderCell = document.querySelector('#second-grid thead [data-mg-column-key="id"]');
+	const secondGridTitleHeaderCell = document.querySelector('#second-grid thead [data-mg-column-key="title"]');
+	const secondGridIdResizeHandle = secondGridIdHeaderCell?.querySelector('.mg-column-resize-handle');
 
 	assert(document.querySelectorAll('.mg-table').length >= 2, 'Two independent grid instances can exist on one page');
+	assert(secondGridIdHeaderCell?.style.width === '80px', 'Column width configuration also works on a second independent grid instance');
+	assert(secondGridTitleHeaderCell?.style.minWidth === '180px', 'Column minWidth configuration also works on a second independent grid instance');
+	assert(!!secondGridIdResizeHandle, 'Resize handles also render on a second independent grid instance');
 	assert(
 		secondGridRow &&
 		!secondGridRow.classList.contains('mg-row-odd') &&

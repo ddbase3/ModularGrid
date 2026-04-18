@@ -7,8 +7,17 @@ function resolveOptions(context) {
 		buttonLabel: '⋯',
 		menuClassName: '',
 		items: [],
+		headerMenu: {
+			enabled: false,
+			buttonLabel: '⋯',
+			items: []
+		},
 		...context.getPluginOptions('rowActions')
 	};
+}
+
+function isUtilityColumn(column) {
+	return !column?.label || String(column.key || '').startsWith('__mg_');
 }
 
 function buildActionContext(context, action, row, event = null) {
@@ -129,6 +138,175 @@ function createMenu(row, context, options) {
 	return details;
 }
 
+function renderColumnVisibilitySection(context, item, details) {
+	const wrapper = document.createElement('div');
+	wrapper.className = 'mg-row-actions-header-section';
+
+	if (item.label) {
+		const title = document.createElement('div');
+		title.className = 'mg-row-actions-header-title';
+		title.textContent = item.label;
+		wrapper.appendChild(title);
+	}
+
+	const list = document.createElement('div');
+	list.className = 'mg-checkbox-list';
+
+	(context.peekState().columns || [])
+		.filter((column) => !isUtilityColumn(column))
+		.forEach((column) => {
+			const row = document.createElement('label');
+			row.className = 'mg-checkbox-row';
+
+			const input = document.createElement('input');
+			input.type = 'checkbox';
+			input.checked = column.visible !== false;
+
+			input.addEventListener('change', () => {
+				const columns = context.peekState().columns || [];
+
+				context.setState({
+					columns: columns.map((entry) => {
+						if (entry.key !== column.key) {
+							return entry;
+						}
+
+						return {
+							...entry,
+							visible: input.checked
+						};
+					})
+				});
+			});
+
+			const text = document.createElement('span');
+			text.textContent = column.label || column.key;
+
+			row.appendChild(input);
+			row.appendChild(text);
+			list.appendChild(row);
+		});
+
+	wrapper.appendChild(list);
+
+	if (item.showReset !== false) {
+		const actions = document.createElement('div');
+		actions.className = 'mg-inline-buttons mg-row-actions-header-actions';
+
+		const resetButton = document.createElement('button');
+		resetButton.type = 'button';
+		resetButton.className = 'mg-button mg-row-actions-header-reset';
+		resetButton.textContent = item.resetLabel || 'Reset columns';
+
+		resetButton.addEventListener('click', () => {
+			context.setState({
+				columns: (context.peekState().columns || []).map((column) => {
+					if (isUtilityColumn(column)) {
+						return column;
+					}
+
+					return {
+						...column,
+						visible: true
+					};
+				})
+			});
+
+			if (details) {
+				details.open = false;
+			}
+		});
+
+		actions.appendChild(resetButton);
+		wrapper.appendChild(actions);
+	}
+
+	return wrapper;
+}
+
+function renderHeaderMenuItem(context, item, details) {
+	if (!item || typeof item !== 'object') {
+		return null;
+	}
+
+	if (item.type === 'columnVisibility') {
+		return renderColumnVisibilitySection(context, item, details);
+	}
+
+	const button = document.createElement('button');
+	button.type = 'button';
+	button.className = 'mg-header-menu-action';
+	button.textContent = item.label || item.key || 'Action';
+	button.disabled = item.disabled === true;
+
+	button.addEventListener('click', () => {
+		if (typeof item.onClick === 'function') {
+			item.onClick({
+				grid: context.grid,
+				context,
+				item
+			});
+		}
+
+		if (typeof item.command === 'string') {
+			context.execute(item.command, {
+				item
+			});
+		}
+
+		if (details) {
+			details.open = false;
+		}
+	});
+
+	return button;
+}
+
+function createHeaderMenu(context, options) {
+	const headerMenu = options.headerMenu || {};
+
+	if (headerMenu.enabled !== true) {
+		return '';
+	}
+
+	const items = Array.isArray(headerMenu.items) ? headerMenu.items : [];
+
+	if (items.length === 0) {
+		return '';
+	}
+
+	const details = document.createElement('details');
+	details.className = 'mg-dropdown mg-row-actions';
+
+	details.addEventListener('click', (event) => {
+		event.stopPropagation();
+	});
+
+	const summary = document.createElement('summary');
+	summary.className = 'mg-button mg-dropdown-summary mg-row-actions-trigger';
+	summary.textContent = headerMenu.buttonLabel || options.buttonLabel;
+
+	const menu = document.createElement('div');
+	menu.className = 'mg-dropdown-menu mg-row-actions-menu';
+
+	const list = document.createElement('div');
+	list.className = 'mg-row-actions-list';
+
+	items.forEach((item) => {
+		const element = renderHeaderMenuItem(context, item, details);
+
+		if (element) {
+			list.appendChild(element);
+		}
+	});
+
+	menu.appendChild(list);
+	details.appendChild(summary);
+	details.appendChild(menu);
+
+	return details;
+}
+
 export const RowActionsPlugin = {
 	name: 'rowActions',
 
@@ -171,8 +349,9 @@ export const RowActionsPlugin = {
 		const options = resolveOptions(context);
 		const hasStaticItems = Array.isArray(options.items) && options.items.length > 0;
 		const hasDynamicItems = typeof options.items === 'function';
+		const hasHeaderMenu = options.headerMenu?.enabled === true;
 
-		if (!hasStaticItems && !hasDynamicItems) {
+		if (!hasStaticItems && !hasDynamicItems && !hasHeaderMenu) {
 			return [];
 		}
 
@@ -186,7 +365,9 @@ export const RowActionsPlugin = {
 					sortable: false,
 					visible: true,
 					width: options.columnWidth,
-					headerRender: () => '',
+					headerRender: () => {
+						return createHeaderMenu(context, options);
+					},
 					render: (value, row) => {
 						return createMenu(row, context, options);
 					}

@@ -5,6 +5,7 @@ import {
 	ColumnVisibilityPlugin,
 	ExportPlugin,
 	FiltersPlugin,
+	GroupingPlugin,
 	HeaderMenuPlugin,
 	InfoPlugin,
 	ModularGrid,
@@ -28,9 +29,15 @@ const SORT_TYPES = {
 	id: 'int',
 	firstname: 'string',
 	lastname: 'string',
+	email: 'string',
+	street: 'string',
+	housenumber: 'string',
+	zipcode: 'string',
 	city: 'string',
+	country: 'string',
 	status: 'string',
 	category: 'string',
+	is_verified: 'bool',
 	score: 'int',
 	amount: 'decimal',
 	rating: 'float',
@@ -44,25 +51,14 @@ const layout = {
 	className: 'mg-layout-root',
 	children: [
 		{
-			type: 'row',
-			className: 'workspace-top-row',
-			children: [
-				{
-					type: 'zone',
-					key: 'controlsZone',
-					className: 'workspace-panel workspace-panel--controls'
-				},
-				{
-					type: 'zone',
-					key: 'viewZone',
-					className: 'workspace-panel workspace-panel--views'
-				},
-				{
-					type: 'zone',
-					key: 'actionsZone',
-					className: 'workspace-panel workspace-panel--actions'
-				}
-			]
+			type: 'zone',
+			key: 'topLine1',
+			className: 'workspace-panel workspace-panel--top-line-1'
+		},
+		{
+			type: 'zone',
+			key: 'topLine2',
+			className: 'workspace-panel workspace-panel--top-line-2'
 		},
 		{
 			type: 'view',
@@ -147,27 +143,20 @@ function formatCurrency(value) {
 	}).format(number);
 }
 
-function renderStatus(value, row) {
-	const wrapper = document.createElement('div');
-	wrapper.className = 'demo-pill-row';
+function formatNumber(value, maximumFractionDigits = 0) {
+	if (value === null || value === undefined || value === '') {
+		return '—';
+	}
 
-	const status = document.createElement('span');
-	status.className = 'demo-pill demo-pill-strong';
-	status.textContent = getText(value);
+	const number = Number(value);
 
-	const category = document.createElement('span');
-	category.className = 'demo-pill';
-	category.textContent = getText(row.category);
+	if (Number.isNaN(number)) {
+		return String(value);
+	}
 
-	const verified = document.createElement('span');
-	verified.className = 'demo-pill';
-	verified.textContent = row.is_verified ? 'Verified' : 'Unverified';
-
-	wrapper.appendChild(status);
-	wrapper.appendChild(category);
-	wrapper.appendChild(verified);
-
-	return wrapper;
+	return new Intl.NumberFormat(undefined, {
+		maximumFractionDigits
+	}).format(number);
 }
 
 function renderPerson(value, row) {
@@ -188,6 +177,51 @@ function renderPerson(value, row) {
 	return wrapper;
 }
 
+function renderStatus(value, row) {
+	const wrapper = document.createElement('div');
+	wrapper.className = 'demo-cell-stack';
+
+	const pills = document.createElement('div');
+	pills.className = 'demo-pill-row';
+
+	const status = document.createElement('span');
+	status.className = 'demo-pill demo-pill-strong';
+	status.textContent = getText(row.status);
+
+	const category = document.createElement('span');
+	category.className = 'demo-pill';
+	category.textContent = getText(row.category);
+
+	const verified = document.createElement('span');
+	verified.className = 'demo-pill';
+	verified.textContent = row.is_verified ? 'Verified' : 'Unverified';
+
+	pills.appendChild(status);
+	pills.appendChild(category);
+	pills.appendChild(verified);
+
+	wrapper.appendChild(pills);
+	return wrapper;
+}
+
+function renderMetrics(value, row) {
+	const wrapper = document.createElement('div');
+	wrapper.className = 'demo-cell-stack';
+
+	const main = document.createElement('div');
+	main.className = 'demo-cell-main';
+	main.textContent = formatCurrency(row.amount);
+
+	const sub = document.createElement('div');
+	sub.className = 'demo-cell-sub';
+	sub.textContent = `Score ${formatNumber(row.score)} · Rating ${formatNumber(row.rating, 1)}`;
+
+	wrapper.appendChild(main);
+	wrapper.appendChild(sub);
+
+	return wrapper;
+}
+
 function renderActivity(value, row) {
 	const wrapper = document.createElement('div');
 	wrapper.className = 'demo-cell-stack';
@@ -198,7 +232,7 @@ function renderActivity(value, row) {
 
 	const sub = document.createElement('div');
 	sub.className = 'demo-cell-sub';
-	sub.textContent = `Login ${formatDateTime(row.last_login)}`;
+	sub.textContent = `Created ${formatDateTime(row.created)} · Login ${formatDateTime(row.last_login)}`;
 
 	wrapper.appendChild(main);
 	wrapper.appendChild(sub);
@@ -271,6 +305,7 @@ grid = new ModularGrid('#extended-ajax-grid', {
 	plugins: [
 		SearchPlugin,
 		FiltersPlugin,
+		GroupingPlugin,
 		HeaderMenuPlugin,
 		PageSizePlugin,
 		InfoPlugin,
@@ -291,13 +326,13 @@ grid = new ModularGrid('#extended-ajax-grid', {
 	],
 	pluginOptions: {
 		search: {
-			zone: 'controlsZone',
+			zone: 'topLine1',
 			order: 10,
 			label: 'Search',
 			placeholder: 'Search all server fields'
 		},
 		filters: {
-			zone: 'controlsZone',
+			zone: 'topLine1',
 			order: 20,
 			stateKey: 'filters',
 			showClearButton: true,
@@ -343,13 +378,53 @@ grid = new ModularGrid('#extended-ajax-grid', {
 				}
 			]
 		},
+		grouping: {
+			zone: 'topLine1',
+			order: 30,
+			label: 'Group by',
+			clearLabel: 'No grouping',
+			fields: [
+				{ key: 'status', label: 'Status' },
+				{ key: 'category', label: 'Category' },
+				{ key: 'city', label: 'City' },
+				{
+					key: 'is_verified',
+					label: 'Verified',
+					valueFormatter(value) {
+						return value ? 'Yes' : 'No';
+					}
+				}
+			],
+			summary: {
+				enabled: true,
+				metrics: [
+					{
+						type: 'count',
+						label: 'Rows'
+					},
+					{
+						key: 'amount',
+						type: 'sum',
+						label: 'Amount',
+						format: 'currency',
+						decimals: 2
+					},
+					{
+						key: 'score',
+						type: 'avg',
+						label: 'Avg score',
+						decimals: 1
+					}
+				]
+			}
+		},
 		headerMenu: {
 			showSortActions: true,
 			showClearSortAction: true,
 			showHideColumnAction: true
 		},
 		viewSwitcher: {
-			zone: 'viewZone',
+			zone: 'topLine2',
 			order: 10,
 			include: ['table', 'cards', 'split'],
 			labels: {
@@ -359,8 +434,8 @@ grid = new ModularGrid('#extended-ajax-grid', {
 			}
 		},
 		bulkActions: {
-			zone: 'actionsZone',
-			order: 5,
+			zone: 'topLine2',
+			order: 20,
 			items: [
 				{
 					key: 'inspect-selection',
@@ -377,13 +452,13 @@ grid = new ModularGrid('#extended-ajax-grid', {
 			]
 		},
 		pageSize: {
-			zone: 'actionsZone',
-			order: 10,
+			zone: 'topLine2',
+			order: 30,
 			label: 'Rows'
 		},
 		export: {
-			zone: 'actionsZone',
-			order: 20,
+			zone: 'topLine2',
+			order: 40,
 			fileName: 'modulargrid-multifunction',
 			actions: [
 				{
@@ -401,19 +476,17 @@ grid = new ModularGrid('#extended-ajax-grid', {
 			]
 		},
 		columnVisibility: {
-			zone: 'actionsZone',
-			order: 30,
-			buttonLabel: 'Columns'
+			zone: ''
 		},
 		reset: {
-			zone: 'actionsZone',
-			order: 40,
+			zone: 'topLine2',
+			order: 50,
 			label: 'Reset',
-			sections: ['query', 'filters', 'columns', 'selection', 'view', 'detailView', 'splitDetailView']
+			sections: ['query', 'filters', 'grouping', 'columns', 'selection', 'view', 'detailView', 'splitDetailView']
 		},
 		sessionStorage: {
 			key: 'modulargrid-demo-multifunction-ajax',
-			sections: ['query', 'filters', 'columns', 'selection', 'view', 'detailView', 'splitDetailView']
+			sections: ['query', 'filters', 'grouping', 'columns', 'selection', 'view', 'detailView', 'splitDetailView']
 		},
 		info: {
 			zone: 'statusZone',
@@ -444,6 +517,18 @@ grid = new ModularGrid('#extended-ajax-grid', {
 			]
 		},
 		rowActions: {
+			headerMenu: {
+				enabled: true,
+				buttonLabel: '⋯',
+				items: [
+					{
+						type: 'columnVisibility',
+						label: 'Columns',
+						showReset: true,
+						resetLabel: 'Reset columns'
+					}
+				]
+			},
 			items: [
 				{
 					key: 'open',
@@ -483,46 +568,80 @@ grid = new ModularGrid('#extended-ajax-grid', {
 	},
 	columns: [
 		{
-			key: 'firstname',
+			key: 'person',
 			label: 'Person',
+			headerMenu: {
+				defaultSortKey: 'lastname',
+				defaultSortDirection: 'asc',
+				sortOptions: [
+					{ key: 'lastname', label: 'Last name' },
+					{ key: 'firstname', label: 'First name' },
+					{ key: 'email', label: 'Email' }
+				]
+			},
 			render(value, row) {
 				return renderPerson(value, row);
 			}
 		},
-		{ key: 'lastname', label: 'Last name', visible: false },
-		{ key: 'city', label: 'City' },
 		{
-			key: 'status',
+			key: 'city',
+			label: 'City',
+			headerMenu: {
+				defaultSortKey: 'city',
+				defaultSortDirection: 'asc',
+				sortOptions: [
+					{ key: 'city', label: 'City' }
+				]
+			}
+		},
+		{
+			key: 'status_display',
 			label: 'Status',
+			headerMenu: {
+				defaultSortKey: 'status',
+				defaultSortDirection: 'asc',
+				sortOptions: [
+					{ key: 'status', label: 'Status' },
+					{ key: 'category', label: 'Category' },
+					{ key: 'is_verified', label: 'Verified' }
+				]
+			},
 			render(value, row) {
 				return renderStatus(value, row);
 			}
 		},
-		{ key: 'category', label: 'Category', visible: false },
-		{ key: 'score', label: 'Score' },
 		{
-			key: 'amount',
-			label: 'Amount',
-			render(value) {
-				return formatCurrency(value);
+			key: 'metrics',
+			label: 'Metrics',
+			headerMenu: {
+				defaultSortKey: 'amount',
+				defaultSortDirection: 'desc',
+				sortOptions: [
+					{ key: 'amount', label: 'Amount' },
+					{ key: 'score', label: 'Score' },
+					{ key: 'rating', label: 'Rating' }
+				]
+			},
+			render(value, row) {
+				return renderMetrics(value, row);
 			}
 		},
 		{
-			key: 'changed',
-			label: 'Changed',
+			key: 'activity',
+			label: 'Activity',
+			headerMenu: {
+				defaultSortKey: 'changed',
+				defaultSortDirection: 'desc',
+				sortOptions: [
+					{ key: 'changed', label: 'Changed' },
+					{ key: 'created', label: 'Created' },
+					{ key: 'last_login', label: 'Last login' }
+				]
+			},
 			render(value, row) {
 				return renderActivity(value, row);
 			}
-		},
-		{
-			key: 'is_verified',
-			label: 'Verified',
-			render(value) {
-				return value ? 'Yes' : 'No';
-			}
-		},
-		{ key: 'email', label: 'Email', visible: false },
-		{ key: 'phone', label: 'Phone', visible: false }
+		}
 	]
 });
 
@@ -532,6 +651,10 @@ grid.on('export:created', ({ format, scope, rowCount, fileName }) => {
 
 grid.on('bulkAction:run', ({ selectedRowIds }) => {
 	setLog(`Bulk action on IDs: ${selectedRowIds.join(', ') || 'none'}`);
+});
+
+grid.on('grouping:changed', ({ key }) => {
+	setLog(`Grouping changed to ${key || 'none'}`);
 });
 
 await grid.init();

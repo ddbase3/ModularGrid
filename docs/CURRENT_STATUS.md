@@ -63,6 +63,7 @@ The current code base already contains:
 - `src/plugins/createStorageStatePlugin.js`
 - `src/plugins/SearchPlugin.js`
 - `src/plugins/FiltersPlugin.js`
+- `src/plugins/GroupingPlugin.js`
 - `src/plugins/HeaderMenuPlugin.js`
 - `src/plugins/PageSizePlugin.js`
 - `src/plugins/InfoPlugin.js`
@@ -87,6 +88,7 @@ The current code base already contains:
 - `src/utils/dom.js`
 - `src/utils/object.js`
 - `src/utils/rowDetail.js`
+- `src/utils/summary.js`
 
 ### Styles
 
@@ -101,13 +103,16 @@ The following already work in the current foundation:
 - html table adapter
 - basic search via plugin
 - configurable external filters via plugin
+- configurable grouping via plugin
 - search input focus is preserved across rerenders
 - basic sorting
-- header menu with sort and hide-column actions
+- header menu with configurable sort options per column
+- direct header label sorting with configurable default sort field
 - basic paging with plugin UI
 - page size control via plugin
 - info display via plugin
 - summary metrics via plugin
+- group summary rendering in table view
 - reset via plugin
 - storage abstraction for browser storage-backed persistence
 - local storage state persistence via plugin
@@ -116,6 +121,7 @@ The following already work in the current foundation:
 - plugin-driven checkbox column
 - row actions via plugin
 - plugin-driven action column
+- row-actions header menu for column visibility controls
 - bulk action toolbar via plugin
 - export actions via plugin
 - column visibility plugin
@@ -155,7 +161,7 @@ The repo currently includes demos for:
 - row actions plugin
 - modern layout with session storage
 - responsive cards and split detail demo
-- multifunction ajax demo with plugin-driven search, filters, header menus, selection, row actions, bulk actions, export, summaries, row details and multiple views
+- multifunction ajax demo with plugin-driven search, filters, grouping, header menus, selection, row actions, bulk actions, export, summaries, row details and multiple views
 
 ## Current architectural direction
 
@@ -186,7 +192,7 @@ The core now supports a dedicated `dataMode: 'server'` strategy for adapter-back
 
 Shared row-detail behavior is plugin-driven and view-integrated, not hardcoded as a one-off demo behavior.
 
-Filters, header menus, export, summaries and bulk actions are plugin-driven and can be composed through configuration without additional core work.
+Filters, grouping, header menus, export, summaries and bulk actions are plugin-driven and can be composed through configuration without additional core work.
 
 ## Current known design intent
 
@@ -195,6 +201,8 @@ The core should remain small and stable.
 The following should preferably be implemented as plugins instead of expanding the core:
 
 - search/filter UI
+- grouping UI
+- group summaries
 - header menus
 - column visibility
 - reset
@@ -205,7 +213,6 @@ The following should preferably be implemented as plugins instead of expanding t
 - summaries
 - row detail behavior
 - storage
-- grouping
 - responsive cards
 - charts
 - advanced filters

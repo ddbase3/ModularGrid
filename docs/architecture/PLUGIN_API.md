@@ -142,6 +142,7 @@ selection
 splitDetailView
 detailView
 filters
+grouping
 
 This is important because server-mode grids may watch additional top-level state keys and reload when those keys change.
 
@@ -183,6 +184,11 @@ classic table
 cards
 split detail
 chart view
+
+Important note:
+
+Feature-specific rendering extensions such as grouped rows or group summary rows may be implemented in the relevant view while still being controlled by plugin-owned state and plugin options.
+
 Responsive view behavior
 
 A plugin may react to width or resize changes and switch the active view through commands.
@@ -215,6 +221,7 @@ Good examples:
 
 search
 filters
+grouping
 header menu
 page size
 paging
@@ -232,7 +239,6 @@ split detail view
 view switcher
 responsive view switching
 storage
-grouping
 Plugin options
 
 Plugin options should live under:
@@ -246,6 +252,7 @@ Example usage
 import {
 	CardViewPlugin,
 	FiltersPlugin,
+	GroupingPlugin,
 	HeaderMenuPlugin,
 	ModularGrid,
 	ResponsiveViewPlugin,
@@ -257,6 +264,7 @@ const grid = new ModularGrid('#grid', {
 	adapter,
 	plugins: [
 		FiltersPlugin,
+		GroupingPlugin,
 		HeaderMenuPlugin,
 		CardViewPlugin,
 		ViewSwitcherPlugin,
@@ -275,6 +283,12 @@ const grid = new ModularGrid('#grid', {
 						{ value: 'active', label: 'Active' }
 					]
 				}
+			]
+		},
+		grouping: {
+			zone: 'toolbar',
+			fields: [
+				{ key: 'status', label: 'Status' }
 			]
 		},
 		responsiveView: {

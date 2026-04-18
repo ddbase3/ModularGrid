@@ -31,33 +31,18 @@
 			max-width: 1500px;
 		}
 
-		.workspace-top-row,
-		.workspace-bottom-row {
-			display: grid;
-			gap: 10px;
-			align-items: stretch;
-		}
-
-		.workspace-top-row {
-			grid-template-columns: minmax(0, 1.8fr) auto minmax(0, 1.3fr);
-		}
-
-		.workspace-bottom-row {
-			grid-template-columns: minmax(0, 1fr) auto;
-		}
-
 		.workspace-panel {
 			display: flex;
 			align-items: center;
 			flex-wrap: nowrap;
 			gap: 8px;
 			min-width: 0;
+			width: 100%;
 			padding: 8px 10px;
 			border: 1px solid #e2e2e2;
 			border-radius: 8px;
 			background: #fff;
 			overflow-x: auto;
-			scrollbar-width: thin;
 		}
 
 		.workspace-panel > * {
@@ -178,13 +163,6 @@
 			color: #222;
 		}
 
-		@media (max-width: 1100px) {
-			.workspace-top-row,
-			.workspace-bottom-row {
-				grid-template-columns: 1fr;
-			}
-		}
-
 		@media (max-width: 720px) {
 			body {
 				margin: 12px;
@@ -201,8 +179,9 @@
 		<h1>ModularGrid - Multifunction Ajax Workbench</h1>
 		<p>
 			This demo keeps the ajax source and composes the grid mainly through plugins and configuration:
-			search, filters, header menus, paging, page size, info, summaries, selection, row actions, bulk actions,
-			export, column visibility, reset, row detail, table/cards/split views, responsive switching and state persistence.
+			search, filters, grouping, header menus, paging, page size, info, summaries, selection, row actions,
+			bulk actions, export, column visibility, reset, row detail, table/cards/split views, responsive switching
+			and state persistence.
 		</p>
 
 		<div class="workspace-grid">

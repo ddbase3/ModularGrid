@@ -74,13 +74,15 @@ function inferColumnsFromRow(row) {
 function normalizeColumns(columns) {
 	return (columns || []).map((column, index) => {
 		return {
+			...column,
 			key: column.key || `col_${index}`,
 			label: column.label || column.key || `Column ${index + 1}`,
 			visible: column.visible !== false,
 			sortable: column.sortable !== false,
 			width: column.width || null,
 			render: column.render || null,
-			headerRender: column.headerRender || null
+			headerRender: column.headerRender || null,
+			headerMenu: column.headerMenu || null
 		};
 	});
 }

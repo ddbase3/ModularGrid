@@ -62,8 +62,8 @@ It is based on the originally requested feature set, translated into a more stru
 - [~] Formal row renderer extension point
 - [ ] Formal header row renderer extension point
 - [ ] Formal filter row renderer extension point
-- [ ] Formal group row renderer extension point
-- [ ] Formal summary row renderer extension point
+- [x] Formal group row renderer extension point
+- [x] Formal summary row renderer extension point
 - [ ] Renderer registry instead of ad-hoc render callbacks
 
 ---
@@ -93,7 +93,7 @@ It is based on the originally requested feature set, translated into a more stru
 - [ ] Date sorting strategy
 - [ ] Datetime sorting strategy
 - [ ] Boolean sorting strategy
-- [ ] Custom sort strategy support
+- [x] Custom sort strategy support
 
 ---
 
@@ -139,12 +139,12 @@ It is based on the originally requested feature set, translated into a more stru
 
 # 9. Grouping and hierarchical display
 
-- [ ] Grouping plugin
-- [ ] Group by one field
+- [x] Grouping plugin
+- [x] Group by one field
 - [ ] Group by multiple fields
 - [ ] Aggregate other fields automatically
 - [ ] Expand / collapse groups
-- [ ] Group summary rendering
+- [x] Group summary rendering
 - [ ] Custom aggregation strategies
 
 ---
@@ -199,6 +199,7 @@ It is based on the originally requested feature set, translated into a more stru
 - [~] Persisted view mode
 - [~] Persisted split detail state
 - [~] Persisted shared row detail state
+- [~] Persisted grouping state
 - [ ] Persisted layout/view settings
 - [ ] Saved named grid configurations
 
@@ -253,7 +254,7 @@ It is based on the originally requested feature set, translated into a more stru
 - [x] Reset plugin
 - [x] Reset filters
 - [x] Reset sorting
-- [ ] Reset grouping
+- [x] Reset grouping
 - [x] Reset column visibility
 - [~] Reset complete grid state
 
@@ -291,8 +292,9 @@ It is based on the originally requested feature set, translated into a more stru
 - [x] Smoke coverage for bulk actions
 - [x] Smoke coverage for export events
 - [x] Smoke coverage for filters plugin
-- [x] Smoke coverage for header menu sort action
-- [ ] Grouping demo
+- [x] Smoke coverage for header menu sort actions
+- [x] Smoke coverage for grouping plugin
+- [x] Smoke coverage for group summary rendering
 - [ ] Export demo
 
 ---
@@ -301,8 +303,8 @@ It is based on the originally requested feature set, translated into a more stru
 
 The next good steps are:
 
-1. grouping
-2. header filter row
+1. header filter row
+2. grouping expansion and collapse
 3. export refinement for filtered/all rows
 4. ajax/database storage adapter
 5. responsive mobile card refinement

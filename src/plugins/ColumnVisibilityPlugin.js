@@ -1,44 +1,46 @@
 function resolveOptions(context) {
 	return {
-		zone: 'toolbar',
-		order: 100,
+		zone: 'actions',
+		order: 20,
 		buttonLabel: 'Columns',
 		showShowAllButton: true,
 		showHideAllButton: true,
+		showResetButton: false,
+		resetLabel: 'Reset',
+		showAllLabel: 'Show all',
+		hideAllLabel: 'Hide all',
 		...context.getPluginOptions('columnVisibility')
 	};
 }
 
-function updateColumns(context, mapper) {
-	const state = context.grid.store.peek();
-	const nextColumns = state.columns.map((column) => {
-		return mapper(column);
-	});
+function isUtilityColumn(column) {
+	return !column?.label || String(column.key || '').startsWith('__mg_');
+}
 
-	context.grid.store.setState({
-		columns: nextColumns
-	});
+function updateColumns(context, updater) {
+	const columns = context.peekState().columns || [];
 
-	context.grid.events.emit('columns:changed', {
-		grid: context.grid,
-		columns: nextColumns
+	context.setState({
+		columns: columns.map((column) => {
+			return updater({
+				...column
+			});
+		})
 	});
 
 	return context.grid;
 }
 
-function createButton(label, clickHandler) {
-	const button = document.createElement('button');
-	button.type = 'button';
-	button.className = 'mg-button';
-	button.textContent = label;
-	button.addEventListener('click', clickHandler);
-	return button;
-}
+function renderColumnMenu(context, options) {
+	const state = context.peekState();
+	const columns = (state.columns || []).filter((column) => !isUtilityColumn(column));
 
-function renderColumnMenu(context, viewModel, options) {
-	const wrapper = document.createElement('details');
-	wrapper.className = 'mg-dropdown mg-column-visibility';
+	if (columns.length === 0) {
+		return null;
+	}
+
+	const details = document.createElement('details');
+	details.className = 'mg-dropdown mg-column-visibility';
 
 	const summary = document.createElement('summary');
 	summary.className = 'mg-button mg-dropdown-summary';
@@ -47,86 +49,100 @@ function renderColumnMenu(context, viewModel, options) {
 	const menu = document.createElement('div');
 	menu.className = 'mg-dropdown-menu';
 
-	if (options.showShowAllButton || options.showHideAllButton) {
-		const actions = document.createElement('div');
-		actions.className = 'mg-inline-buttons';
-
-		if (options.showShowAllButton) {
-			actions.appendChild(createButton('Show all', () => {
-				context.execute('showAllColumns');
-			}));
-		}
-
-		if (options.showHideAllButton) {
-			actions.appendChild(createButton('Hide all', () => {
-				context.execute('hideAllColumns');
-			}));
-		}
-
-		menu.appendChild(actions);
-	}
-
 	const list = document.createElement('div');
 	list.className = 'mg-checkbox-list';
 
-	viewModel.columns.forEach((column) => {
-		const label = document.createElement('label');
-		label.className = 'mg-checkbox-row';
+	columns.forEach((column) => {
+		const row = document.createElement('label');
+		row.className = 'mg-checkbox-row';
 
 		const input = document.createElement('input');
 		input.type = 'checkbox';
 		input.checked = column.visible !== false;
 
 		input.addEventListener('change', () => {
-			context.execute('setColumnVisibility', {
-				key: column.key,
-				visible: input.checked
+			context.execute('toggleColumnVisibility', {
+				key: column.key
 			});
 		});
 
 		const text = document.createElement('span');
-		text.textContent = column.label;
+		text.textContent = column.label || column.key;
 
-		label.appendChild(input);
-		label.appendChild(text);
-		list.appendChild(label);
+		row.appendChild(input);
+		row.appendChild(text);
+		list.appendChild(row);
 	});
 
 	menu.appendChild(list);
-	wrapper.appendChild(summary);
-	wrapper.appendChild(menu);
 
-	return wrapper;
+	if (options.showShowAllButton || options.showHideAllButton || options.showResetButton) {
+		const actions = document.createElement('div');
+		actions.className = 'mg-inline-buttons mg-column-visibility-actions';
+
+		if (options.showShowAllButton) {
+			const showAllButton = document.createElement('button');
+			showAllButton.type = 'button';
+			showAllButton.className = 'mg-button';
+			showAllButton.textContent = options.showAllLabel;
+
+			showAllButton.addEventListener('click', () => {
+				context.execute('showAllColumns');
+			});
+
+			actions.appendChild(showAllButton);
+		}
+
+		if (options.showHideAllButton) {
+			const hideAllButton = document.createElement('button');
+			hideAllButton.type = 'button';
+			hideAllButton.className = 'mg-button';
+			hideAllButton.textContent = options.hideAllLabel;
+
+			hideAllButton.addEventListener('click', () => {
+				context.execute('hideAllColumns');
+			});
+
+			actions.appendChild(hideAllButton);
+		}
+
+		if (options.showResetButton) {
+			const resetButton = document.createElement('button');
+			resetButton.type = 'button';
+			resetButton.className = 'mg-button';
+			resetButton.textContent = options.resetLabel;
+
+			resetButton.addEventListener('click', () => {
+				context.execute('showAllColumns');
+			});
+
+			actions.appendChild(resetButton);
+		}
+
+		menu.appendChild(actions);
+	}
+
+	details.appendChild(summary);
+	details.appendChild(menu);
+
+	return details;
 }
 
 export const ColumnVisibilityPlugin = {
 	name: 'columnVisibility',
 
 	commands: {
-		setColumnVisibility(context, payload) {
-			if (!payload || !payload.key) {
+		toggleColumnVisibility(context, payload = {}) {
+			const key = typeof payload === 'string'
+				? payload
+				: String(payload?.key || '');
+
+			if (!key) {
 				return context.grid;
 			}
 
 			return updateColumns(context, (column) => {
-				if (column.key !== payload.key) {
-					return column;
-				}
-
-				return {
-					...column,
-					visible: payload.visible !== false
-				};
-			});
-		},
-
-		toggleColumn(context, payload) {
-			if (!payload || !payload.key) {
-				return context.grid;
-			}
-
-			return updateColumns(context, (column) => {
-				if (column.key !== payload.key) {
+				if (column.key !== key) {
 					return column;
 				}
 
@@ -148,6 +164,10 @@ export const ColumnVisibilityPlugin = {
 
 		hideAllColumns(context) {
 			return updateColumns(context, (column) => {
+				if (isUtilityColumn(column)) {
+					return column;
+				}
+
 				return {
 					...column,
 					visible: false
@@ -159,16 +179,16 @@ export const ColumnVisibilityPlugin = {
 	layoutContributions(context) {
 		const options = resolveOptions(context);
 
+		if (!options.zone) {
+			return [];
+		}
+
 		return [
 			{
 				zone: options.zone,
 				order: options.order,
-				render({ viewModel }) {
-					if (!viewModel.columns || viewModel.columns.length === 0) {
-						return null;
-					}
-
-					return renderColumnMenu(context, viewModel, options);
+				render() {
+					return renderColumnMenu(context, options);
 				}
 			}
 		];

@@ -1,4 +1,4 @@
-import { appendContent, createElement } from '../utils/dom.js';
+import { createElement } from '../utils/dom.js';
 
 function resolveOptions(context) {
 	return {
@@ -10,11 +10,12 @@ function resolveOptions(context) {
 		includeCustomHeaderColumns: false,
 		lockedColumnKeys: [],
 		buttonLabel: '⋯',
+		showSortHint: true,
 		labels: {
-			sortAsc: 'Sort ascending',
-			sortDesc: 'Sort descending',
+			sortBy: 'Sort by',
 			clearSort: 'Clear sort',
-			hideColumn: 'Hide column'
+			hideColumn: 'Hide column',
+			sortedBy: 'sorted by'
 		},
 		items: null,
 		...context.getPluginOptions('headerMenu')
@@ -49,6 +50,10 @@ function getVisibleNonUtilityColumns(columns) {
 	return (columns || []).filter((column) => {
 		return column?.visible !== false && !isUtilityColumn(column);
 	});
+}
+
+function getColumnByKey(context, columnKey) {
+	return (context.peekState().columns || []).find((column) => column.key === columnKey) || null;
 }
 
 function clearSort(context) {
@@ -106,6 +111,47 @@ function hideColumn(context, key) {
 	return context.grid;
 }
 
+function resolveSortConfig(column) {
+	const headerMenu = column?.headerMenu || {};
+	const configuredSortOptions = Array.isArray(headerMenu.sortOptions) ? headerMenu.sortOptions : [];
+	const defaultSortKey = headerMenu.defaultSortKey || column?.key || '';
+	const defaultSortDirection = headerMenu.defaultSortDirection || 'asc';
+
+	if (configuredSortOptions.length > 0) {
+		return {
+			defaultSortKey,
+			defaultSortDirection,
+			sortOptions: configuredSortOptions
+		};
+	}
+
+	return {
+		defaultSortKey,
+		defaultSortDirection,
+		sortOptions: [
+			{
+				key: defaultSortKey,
+				label: headerMenu.defaultSortLabel || column?.label || column?.key || ''
+			}
+		]
+	};
+}
+
+function getSortOptionLabel(sortOptions, key) {
+	const match = sortOptions.find((option) => option.key === key);
+
+	if (match) {
+		return match.label || match.key;
+	}
+
+	return key;
+}
+
+function isColumnSortActive(column, query) {
+	const sortConfig = resolveSortConfig(column);
+	return sortConfig.sortOptions.some((option) => option.key === query.sortKey);
+}
+
 function buildDefaultItems(context, column, options) {
 	const state = context.peekState();
 	const query = state.query || {};
@@ -114,29 +160,32 @@ function buildDefaultItems(context, column, options) {
 	const originalSortable = column.__mgHeaderMenuOriginalSortable !== false;
 	const visibleColumnCount = getVisibleNonUtilityColumns(state.columns || []).length;
 	const isLocked = Array.isArray(options.lockedColumnKeys) && options.lockedColumnKeys.includes(column.key);
+	const sortConfig = resolveSortConfig(column);
 	const items = [];
 
 	if (options.showSortActions !== false && originalSortable) {
-		items.push({
-			key: 'sort-asc',
-			label: options.labels.sortAsc,
-			disabled: currentSortKey === column.key && currentSortDirection === 'asc',
-			onClick() {
-				setSort(context, column.key, 'asc');
-			}
-		});
+		sortConfig.sortOptions.forEach((sortOption) => {
+			items.push({
+				key: `sort-${sortOption.key}-asc`,
+				label: `${options.labels.sortBy} ${sortOption.label || sortOption.key} asc`,
+				disabled: currentSortKey === sortOption.key && currentSortDirection === 'asc',
+				onClick() {
+					setSort(context, sortOption.key, 'asc');
+				}
+			});
 
-		items.push({
-			key: 'sort-desc',
-			label: options.labels.sortDesc,
-			disabled: currentSortKey === column.key && currentSortDirection === 'desc',
-			onClick() {
-				setSort(context, column.key, 'desc');
-			}
+			items.push({
+				key: `sort-${sortOption.key}-desc`,
+				label: `${options.labels.sortBy} ${sortOption.label || sortOption.key} desc`,
+				disabled: currentSortKey === sortOption.key && currentSortDirection === 'desc',
+				onClick() {
+					setSort(context, sortOption.key, 'desc');
+				}
+			});
 		});
 	}
 
-	if (options.showClearSortAction !== false && currentSortKey === column.key) {
+	if (options.showClearSortAction !== false && currentSortKey !== '') {
 		items.push({
 			key: 'clear-sort',
 			label: options.labels.clearSort,
@@ -180,30 +229,50 @@ function resolveItems(context, column, options) {
 	return defaultItems;
 }
 
-function renderHeaderLabel(column, grid, originalHeaderRender) {
-	const label = createElement('span', 'mg-header-menu-label');
-
-	if (typeof originalHeaderRender === 'function') {
-		appendContent(label, originalHeaderRender(column, grid));
-	}
-	else {
-		label.textContent = column.label || column.key;
-	}
-
+function renderHeaderLabel(column, grid, context, options) {
+	const wrapper = createElement('div', 'mg-header-menu-label-stack');
 	const query = grid.getState().query || {};
+	const sortConfig = resolveSortConfig(column);
+	const active = isColumnSortActive(column, query);
+	const button = createElement('button', 'mg-header-label-button');
+	const main = createElement('span', 'mg-header-menu-label-main');
 
-	if (query.sortKey === column.key) {
-		const indicator = createElement('span', 'mg-header-menu-indicator');
-		indicator.textContent = query.sortDirection === 'desc' ? '▼' : '▲';
-		label.appendChild(indicator);
+	button.type = 'button';
+	button.dataset.mgHeaderColumnKey = column.key;
+	button.dataset.mgHeaderDefaultSortKey = sortConfig.defaultSortKey;
+	button.dataset.mgHeaderDefaultSortDirection = sortConfig.defaultSortDirection;
+	main.textContent = column.label || column.key;
+	button.appendChild(main);
+
+	if (column.__mgHeaderMenuOriginalSortable !== false) {
+		button.addEventListener('click', (event) => {
+			event.preventDefault();
+			event.stopPropagation();
+			context.execute('headerMenuToggleDefaultSort', {
+				columnKey: column.key
+			});
+		});
+	} else {
+		button.disabled = true;
 	}
 
-	return label;
+	wrapper.appendChild(button);
+
+	if (options.showSortHint !== false && active) {
+		const hint = createElement('div', 'mg-header-menu-label-sub');
+		const sortLabel = getSortOptionLabel(sortConfig.sortOptions, query.sortKey);
+		const directionMarker = query.sortDirection === 'desc' ? '▼' : '▲';
+
+		hint.textContent = `${options.labels.sortedBy} ${sortLabel} ${directionMarker}`;
+		wrapper.appendChild(hint);
+	}
+
+	return wrapper;
 }
 
-function renderHeaderMenu(column, grid, context, options, originalHeaderRender) {
+function renderHeaderMenu(column, grid, context, options) {
 	const wrapper = createElement('div', 'mg-header-menu-bar');
-	const label = renderHeaderLabel(column, grid, originalHeaderRender);
+	const label = renderHeaderLabel(column, grid, context, options);
 	const details = createElement('details', 'mg-header-menu');
 	const summary = createElement('summary', 'mg-header-menu-trigger');
 	const menu = createElement('div', 'mg-header-menu-dropdown');
@@ -302,8 +371,7 @@ function enhanceColumns(context, options, columns) {
 					enhancedColumn,
 					grid,
 					context,
-					options,
-					originalHeaderRender
+					options
 				);
 			}
 		};
@@ -330,6 +398,31 @@ function needsEnhancement(columns, options) {
 
 export const HeaderMenuPlugin = {
 	name: 'headerMenu',
+
+	commands: {
+		headerMenuToggleDefaultSort(context, payload = {}) {
+			const columnKey = String(payload.columnKey || '');
+			const column = getColumnByKey(context, columnKey);
+
+			if (!column) {
+				return context.grid;
+			}
+
+			const query = context.peekState().query || {};
+			const sortConfig = resolveSortConfig(column);
+
+			if (!sortConfig.defaultSortKey) {
+				return context.grid;
+			}
+
+			if (query.sortKey === sortConfig.defaultSortKey) {
+				const nextDirection = query.sortDirection === 'asc' ? 'desc' : 'asc';
+				return setSort(context, sortConfig.defaultSortKey, nextDirection);
+			}
+
+			return setSort(context, sortConfig.defaultSortKey, sortConfig.defaultSortDirection);
+		}
+	},
 
 	install(context) {
 		const options = resolveOptions(context);

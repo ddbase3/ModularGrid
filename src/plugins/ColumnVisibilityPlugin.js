@@ -1,3 +1,4 @@
+import { attachFloatingDropdown, setFloatingDropdownOpenState } from '../utils/dropdown.js';
 import { normalizeColumnPinning } from '../utils/columnPinning.js';
 
 function resolveOptions(context) {
@@ -44,6 +45,7 @@ function renderColumnMenu(context, options) {
 		return null;
 	}
 
+	const stateKey = 'columnVisibility.menu';
 	const details = document.createElement('details');
 	details.className = 'mg-dropdown mg-column-visibility';
 
@@ -66,6 +68,8 @@ function renderColumnMenu(context, options) {
 		input.checked = column.visible !== false;
 
 		input.addEventListener('change', () => {
+			setFloatingDropdownOpenState(context.grid, stateKey, true);
+
 			context.execute('toggleColumnVisibility', {
 				key: column.key
 			});
@@ -92,6 +96,7 @@ function renderColumnMenu(context, options) {
 			showAllButton.textContent = options.showAllLabel;
 
 			showAllButton.addEventListener('click', () => {
+				setFloatingDropdownOpenState(context.grid, stateKey, true);
 				context.execute('showAllColumns');
 			});
 
@@ -105,6 +110,7 @@ function renderColumnMenu(context, options) {
 			hideAllButton.textContent = options.hideAllLabel;
 
 			hideAllButton.addEventListener('click', () => {
+				setFloatingDropdownOpenState(context.grid, stateKey, true);
 				context.execute('hideAllColumns');
 			});
 
@@ -118,6 +124,7 @@ function renderColumnMenu(context, options) {
 			resetButton.textContent = options.resetLabel;
 
 			resetButton.addEventListener('click', () => {
+				setFloatingDropdownOpenState(context.grid, stateKey, true);
 				context.execute('showAllColumns');
 			});
 
@@ -129,6 +136,14 @@ function renderColumnMenu(context, options) {
 
 	details.appendChild(summary);
 	details.appendChild(menu);
+
+	attachFloatingDropdown(details, {
+		grid: context.grid,
+		summary,
+		menu,
+		preferredAlign: 'end',
+		stateKey
+	});
 
 	return details;
 }

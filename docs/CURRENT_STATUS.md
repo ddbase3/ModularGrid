@@ -91,6 +91,7 @@ The current code base already contains:
 - `src/utils/summary.js`
 - `src/utils/textDisplay.js`
 - `src/utils/columnPinning.js`
+- `src/utils/dropdown.js`
 
 ### Styles
 
@@ -110,18 +111,6 @@ The following already work in the current foundation:
 - basic sorting
 - header menu with configurable sort options per column
 - direct header label sorting with configurable default sort field
-- header-menu based left/right column pinning with stepwise boundary rules
-- default pinned selection column on the left side
-- default pinned row-actions column on the right side
-- row-actions header menu support for unpinning all data columns at once
-- automatic right/left repinning when newly visible columns extend an already pinned boundary
-- formal column width configuration via `width`, `minWidth` and `maxWidth`
-- number and CSS-string based width values
-- width constraints applied consistently to table header and body cells
-- basic column resize by drag handle in table view
-- state-backed width persistence via `columns[].width`
-- configurable minimum resize width via `table.columnResizeMinWidth`
-- non-resizeable utility columns for selection and row actions
 - basic paging with plugin UI
 - page size control via plugin
 - info display via plugin
@@ -129,9 +118,6 @@ The following already work in the current foundation:
 - group summary rendering in table view
 - zebra row classes in table view with per-grid on/off option
 - zebra row parity classes also applied to inline detail rows
-- dedicated horizontal scroll container for wide table layouts
-- sticky left/right rendering for pinned table columns
-- stable size baseline for later resize and reorder work
 - per-column text display strategies across table, card and split-detail rendering
 - ellipsis strategy with title tooltip support
 - nowrap and wrap text strategies
@@ -139,6 +125,15 @@ The following already work in the current foundation:
 - expand / collapse support for clamped text
 - state-backed text expansion handling
 - unified lightweight dropdown action styling for header menus and row menus
+- header-driven column hover highlighting in table view
+- sticky pinned columns for both header and body cells
+- horizontal table scrolling with pinned utility columns
+- configurable column widths
+- column min/max width support
+- column resize handles for visible data columns
+- visible-column drag-and-drop reordering in table view
+- column selector order synchronized with the current visible column order
+- open row-action menus raise above neighbouring table rows
 - reset via plugin
 - storage abstraction for browser storage-backed persistence
 - local storage state persistence via plugin
@@ -187,7 +182,7 @@ The repo currently includes demos for:
 - row actions plugin
 - modern layout with session storage
 - responsive cards and split detail demo
-- multifunction ajax demo with plugin-driven search, filters, grouping, header menus, selection, row actions, bulk actions, export, summaries, row details, multiple views and a wide-table baseline with horizontal scrolling, header-menu based column pinning and clamp-based long-text rendering
+- multifunction ajax demo with plugin-driven search, filters, grouping, header menus, selection, row actions, bulk actions, export, summaries, row details and multiple views
 
 ## Current architectural direction
 
@@ -222,19 +217,15 @@ Filters, grouping, header menus, export, summaries and bulk actions are plugin-d
 
 Table zebra row styling is handled in the table view with explicit parity classes on rendered data rows, so grouping rows and group summaries do not break the alternating pattern.
 
-Wide table rendering is handled through a dedicated scroll container in the table view, so pinned-column work can build on a stable baseline instead of relying on ad-hoc demo CSS.
-
-Column pinning currently keeps the original DOM order and applies sticky positioning only at the visible boundary columns that are explicitly pinned through the header menu, while the selection and row-actions utility columns remain pinned by default.
-
-Column visibility changes are normalized so that newly shown columns cannot appear outside an already pinned left or right boundary without joining that same pinned boundary.
-
-Column width configuration is handled in the normalized column metadata and applied in the table view, which keeps sizing declarative and avoids hidden CSS-only width behavior.
-
-Basic column resizing is currently handled directly in the table view through resize handles on normal data columns, while the final width is written back into column state on mouse release.
-
 Long-text display is handled in the views through per-column rendering options, so wrapping and overflow strategy remain presentation concerns instead of becoming adapter or core logic.
 
 Clamp expansion is state-backed, so rerendering and view switching do not depend on DOM-only toggle state.
+
+Pinned columns are handled in the table view with explicit sticky offsets, so horizontal scroll and utility columns stay predictable without pushing pinning logic into adapters or unrelated plugins.
+
+Column width and reorder behaviour are view-level interaction features that update shared column state, so layout-related user interaction stays state-driven and survives rerendering.
+
+Header-driven column hover highlighting is also resolved in the table view against rendered column indexes, so the visual interaction follows the current visible order including reordered columns.
 
 ## Current known design intent
 
@@ -253,12 +244,12 @@ The following should preferably be implemented as plugins instead of expanding t
 - bulk actions
 - export
 - summaries
-- row detail behavior
+- row detail behaviour
 - storage
 - responsive cards
 - charts
 - advanced filters
-- resize and reorder behavior
+- resize and reorder behaviour if they can be moved behind a cleaner extension layer later
 
 ## Current important technical note
 

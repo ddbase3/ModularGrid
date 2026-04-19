@@ -8,6 +8,7 @@ import { GridStateStore } from './core/GridStateStore.js';
 import { GridViewManager } from './core/GridViewManager.js';
 import { clearElement } from './utils/dom.js';
 import { cloneValue, deepMerge } from './utils/object.js';
+import { isUtilityColumn, normalizeColumnPinning, resolveEffectivePinnedSide } from './utils/columnPinning.js';
 import { TableView } from './views/TableView.js';
 
 const defaultOptions = {
@@ -31,6 +32,7 @@ const defaultOptions = {
 	table: {
 		zebraRows: true,
 		resizableColumns: true,
+		reorderableColumns: true,
 		columnResizeMinWidth: 80
 	},
 	textDisplay: null,
@@ -86,6 +88,7 @@ function normalizeColumns(columns) {
 			visible: column.visible !== false,
 			sortable: column.sortable !== false,
 			resizable: column.resizable !== false,
+			reorderable: column.reorderable !== false,
 			width: column.width ?? null,
 			minWidth: column.minWidth ?? null,
 			maxWidth: column.maxWidth ?? null,
@@ -227,6 +230,13 @@ export class ModularGrid {
 			})
 			.register('setColumnWidth', ({ grid }, payload) => {
 				return grid.setColumnWidth(payload?.key || '', payload?.width);
+			})
+			.register('moveColumn', ({ grid }, payload) => {
+				return grid.moveColumn(
+					payload?.fromKey || '',
+					payload?.toKey || '',
+					payload?.position || 'before'
+				);
 			});
 	}
 
@@ -737,6 +747,75 @@ export class ModularGrid {
 			grid: this,
 			columnKey,
 			width: numericWidth
+		});
+
+		return this;
+	}
+
+	moveColumn(fromKey, toKey, position = 'before') {
+		const sourceKey = String(fromKey || '');
+		const targetKey = String(toKey || '');
+		const targetPosition = position === 'after' ? 'after' : 'before';
+
+		if (!sourceKey || !targetKey || sourceKey === targetKey) {
+			return this;
+		}
+
+		const currentColumns = this.store.peek().columns || [];
+		const beforeOrderSignature = currentColumns.map((column) => column.key).join('|');
+		const columns = currentColumns.map((column) => {
+			return {
+				...column
+			};
+		});
+
+		const fromIndex = columns.findIndex((column) => column.key === sourceKey);
+		const toIndex = columns.findIndex((column) => column.key === targetKey);
+
+		if (fromIndex === -1 || toIndex === -1) {
+			return this;
+		}
+
+		const fromColumn = columns[fromIndex];
+		const toColumn = columns[toIndex];
+
+		if (isUtilityColumn(fromColumn) || isUtilityColumn(toColumn)) {
+			return this;
+		}
+
+		if (resolveEffectivePinnedSide(fromColumn) !== resolveEffectivePinnedSide(toColumn)) {
+			return this;
+		}
+
+		const [movedColumn] = columns.splice(fromIndex, 1);
+		const adjustedTargetIndex = columns.findIndex((column) => column.key === targetKey);
+
+		if (adjustedTargetIndex === -1) {
+			return this;
+		}
+
+		const insertIndex = targetPosition === 'after'
+			? adjustedTargetIndex + 1
+			: adjustedTargetIndex;
+
+		columns.splice(insertIndex, 0, movedColumn);
+
+		const normalizedColumns = normalizeColumnPinning(columns);
+		const afterOrderSignature = normalizedColumns.map((column) => column.key).join('|');
+
+		if (beforeOrderSignature === afterOrderSignature) {
+			return this;
+		}
+
+		this.store.setState({
+			columns: normalizedColumns
+		});
+
+		this.events.emit('columnOrder:changed', {
+			grid: this,
+			fromKey: sourceKey,
+			toKey: targetKey,
+			position: targetPosition
 		});
 
 		return this;

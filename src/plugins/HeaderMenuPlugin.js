@@ -1,4 +1,5 @@
 import { createElement } from '../utils/dom.js';
+import { attachFloatingDropdown } from '../utils/dropdown.js';
 
 function resolveOptions(context) {
 	return {
@@ -361,18 +362,16 @@ function resolveItems(context, column, options) {
 	return defaultItems;
 }
 
-function renderHeaderLabel(column, grid, context, options) {
-	const wrapper = createElement('div', 'mg-header-menu-label-stack');
-	const query = grid.getState().query || {};
-	const sortConfig = resolveSortConfig(column);
-	const active = isColumnSortActive(column, query);
+function renderHeaderLabelButton(column, context) {
 	const button = createElement('button', 'mg-header-label-button');
 	const main = createElement('span', 'mg-header-menu-label-main');
+	const sortConfig = resolveSortConfig(column);
 
 	button.type = 'button';
 	button.dataset.mgHeaderColumnKey = column.key;
 	button.dataset.mgHeaderDefaultSortKey = sortConfig.defaultSortKey;
 	button.dataset.mgHeaderDefaultSortDirection = sortConfig.defaultSortDirection;
+
 	main.textContent = column.label || column.key;
 	button.appendChild(main);
 
@@ -389,24 +388,35 @@ function renderHeaderLabel(column, grid, context, options) {
 		button.disabled = true;
 	}
 
-	wrapper.appendChild(button);
+	return button;
+}
 
-	if (options.showSortHint !== false && active) {
-		const hint = createElement('div', 'mg-header-menu-label-sub');
-		const sortLabel = getSortOptionLabel(sortConfig.sortOptions, query.sortKey);
-		const directionMarker = query.sortDirection === 'desc' ? '▼' : '▲';
+function renderHeaderSortHint(column, grid, options) {
+	const query = grid.getState().query || {};
+	const sortConfig = resolveSortConfig(column);
+	const active = isColumnSortActive(column, query);
 
-		hint.textContent = `${options.labels.sortedBy} ${sortLabel} ${directionMarker}`;
-		wrapper.appendChild(hint);
+	if (options.showSortHint === false || !active) {
+		return null;
 	}
 
-	return wrapper;
+	const hint = createElement('div', 'mg-header-menu-label-sub');
+	const sortLabel = getSortOptionLabel(sortConfig.sortOptions, query.sortKey);
+	const directionMarker = query.sortDirection === 'desc' ? '▼' : '▲';
+
+	hint.textContent = `${options.labels.sortedBy} ${sortLabel} ${directionMarker}`;
+
+	return hint;
 }
 
 function renderHeaderMenu(column, grid, context, options) {
 	const alignmentClassName = resolveMenuAlignmentClass(context, column);
+	const preferredAlign = alignmentClassName === 'mg-header-menu-align-start' ? 'start' : 'end';
 	const wrapper = createElement('div', `mg-header-menu-bar ${alignmentClassName}`.trim());
-	const label = renderHeaderLabel(column, grid, context, options);
+	const topLine = createElement('div', 'mg-header-menu-topline');
+	const labelStack = createElement('div', 'mg-header-menu-label-stack');
+	const labelButton = renderHeaderLabelButton(column, context);
+	const hint = renderHeaderSortHint(column, grid, options);
 	const details = createElement('details', 'mg-header-menu');
 	const summary = createElement('summary', 'mg-header-menu-trigger');
 	const menu = createElement('div', 'mg-header-menu-dropdown');
@@ -414,10 +424,6 @@ function renderHeaderMenu(column, grid, context, options) {
 
 	summary.textContent = options.buttonLabel;
 	summary.title = 'Column menu';
-
-	details.addEventListener('click', (event) => {
-		event.stopPropagation();
-	});
 
 	items.forEach((item) => {
 		if (!item || typeof item !== 'object') {
@@ -476,11 +482,27 @@ function renderHeaderMenu(column, grid, context, options) {
 		menu.appendChild(button);
 	});
 
+	labelStack.appendChild(labelButton);
+
 	details.appendChild(summary);
 	details.appendChild(menu);
 
-	wrapper.appendChild(label);
-	wrapper.appendChild(details);
+	attachFloatingDropdown(details, {
+		grid: context.grid,
+		summary,
+		menu,
+		preferredAlign,
+		stateKey: `headerMenu.${column.key}`
+	});
+
+	topLine.appendChild(labelStack);
+	topLine.appendChild(details);
+
+	wrapper.appendChild(topLine);
+
+	if (hint) {
+		wrapper.appendChild(hint);
+	}
 
 	return wrapper;
 }
@@ -500,10 +522,10 @@ function enhanceColumns(context, options, columns) {
 			__mgHeaderMenuEnhanced: true,
 			__mgHeaderMenuOriginalSortable: originalSortable,
 			__mgHeaderMenuOriginalHeaderRender: originalHeaderRender,
-			headerRender: (enhancedColumn, grid) => {
+			headerRender: (enhancedColumn, enhancedGrid) => {
 				return renderHeaderMenu(
 					enhancedColumn,
-					grid,
+					enhancedGrid,
 					context,
 					options
 				);

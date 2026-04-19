@@ -45,11 +45,6 @@ The current code base already includes:
 - plugin-based bulk actions
 - plugin-based export
 - column visibility plugin
-- left/right column pinning via header menu
-- default pinned selection and row-actions utility columns
-- unpin-all action in the row-actions header menu
-- formal column width configuration
-- basic column resize by drag handle
 - reset plugin
 - storage plugins
 - card view
@@ -61,7 +56,12 @@ The current code base already includes:
 - per-column long-text display strategies
 - clamp / expand strategy for long text
 - unified lightweight dropdown action styling
-- horizontal scroll foundation for wide tables
+- header-driven column hover highlighting in table view
+- sticky pinned columns in horizontally scrollable tables
+- configurable column widths
+- column resize handles
+- visible-column reordering by drag and drop
+- synchronized column order in the column selector
 - server-mode loading strategy for ajax-backed grids
 
 ## Project structure
@@ -109,117 +109,6 @@ const grid = new ModularGrid('#grid', {
 		zebraRows: false
 	}
 });
-Wide table rendering
-
-The table view renders inside a dedicated horizontal scroll container.
-
-This provides a stable baseline for:
-
-wide render-column setups
-optional extra columns from the column selector
-pinned-column support
-
-The table grows to its natural content width while the outer container handles horizontal scrolling.
-
-Column width configuration
-
-Columns support formal size configuration through:
-
-width
-minWidth
-maxWidth
-
-Values can be numbers or CSS size strings.
-
-Examples:
-
-const grid = new ModularGrid('#grid', {
-	columns: [
-		{
-			key: 'id',
-			label: 'ID',
-			width: 80
-		},
-		{
-			key: 'city',
-			label: 'City',
-			width: '12rem'
-		},
-		{
-			key: 'notes',
-			label: 'Notes',
-			minWidth: 280,
-			maxWidth: 360
-		}
-	]
-});
-
-Number values are interpreted as pixels.
-
-The configured sizes are applied consistently to header and body cells, which gives the table a stable width baseline for later resize and reorder work.
-
-Column resize
-
-The table view now supports a basic resize handle on regular data columns.
-
-Current behavior:
-
-resize is available in the table view
-utility columns such as selection and row actions are not resizeable
-dragging the handle updates the rendered width immediately
-on mouse release, the final width is stored back into columns[].width
-the result is state-backed, so existing persistence for columns can keep the width
-
-Example baseline configuration:
-
-const grid = new ModularGrid('#grid', {
-	table: {
-		resizableColumns: true,
-		columnResizeMinWidth: 80
-	},
-	columns: [
-		{
-			key: 'name',
-			label: 'Name',
-			width: 220
-		},
-		{
-			key: 'notes',
-			label: 'Notes',
-			minWidth: 260
-		}
-	]
-});
-
-This step is intentionally limited to resize only. Reordering is still a separate next step.
-
-Column pinning
-
-Columns can be pinned through the header menu.
-
-The current baseline supports:
-
-Pin left
-Pin right
-Unpin left
-Unpin right
-
-The current implementation also keeps utility columns stable:
-
-the selection column is always pinned left
-the row-actions column is always pinned right
-
-In the row-actions header menu, an additional Unpin all action becomes available whenever at least one data column is pinned.
-
-The first implementation intentionally uses strict boundary rules:
-
-only the current left boundary of the unpinned visible columns can be pinned left
-only the current right boundary of the unpinned visible columns can be pinned right
-unpinning also happens step by step at the current pinned edge
-when a hidden column is shown again beyond an already pinned edge, it is automatically added to that same pinned edge
-
-This keeps the feature predictable while the table still uses a simple DOM order.
-
 Long text display strategies
 
 Columns can define how text should be displayed across table, card and split-detail rendering.
@@ -267,6 +156,19 @@ const grid = new ModularGrid('#grid', {
 For ellipsis, the full value is exposed through the title attribute by default.
 
 For clamp, the rendered text is limited to a configured number of lines and can optionally be expanded through a small view-level toggle. The expanded state is stored in the grid state instead of being handled only in the DOM.
+
+Table column interaction baseline
+
+In table view, hovering a visible header cell highlights the whole rendered column.
+
+This includes:
+
+the hovered header cell
+the visible body cells that belong to the same column
+
+Pinned cells keep their sticky behavior while still participating in the same hover state.
+
+Open row-action menus are also raised above neighbouring table rows, so action dropdowns are not visually clipped by later-rendered row cells.
 
 Documentation
 

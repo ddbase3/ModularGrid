@@ -75,6 +75,80 @@ function dispatchMouseEvent(target, type, clientX = 0, clientY = 0) {
 	}));
 }
 
+function createDataTransferStub() {
+	const data = new Map();
+
+	return {
+		effectAllowed: 'all',
+		dropEffect: 'move',
+		setData(type, value) {
+			data.set(type, String(value));
+		},
+		getData(type) {
+			return data.get(type) || '';
+		},
+		clearData(type) {
+			if (!type) {
+				data.clear();
+				return;
+			}
+
+			data.delete(type);
+		}
+	};
+}
+
+function dispatchDragEvent(target, type, {
+	dataTransfer = null,
+	clientX = 0,
+	clientY = 0
+} = {}) {
+	const event = new Event(type, {
+		bubbles: true,
+		cancelable: true
+	});
+
+	Object.defineProperty(event, 'dataTransfer', {
+		value: dataTransfer || createDataTransferStub()
+	});
+
+	Object.defineProperty(event, 'clientX', {
+		value: clientX
+	});
+
+	Object.defineProperty(event, 'clientY', {
+		value: clientY
+	});
+
+	target.dispatchEvent(event);
+
+	return event;
+}
+
+async function openDetailsMenu(summaryElement, settleCount = 2) {
+	if (!(summaryElement instanceof HTMLElement)) {
+		return null;
+	}
+
+	const details = summaryElement.closest('details');
+
+	if (!(details instanceof HTMLDetailsElement)) {
+		return null;
+	}
+
+	if (!details.open) {
+		summaryElement.click();
+		await settleFrames(settleCount);
+	}
+
+	if (!details.open) {
+		dispatchClick(summaryElement);
+		await settleFrames(settleCount);
+	}
+
+	return details;
+}
+
 function findHeaderLabelButtonByColumnKey(container, columnKey) {
 	return container.querySelector(`.mg-header-label-button[data-mg-header-column-key="${columnKey}"]`);
 }
@@ -95,7 +169,13 @@ function findCheckboxRowByText(container, text) {
 
 function getHeaderCell(columnKey) {
 	const gridRoot = document.querySelector('#test-grid');
-	return findHeaderLabelButtonByColumnKey(gridRoot, columnKey)?.closest('th') || null;
+	return gridRoot.querySelector(`thead [data-mg-column-key="${columnKey}"]`) || null;
+}
+
+function getVisibleHeaderColumnKeys() {
+	return Array.from(document.querySelectorAll('#test-grid thead [data-mg-column-key]')).map((cell) => {
+		return cell.dataset.mgColumnKey;
+	});
 }
 
 const data = [
@@ -451,12 +531,14 @@ try {
 	const rowActionsHeaderCellInitial = document.querySelector('#test-grid thead .mg-row-actions .mg-row-actions-trigger')?.closest('th');
 	const personHeaderCellInitial = getHeaderCell('person');
 	const cityHeaderCellInitial = getHeaderCell('city');
+	const amountHeaderCellInitial = getHeaderCell('amount_display');
 	const notesHeaderCellInitial = getHeaderCell('notes');
 	const firstPersonBodyCell = document.querySelector('#test-grid tbody [data-mg-column-key="person"]');
 	const firstNotesBodyCell = document.querySelector('#test-grid tbody [data-mg-column-key="notes"]');
 	const selectionResizeHandle = selectionHeaderCell?.querySelector('.mg-column-resize-handle');
 	const rowActionsResizeHandle = rowActionsHeaderCellInitial?.querySelector('.mg-column-resize-handle');
 	const personResizeHandle = personHeaderCellInitial?.querySelector('.mg-column-resize-handle');
+	const amountReorderHandleInitial = amountHeaderCellInitial?.querySelector('.mg-column-reorder-handle');
 	const personWidthBeforeResize = personHeaderCellInitial?.getBoundingClientRect().width || 0;
 
 	assert(!!tableScroll, 'Table view renders a horizontal scroll container');
@@ -502,6 +584,7 @@ try {
 	assert(!selectionResizeHandle, 'Selection utility column does not render a resize handle');
 	assert(!rowActionsResizeHandle, 'Row actions utility column does not render a resize handle');
 	assert(!!personResizeHandle, 'Regular data columns render a resize handle');
+	assert(!!amountReorderHandleInitial, 'Regular data columns render a reorder handle');
 
 	dispatchMouseEvent(personResizeHandle, 'mousedown', 400, 10);
 	dispatchMouseEvent(window, 'mousemove', 460, 10);
@@ -511,6 +594,68 @@ try {
 	const resizedPersonWidth = grid.getState().columns.find((column) => column.key === 'person').width;
 	assert(resizedPersonWidth > personWidthBeforeResize, 'Dragging the resize handle updates the stored column width');
 	assert(getHeaderCell('person')?.style.width === `${resizedPersonWidth}px`, 'Resized column width is applied again after rerender');
+
+	const reorderDataTransfer = createDataTransferStub();
+	const currentPersonHeaderCell = getHeaderCell('person');
+	const personHeaderRect = currentPersonHeaderCell.getBoundingClientRect();
+	const visibleHeaderOrderBeforeReorder = getVisibleHeaderColumnKeys();
+	const amountReorderHandle = getHeaderCell('amount_display')?.querySelector('.mg-column-reorder-handle');
+
+	assert(!!amountReorderHandle, 'Reorder handle is still available after rerender');
+
+	dispatchDragEvent(amountReorderHandle, 'dragstart', {
+		dataTransfer: reorderDataTransfer,
+		clientX: 0,
+		clientY: 0
+	});
+	dispatchDragEvent(currentPersonHeaderCell, 'dragover', {
+		dataTransfer: reorderDataTransfer,
+		clientX: personHeaderRect.left + 4,
+		clientY: personHeaderRect.top + 4
+	});
+	dispatchDragEvent(currentPersonHeaderCell, 'drop', {
+		dataTransfer: reorderDataTransfer,
+		clientX: personHeaderRect.left + 4,
+		clientY: personHeaderRect.top + 4
+	});
+	await settleFrames(2);
+
+	const visibleHeaderOrderAfterReorder = getVisibleHeaderColumnKeys();
+
+	assert(
+		visibleHeaderOrderAfterReorder.indexOf('amount_display') < visibleHeaderOrderAfterReorder.indexOf('person'),
+		'Drag and drop can move a visible data column before another visible data column'
+	);
+	assert(
+		grid.getState().columns.findIndex((column) => column.key === 'amount_display') < grid.getState().columns.findIndex((column) => column.key === 'person'),
+		'Column reorder updates the shared column state order'
+	);
+
+	const rowActionsHeaderTriggerForOrderCheck = document.querySelector('#test-grid thead .mg-row-actions .mg-row-actions-trigger');
+	await openDetailsMenu(rowActionsHeaderTriggerForOrderCheck, 1);
+
+	const selectorLabelsAfterReorder = Array.from(document.querySelectorAll('#test-grid thead details.mg-row-actions .mg-checkbox-row span')).map((node) => {
+		return node.textContent.trim();
+	});
+
+	assert(
+		selectorLabelsAfterReorder.indexOf('Amount') < selectorLabelsAfterReorder.indexOf('Person'),
+		'Column selector order stays synchronized with the reordered columns'
+	);
+
+	grid.execute('moveColumn', {
+		fromKey: 'amount_display',
+		toKey: 'person',
+		position: 'after'
+	});
+	await settleFrames(2);
+
+	const visibleHeaderOrderAfterRestore = getVisibleHeaderColumnKeys();
+
+	assert(
+		visibleHeaderOrderAfterRestore.indexOf('person') < visibleHeaderOrderAfterRestore.indexOf('amount_display'),
+		'Column order can be restored for the remaining smoke assertions'
+	);
 
 	assert(document.querySelectorAll('#test-grid tbody tr.mg-row').length === 2, 'First grid renders first page with 2 data rows');
 	assert(initialRows[0]?.classList.contains('mg-row-odd') === true, 'First visible table row gets the odd zebra class');
@@ -584,8 +729,15 @@ try {
 	const personHeaderMenuTrigger = personHeaderCell.querySelector('.mg-header-menu-trigger');
 	assert(!!personHeaderMenuTrigger, 'Person header menu trigger exists');
 
-	dispatchClick(personHeaderMenuTrigger);
-	await settleFrames(1);
+	await openDetailsMenu(personHeaderMenuTrigger, 2);
+
+	const personHeaderMenu = personHeaderCell.querySelector('.mg-header-menu-dropdown');
+	const personHeaderMenuRect = personHeaderMenu?.getBoundingClientRect();
+
+	assert(personHeaderMenu?.classList.contains('mg-dropdown-menu-floating') === true, 'Header dropdown is promoted to floating positioning');
+	assert(window.getComputedStyle(personHeaderMenu).position === 'fixed', 'Header dropdown uses fixed positioning to escape clipping containers');
+	assert((personHeaderMenuRect?.left || 0) >= 0 && (personHeaderMenuRect?.right || 0) <= window.innerWidth, 'Header dropdown stays inside the viewport horizontally');
+	assert((personHeaderMenuRect?.bottom || 0) <= window.innerHeight, 'Header dropdown stays inside the viewport vertically');
 
 	const personSortActions = Array.from(personHeaderCell.querySelectorAll('[data-mg-header-menu-action^="sort-"]'));
 	assert(personSortActions.length === 6, 'Person header menu exposes 6 sort actions for lastname, firstname and email');
@@ -610,8 +762,7 @@ try {
 	assert(document.querySelector('#test-grid .mg-header-menu-label-sub').textContent.includes('Email'), 'Active header sort hint switches to the selected database field');
 
 	personHeaderCell = getHeaderCell('person');
-	dispatchClick(personHeaderCell.querySelector('.mg-header-menu-trigger'));
-	await settleFrames(1);
+	await openDetailsMenu(personHeaderCell.querySelector('.mg-header-menu-trigger'), 1);
 	dispatchClick(findActionByKey(personHeaderCell, 'pin-left'));
 	await settleFrames(2);
 
@@ -620,8 +771,7 @@ try {
 	assert(document.querySelector('#test-grid tbody [data-mg-column-key="person"]')?.classList.contains('mg-cell-pinned-left') === true, 'Pinned left body cells receive the sticky left class');
 
 	let descriptionHeaderCell = getHeaderCell('description');
-	dispatchClick(descriptionHeaderCell.querySelector('.mg-header-menu-trigger'));
-	await settleFrames(1);
+	await openDetailsMenu(descriptionHeaderCell.querySelector('.mg-header-menu-trigger'), 1);
 
 	const pinRightAction = findActionByKey(descriptionHeaderCell, 'pin-right');
 	assert(!!pinRightAction, 'Rightmost unpinned visible column exposes the pin-right action');
@@ -634,20 +784,26 @@ try {
 	assert(document.querySelector('#test-grid tbody [data-mg-column-key="description"]')?.classList.contains('mg-cell-pinned-right') === true, 'Pinned right body cells receive the sticky right class');
 
 	personHeaderCell = getHeaderCell('person');
-	dispatchClick(personHeaderCell.querySelector('.mg-header-menu-trigger'));
-	await settleFrames(1);
+	await openDetailsMenu(personHeaderCell.querySelector('.mg-header-menu-trigger'), 1);
 
 	assert(!!findActionByKey(personHeaderCell, 'unpin-left'), 'The outermost pinned-left column exposes the unpin-left action');
 
 	descriptionHeaderCell = getHeaderCell('description');
-	dispatchClick(descriptionHeaderCell.querySelector('.mg-header-menu-trigger'));
-	await settleFrames(1);
+	await openDetailsMenu(descriptionHeaderCell.querySelector('.mg-header-menu-trigger'), 1);
 
 	assert(!!findActionByKey(descriptionHeaderCell, 'unpin-right'), 'The outermost pinned-right column exposes the unpin-right action');
 
 	let rowActionsHeaderTrigger = document.querySelector('#test-grid thead .mg-row-actions .mg-row-actions-trigger');
-	dispatchClick(rowActionsHeaderTrigger);
-	await settleFrames(1);
+	let rowActionsHeaderMenu = await openDetailsMenu(rowActionsHeaderTrigger, 2);
+	let rowActionsDropdown = rowActionsHeaderMenu?.querySelector('.mg-dropdown-menu');
+	const rowActionsDropdownRect = rowActionsDropdown?.getBoundingClientRect();
+
+	assert(rowActionsHeaderMenu?.open === true, 'Row-actions header menu opens successfully');
+	assert(rowActionsDropdown?.classList.contains('mg-dropdown-menu-floating') === true, 'Row-actions header menu also uses floating positioning');
+	assert(window.getComputedStyle(rowActionsDropdown).position === 'fixed', 'Row-actions header menu uses fixed positioning');
+	assert(window.getComputedStyle(rowActionsDropdown).overflowY === 'auto', 'Floating row-actions dropdown is vertically scrollable');
+	assert(parseFloat(rowActionsDropdown?.style.maxHeight || '0') > 0, 'Floating row-actions dropdown receives a computed max height');
+	assert((rowActionsDropdownRect?.right || 0) <= window.innerWidth, 'Row-actions dropdown stays inside the viewport horizontally');
 
 	const trailingNoteVisibilityRow = findCheckboxRowByText(document.querySelector('#test-grid'), 'Trailing note');
 	assert(!!trailingNoteVisibilityRow, 'Hidden trailing column exists in the row-actions header column selector');
@@ -656,14 +812,16 @@ try {
 	dispatchClick(trailingNoteCheckbox);
 	await settleFrames(2);
 
+	rowActionsHeaderMenu = document.querySelector('#test-grid thead details.mg-row-actions');
+	assert(rowActionsHeaderMenu?.open === true, 'Row-actions header menu stays open after toggling a column checkbox');
+
 	assert(grid.getState().columns.find((column) => column.key === 'trailing_note').visible === true, 'Row-actions header menu can reveal a hidden trailing column');
 	assert(grid.getState().columns.find((column) => column.key === 'trailing_note').pinned === 'right', 'A newly visible column further right than the current pinned-right boundary is auto-pinned right');
 	assert(document.querySelector('#test-grid thead [data-mg-column-key="trailing_note"]')?.classList.contains('mg-cell-pinned-right') === true, 'Auto-pinned trailing header cell receives the sticky right class');
 	assert(getHeaderCell('trailing_note')?.style.width === '18rem', 'String based width configuration also works for newly shown columns');
 
 	rowActionsHeaderTrigger = document.querySelector('#test-grid thead .mg-row-actions .mg-row-actions-trigger');
-	dispatchClick(rowActionsHeaderTrigger);
-	await settleFrames(1);
+	await openDetailsMenu(rowActionsHeaderTrigger, 1);
 
 	const unpinAllAction = findRowActionsHeaderActionByKey(document.querySelector('#test-grid'), 'unpin-all');
 	assert(!!unpinAllAction, 'Row-actions header menu exposes the unpin-all action when pinned data columns exist');
@@ -680,8 +838,7 @@ try {
 	rowActionsHeaderTrigger = document.querySelector('#test-grid thead .mg-row-actions .mg-row-actions-trigger');
 	assert(!!rowActionsHeaderTrigger, 'Row actions header trigger exists');
 
-	dispatchClick(rowActionsHeaderTrigger);
-	await settleFrames(1);
+	rowActionsHeaderMenu = await openDetailsMenu(rowActionsHeaderTrigger, 1);
 
 	const cityVisibilityRow = findCheckboxRowByText(document.querySelector('#test-grid'), 'City');
 	assert(!!cityVisibilityRow, 'City visibility row exists in row-actions header menu');
@@ -690,7 +847,31 @@ try {
 	dispatchClick(cityVisibilityCheckbox);
 	await settleFrames(2);
 
+	assert(document.querySelector('#test-grid thead details.mg-row-actions')?.open === true, 'Row-actions header menu also stays open after toggling another visible column');
 	assert(grid.getState().columns.find((column) => column.key === 'city').visible === false, 'Row actions header menu can toggle column visibility');
+
+	const toolbarColumnVisibilityTrigger = document.querySelector('#test-grid .mg-column-visibility summary');
+	const toolbarColumnVisibilityMenu = await openDetailsMenu(toolbarColumnVisibilityTrigger, 2);
+	const toolbarColumnVisibilityDropdown = toolbarColumnVisibilityMenu?.querySelector('.mg-dropdown-menu');
+
+	assert(toolbarColumnVisibilityMenu?.open === true, 'Toolbar column-visibility menu opens successfully');
+	assert(toolbarColumnVisibilityDropdown?.classList.contains('mg-dropdown-menu-floating') === true, 'Toolbar column-visibility menu also uses floating positioning');
+
+	const toolbarCityRow = findCheckboxRowByText(toolbarColumnVisibilityMenu, 'City');
+	dispatchClick(toolbarCityRow.querySelector('input'));
+	await settleFrames(2);
+
+	assert(document.querySelector('#test-grid details.mg-column-visibility')?.open === true, 'Toolbar column-visibility menu stays open after toggling a checkbox');
+
+	const hoveredStatusHeader = getHeaderCell('status_display');
+	dispatchMouseEvent(hoveredStatusHeader, 'mouseenter', 0, 0);
+	await settleFrames(1);
+
+	assert(hoveredStatusHeader?.classList.contains('mg-column-hover') === true, 'Hovered header cell receives the column-hover class');
+	assert(document.querySelector('#test-grid tbody [data-mg-column-key="status_display"]')?.classList.contains('mg-column-hover') === true, 'Hovered header also highlights body cells in the same column');
+
+	dispatchMouseEvent(hoveredStatusHeader, 'mouseleave', 0, 0);
+	await settleFrames(1);
 
 	const firstDataRow = document.querySelector('#test-grid tbody tr.mg-row');
 	dispatchClick(firstDataRow);

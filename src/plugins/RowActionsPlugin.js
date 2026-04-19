@@ -1,3 +1,4 @@
+import { attachFloatingDropdown, setFloatingDropdownOpenState } from '../utils/dropdown.js';
 import { hasPinnedDataColumns, normalizeColumnPinning } from '../utils/columnPinning.js';
 
 function resolveOptions(context) {
@@ -101,6 +102,23 @@ function createMenuButton(action, row, context, details) {
 	return button;
 }
 
+function syncOpenRowActionClasses(details) {
+	if (!(details instanceof HTMLDetailsElement)) {
+		return;
+	}
+
+	const cell = details.closest('td');
+	const row = details.closest('tr');
+
+	if (cell instanceof HTMLElement) {
+		cell.classList.toggle('mg-row-actions-cell-open', details.open);
+	}
+
+	if (row instanceof HTMLElement) {
+		row.classList.toggle('mg-row-actions-row-open', details.open);
+	}
+}
+
 function createMenu(row, context, options) {
 	const actions = resolveItems(row, context, options);
 
@@ -111,17 +129,9 @@ function createMenu(row, context, options) {
 	const details = document.createElement('details');
 	details.className = `mg-dropdown mg-row-actions ${options.menuClassName || ''}`.trim();
 
-	details.addEventListener('click', (event) => {
-		event.stopPropagation();
-	});
-
 	const summary = document.createElement('summary');
 	summary.className = 'mg-button mg-dropdown-summary mg-row-actions-trigger';
 	summary.textContent = options.buttonLabel;
-
-	summary.addEventListener('click', (event) => {
-		event.stopPropagation();
-	});
 
 	const menu = document.createElement('div');
 	menu.className = 'mg-dropdown-menu mg-row-actions-menu';
@@ -137,10 +147,21 @@ function createMenu(row, context, options) {
 	details.appendChild(summary);
 	details.appendChild(menu);
 
+	details.addEventListener('toggle', () => {
+		syncOpenRowActionClasses(details);
+	});
+
+	attachFloatingDropdown(details, {
+		grid: context.grid,
+		summary,
+		menu,
+		preferredAlign: 'end'
+	});
+
 	return details;
 }
 
-function renderColumnVisibilitySection(context, item, details) {
+function renderColumnVisibilitySection(context, item, details, stateKey) {
 	const wrapper = document.createElement('div');
 	wrapper.className = 'mg-row-actions-header-section';
 
@@ -179,6 +200,8 @@ function renderColumnVisibilitySection(context, item, details) {
 					})
 				);
 
+				setFloatingDropdownOpenState(context.grid, stateKey, true);
+
 				context.setState({
 					columns: nextColumns
 				});
@@ -204,6 +227,8 @@ function renderColumnVisibilitySection(context, item, details) {
 		resetButton.textContent = item.resetLabel || 'Reset columns';
 
 		resetButton.addEventListener('click', () => {
+			setFloatingDropdownOpenState(context.grid, stateKey, false);
+
 			context.setState({
 				columns: normalizeColumnPinning(
 					(context.peekState().columns || []).map((column) => {
@@ -231,13 +256,13 @@ function renderColumnVisibilitySection(context, item, details) {
 	return wrapper;
 }
 
-function renderHeaderMenuItem(context, item, details) {
+function renderHeaderMenuItem(context, item, details, stateKey) {
 	if (!item || typeof item !== 'object') {
 		return null;
 	}
 
 	if (item.type === 'columnVisibility') {
-		return renderColumnVisibilitySection(context, item, details);
+		return renderColumnVisibilitySection(context, item, details, stateKey);
 	}
 
 	const button = document.createElement('button');
@@ -248,6 +273,8 @@ function renderHeaderMenuItem(context, item, details) {
 	button.disabled = item.disabled === true;
 
 	button.addEventListener('click', () => {
+		setFloatingDropdownOpenState(context.grid, stateKey, false);
+
 		if (typeof item.onClick === 'function') {
 			item.onClick({
 				grid: context.grid,
@@ -298,12 +325,9 @@ function createHeaderMenu(context, options) {
 		return '';
 	}
 
+	const stateKey = 'rowActions.headerMenu';
 	const details = document.createElement('details');
 	details.className = 'mg-dropdown mg-row-actions';
-
-	details.addEventListener('click', (event) => {
-		event.stopPropagation();
-	});
 
 	const summary = document.createElement('summary');
 	summary.className = 'mg-button mg-dropdown-summary mg-row-actions-trigger';
@@ -316,7 +340,7 @@ function createHeaderMenu(context, options) {
 	list.className = 'mg-row-actions-list';
 
 	items.forEach((item) => {
-		const element = renderHeaderMenuItem(context, item, details);
+		const element = renderHeaderMenuItem(context, item, details, stateKey);
 
 		if (element) {
 			list.appendChild(element);
@@ -326,6 +350,14 @@ function createHeaderMenu(context, options) {
 	menu.appendChild(list);
 	details.appendChild(summary);
 	details.appendChild(menu);
+
+	attachFloatingDropdown(details, {
+		grid: context.grid,
+		summary,
+		menu,
+		preferredAlign: 'end',
+		stateKey
+	});
 
 	return details;
 }

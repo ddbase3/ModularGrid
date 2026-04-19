@@ -31,6 +31,7 @@ function resolveTableOptions(grid) {
 	return {
 		zebraRows: true,
 		resizableColumns: true,
+		reorderableColumns: true,
 		columnResizeMinWidth: 80,
 		...grid.options.table
 	};
@@ -247,6 +248,47 @@ function isResizableColumn(column, tableOptions) {
 	return true;
 }
 
+function isReorderableColumn(column, tableOptions) {
+	if (tableOptions.reorderableColumns === false) {
+		return false;
+	}
+
+	if (!column || column.reorderable === false) {
+		return false;
+	}
+
+	if (isUtilityColumn(column)) {
+		return false;
+	}
+
+	return true;
+}
+
+function hasExplicitCssSize(value) {
+	return value !== null && value !== undefined && String(value).trim() !== '';
+}
+
+function resolveResizeMinWidth(column, tableOptions, computedStyle) {
+	const fallbackMinWidth = Math.max(1, Number(tableOptions.columnResizeMinWidth) || 0);
+
+	if (hasExplicitCssSize(column?.minWidth)) {
+		return Math.max(
+			fallbackMinWidth,
+			parsePixelValue(computedStyle.minWidth, fallbackMinWidth)
+		);
+	}
+
+	return fallbackMinWidth;
+}
+
+function resolveResizeMaxWidth(column, computedStyle) {
+	if (hasExplicitCssSize(column?.maxWidth)) {
+		return parsePixelValue(computedStyle.maxWidth, Infinity);
+	}
+
+	return Infinity;
+}
+
 function createResizeHandle(th, table, grid, column, columnIndex, renderColumns, tableOptions) {
 	const handle = createElement('button', 'mg-column-resize-handle');
 	handle.type = 'button';
@@ -259,11 +301,8 @@ function createResizeHandle(th, table, grid, column, columnIndex, renderColumns,
 		const startX = event.clientX;
 		const startWidth = getMeasuredWidth(th);
 		const computedStyle = window.getComputedStyle(th);
-		const minWidth = Math.max(
-			Number(tableOptions.columnResizeMinWidth) || 0,
-			parsePixelValue(computedStyle.minWidth, 0)
-		);
-		const maxWidth = parsePixelValue(computedStyle.maxWidth, Infinity);
+		const minWidth = resolveResizeMinWidth(column, tableOptions, computedStyle);
+		const maxWidth = resolveResizeMaxWidth(column, computedStyle);
 		let currentWidth = startWidth;
 
 		const onMouseMove = (moveEvent) => {
@@ -356,6 +395,16 @@ function applyPinnedColumnStyles(table, renderColumns) {
 				cell.classList.add('mg-cell-pinned-shadow-left');
 			}
 		});
+	});
+}
+
+function setColumnHoverState(table, columnIndex, isActive) {
+	table.querySelectorAll(`[data-mg-column-index="${columnIndex}"]`).forEach((cell) => {
+		if (!(cell instanceof HTMLElement)) {
+			return;
+		}
+
+		cell.classList.toggle('mg-column-hover', isActive === true);
 	});
 }
 
@@ -464,7 +513,68 @@ export class TableView {
 		const thead = createElement('thead', 'mg-table-head');
 		const tbody = createElement('tbody', 'mg-table-body');
 		const headerRow = createElement('tr', 'mg-header-row');
+		const renderColumnMap = new Map(
+			renderColumns.map((column) => {
+				return [column.key, column];
+			})
+		);
+
 		let visualRowNumber = 0;
+		let activeDropCell = null;
+		let activeDropPosition = '';
+		let dragSourceKey = '';
+		let dragSourceSide = '';
+
+		const clearDropIndicator = () => {
+			if (!(activeDropCell instanceof HTMLElement)) {
+				return;
+			}
+
+			activeDropCell.classList.remove('mg-column-drop-before', 'mg-column-drop-after');
+			activeDropCell = null;
+			activeDropPosition = '';
+		};
+
+		const setDropIndicator = (cell, position) => {
+			if (!(cell instanceof HTMLElement)) {
+				return;
+			}
+
+			if (activeDropCell !== cell || activeDropPosition !== position) {
+				clearDropIndicator();
+			}
+
+			activeDropCell = cell;
+			activeDropPosition = position;
+			cell.classList.toggle('mg-column-drop-before', position === 'before');
+			cell.classList.toggle('mg-column-drop-after', position === 'after');
+		};
+
+		const isCompatibleReorderTarget = (sourceKey, targetKey) => {
+			if (!sourceKey || !targetKey || sourceKey === targetKey) {
+				return false;
+			}
+
+			const sourceColumn = renderColumnMap.get(sourceKey);
+			const targetColumn = renderColumnMap.get(targetKey);
+
+			if (!sourceColumn || !targetColumn) {
+				return false;
+			}
+
+			if (!isReorderableColumn(sourceColumn, tableOptions) || !isReorderableColumn(targetColumn, tableOptions)) {
+				return false;
+			}
+
+			return resolveEffectivePinnedSide(sourceColumn) === resolveEffectivePinnedSide(targetColumn);
+		};
+
+		const resolveDropPosition = (event, cell) => {
+			const rect = cell.getBoundingClientRect();
+			const relativeX = event.clientX - rect.left;
+
+			return relativeX <= rect.width / 2 ? 'before' : 'after';
+		};
 
 		const appendNumberedDataRow = (row) => {
 			visualRowNumber += 1;
@@ -481,6 +591,53 @@ export class TableView {
 			);
 		};
 
+		const createReorderHandle = (column) => {
+			const handle = createElement('button', 'mg-column-reorder-handle');
+			handle.type = 'button';
+			handle.draggable = true;
+			handle.textContent = '⠿';
+			handle.setAttribute('aria-label', `Move ${column.label || column.key}`);
+
+			handle.addEventListener('dragstart', (event) => {
+				dragSourceKey = column.key;
+				dragSourceSide = resolveEffectivePinnedSide(column);
+				table.dataset.mgDraggedColumnKey = column.key;
+				document.body.classList.add('mg-column-reordering');
+
+				if (event.dataTransfer) {
+					event.dataTransfer.effectAllowed = 'move';
+					event.dataTransfer.setData('text/plain', column.key);
+				}
+			});
+
+			handle.addEventListener('dragend', () => {
+				dragSourceKey = '';
+				dragSourceSide = '';
+				delete table.dataset.mgDraggedColumnKey;
+				document.body.classList.remove('mg-column-reordering');
+				clearDropIndicator();
+			});
+
+			return handle;
+		};
+
+		const injectReorderHandleIntoHeaderContent = (headerContent, column) => {
+			if (!(headerContent instanceof HTMLElement) || !isReorderableColumn(column, tableOptions)) {
+				return false;
+			}
+
+			const headerMenuTopline = headerContent.querySelector(':scope > .mg-header-menu-topline');
+
+			if (!(headerMenuTopline instanceof HTMLElement)) {
+				return false;
+			}
+
+			headerContent.classList.add('mg-header-menu-bar-reorderable');
+			headerMenuTopline.prepend(createReorderHandle(column));
+
+			return true;
+		};
+
 		renderColumns.forEach((column, index) => {
 			const th = createElement('th', 'mg-header-cell');
 
@@ -488,26 +645,96 @@ export class TableView {
 			th.dataset.mgColumnKey = column.key;
 			applyColumnSizeStyles(th, column);
 
-			if (column.sortable === false) {
-				appendContent(th, grid.renderHeaderContent(column));
-			}
-			else {
-				const button = createElement('button', 'mg-sort-button');
-				button.type = 'button';
+			th.addEventListener('mouseenter', () => {
+				setColumnHoverState(table, index, true);
+			});
 
-				appendContent(button, grid.renderHeaderContent(column));
+			th.addEventListener('mouseleave', () => {
+				setColumnHoverState(table, index, false);
+			});
 
-				if (viewModel.sortKey === column.key) {
-					const indicator = createElement('span', 'mg-sort-indicator');
-					indicator.textContent = viewModel.sortDirection === 'asc' ? '▲' : '▼';
-					button.appendChild(indicator);
+			th.addEventListener('dragover', (event) => {
+				const sourceKey = dragSourceKey || table.dataset.mgDraggedColumnKey || '';
+
+				if (!isCompatibleReorderTarget(sourceKey, column.key)) {
+					return;
 				}
 
-				button.addEventListener('click', () => {
-					grid.toggleSort(column.key);
-				});
+				if (resolveEffectivePinnedSide(column) !== dragSourceSide) {
+					return;
+				}
 
-				th.appendChild(button);
+				event.preventDefault();
+				event.dataTransfer.dropEffect = 'move';
+
+				setDropIndicator(th, resolveDropPosition(event, th));
+			});
+
+			th.addEventListener('drop', (event) => {
+				const sourceKey = dragSourceKey || table.dataset.mgDraggedColumnKey || '';
+				const position = activeDropPosition || resolveDropPosition(event, th);
+
+				if (!isCompatibleReorderTarget(sourceKey, column.key)) {
+					return;
+				}
+
+				event.preventDefault();
+				clearDropIndicator();
+				document.body.classList.remove('mg-column-reordering');
+				dragSourceKey = '';
+				dragSourceSide = '';
+				delete table.dataset.mgDraggedColumnKey;
+
+				grid.execute('moveColumn', {
+					fromKey: sourceKey,
+					toKey: column.key,
+					position
+				});
+			});
+
+			const renderedHeaderContent = grid.renderHeaderContent(column);
+			const usedInlineHeaderStructure = injectReorderHandleIntoHeaderContent(renderedHeaderContent, column);
+
+			if (usedInlineHeaderStructure) {
+				th.appendChild(renderedHeaderContent);
+			}
+			else {
+				const headerCellContent = createElement('div', 'mg-header-cell-content');
+				const headerCellTopline = createElement('div', 'mg-header-cell-topline');
+				const headerCellContentMain = createElement('div', 'mg-header-cell-content-main');
+
+				headerCellContentMain.style.flex = '1 1 auto';
+
+				if (isReorderableColumn(column, tableOptions)) {
+					headerCellContentMain.classList.add('mg-header-cell-reorderable');
+					headerCellTopline.appendChild(createReorderHandle(column));
+				}
+
+				if (column.sortable === false) {
+					appendContent(headerCellContentMain, renderedHeaderContent);
+				}
+				else {
+					const button = createElement('button', 'mg-sort-button');
+					button.type = 'button';
+
+					appendContent(button, renderedHeaderContent);
+
+					if (viewModel.sortKey === column.key) {
+						const indicator = createElement('span', 'mg-sort-indicator');
+						indicator.textContent = viewModel.sortDirection === 'asc' ? '▲' : '▼';
+						button.appendChild(indicator);
+					}
+
+					button.addEventListener('click', () => {
+						grid.toggleSort(column.key);
+					});
+
+					headerCellContentMain.appendChild(button);
+				}
+
+				headerCellTopline.appendChild(headerCellContentMain);
+				headerCellContent.appendChild(headerCellTopline);
+				th.appendChild(headerCellContent);
 			}
 
 			if (isResizableColumn(column, tableOptions)) {

@@ -71,15 +71,11 @@ It is based on the originally requested feature set, translated into a more stru
 # 4. Column features
 
 - [x] Column visibility plugin
-- [x] Horizontal table scroll container
 - [x] Column pinning left
 - [x] Column pinning right
-- [x] Default pinned utility columns
-- [x] Unpin-all action for pinned data columns
-- [x] Automatic repinning for newly visible outer columns
 - [x] Column width configuration
 - [x] Column resize by drag handle
-- [ ] Column reorder by drag and drop
+- [x] Column reorder by drag and drop
 - [x] Column header menu
 - [~] Column-specific sort strategies
 - [ ] Column overflow strategies
@@ -146,7 +142,6 @@ It is based on the originally requested feature set, translated into a more stru
 - [x] Grouping plugin
 - [x] Group by one field
 - [ ] Group by multiple fields
-- [ ] Server-side grouping over full filtered dataset
 - [ ] Aggregate other fields automatically
 - [ ] Expand / collapse groups
 - [x] Group summary rendering
@@ -215,8 +210,6 @@ It is based on the originally requested feature set, translated into a more stru
 - [x] Export plugin
 - [ ] Export all rows
 - [ ] Export filtered rows
-- [ ] Backend-driven export for `all` scope in ajax-backed grids
-- [ ] Backend-driven export for `filtered` scope in ajax-backed grids
 - [x] Export selected rows
 - [x] Export with selected columns
 - [x] CSV export
@@ -243,6 +236,7 @@ It is based on the originally requested feature set, translated into a more stru
 - [x] Ellipsis strategy
 - [x] Multi-line wrapping strategy
 - [x] Clamp / expand strategy
+- [x] Header-driven column hover highlight
 - [ ] Theme organization
 
 ---
@@ -276,6 +270,9 @@ It is based on the originally requested feature set, translated into a more stru
 - [x] Footer contributions by plugins
 - [x] Column contributions by plugins
 - [x] View contributions by plugins
+- [x] Floating dropdown positioning
+- [x] Persistent open state for multi-toggle column selector
+- [x] Row-menu stacking above neighbouring table rows
 
 ---
 
@@ -304,14 +301,13 @@ It is based on the originally requested feature set, translated into a more stru
 - [x] Smoke coverage for group summary rendering
 - [x] Smoke coverage for text display and ellipsis handling
 - [x] Smoke coverage for clamp and expand handling
-- [x] Smoke coverage for wide-table horizontal scrolling
-- [x] Smoke coverage for column pinning
-- [x] Smoke coverage for default pinned utility columns
-- [x] Smoke coverage for unpin-all handling
-- [x] Smoke coverage for automatic repinning when hidden outer columns become visible
-- [x] Smoke coverage for formal column width configuration
-- [x] Smoke coverage for column resize handles
-- [x] Smoke coverage for state-backed width updates after resize
+- [x] Smoke coverage for pinned-column scrolling
+- [x] Smoke coverage for column width configuration
+- [x] Smoke coverage for column resizing
+- [x] Smoke coverage for column reordering
+- [x] Smoke coverage for synchronized column selector order
+- [x] Smoke coverage for header-driven column hover highlighting
+- [x] Smoke coverage for row-menu stacking behaviour
 - [ ] Export demo
 
 ---
@@ -320,8 +316,8 @@ It is based on the originally requested feature set, translated into a more stru
 
 The next good steps are:
 
-1. column reorder by drag and drop
-2. header filter row
-3. server-side grouping over the full filtered dataset
-4. export refinement for filtered/all rows via backend service
-5. column resize polish for touch and advanced edge cases
+1. header filter row
+2. grouping expansion and collapse
+3. export refinement for filtered/all rows
+4. ajax/database storage adapter
+5. responsive mobile card refinement

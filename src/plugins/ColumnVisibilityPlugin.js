@@ -20,21 +20,64 @@ function isUtilityColumn(column) {
 	return !column?.label || String(column.key || '').startsWith('__mg_');
 }
 
-function updateColumns(context, updater) {
-	const columns = context.peekState().columns || [];
-	const nextColumns = normalizeColumnPinning(
-		columns.map((column) => {
-			return updater({
-				...column
-			});
-		})
-	);
+function preserveTableScroll(context, callback) {
+	const currentScroll = context.grid.viewContainer instanceof HTMLElement
+		? context.grid.viewContainer.querySelector('.mg-table-scroll')
+		: null;
 
-	context.setState({
-		columns: nextColumns
+	const scrollTop = currentScroll instanceof HTMLElement ? currentScroll.scrollTop : null;
+	const scrollLeft = currentScroll instanceof HTMLElement ? currentScroll.scrollLeft : null;
+	const result = callback();
+
+	if (!(currentScroll instanceof HTMLElement)) {
+		return result;
+	}
+
+	const restore = () => {
+		const nextScroll = context.grid.viewContainer instanceof HTMLElement
+			? context.grid.viewContainer.querySelector('.mg-table-scroll')
+			: null;
+
+		if (!(nextScroll instanceof HTMLElement)) {
+			return;
+		}
+
+		if (typeof scrollTop === 'number') {
+			nextScroll.scrollTop = scrollTop;
+		}
+
+		if (typeof scrollLeft === 'number') {
+			nextScroll.scrollLeft = scrollLeft;
+		}
+	};
+
+	window.requestAnimationFrame(() => {
+		restore();
+		window.requestAnimationFrame(() => {
+			restore();
+		});
 	});
 
-	return context.grid;
+	return result;
+}
+
+function updateColumns(context, updater) {
+	return preserveTableScroll(context, () => {
+		const columns = context.peekState().columns || [];
+		const nextColumns = normalizeColumnPinning(
+			columns.map((column) => {
+				return updater({
+					...column
+				});
+			})
+		);
+
+		context.setState({
+			columns: nextColumns
+		});
+
+		return context.grid;
+	});
 }
 
 function renderColumnMenu(context, options) {
@@ -96,8 +139,12 @@ function renderColumnMenu(context, options) {
 			showAllButton.textContent = options.showAllLabel;
 
 			showAllButton.addEventListener('click', () => {
-				setFloatingDropdownOpenState(context.grid, stateKey, true);
+				setFloatingDropdownOpenState(context.grid, stateKey, false);
 				context.execute('showAllColumns');
+
+				if (details) {
+					details.open = false;
+				}
 			});
 
 			actions.appendChild(showAllButton);
@@ -110,8 +157,12 @@ function renderColumnMenu(context, options) {
 			hideAllButton.textContent = options.hideAllLabel;
 
 			hideAllButton.addEventListener('click', () => {
-				setFloatingDropdownOpenState(context.grid, stateKey, true);
+				setFloatingDropdownOpenState(context.grid, stateKey, false);
 				context.execute('hideAllColumns');
+
+				if (details) {
+					details.open = false;
+				}
 			});
 
 			actions.appendChild(hideAllButton);
@@ -124,8 +175,12 @@ function renderColumnMenu(context, options) {
 			resetButton.textContent = options.resetLabel;
 
 			resetButton.addEventListener('click', () => {
-				setFloatingDropdownOpenState(context.grid, stateKey, true);
+				setFloatingDropdownOpenState(context.grid, stateKey, false);
 				context.execute('showAllColumns');
+
+				if (details) {
+					details.open = false;
+				}
 			});
 
 			actions.appendChild(resetButton);

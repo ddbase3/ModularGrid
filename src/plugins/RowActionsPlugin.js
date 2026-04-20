@@ -33,6 +33,47 @@ function buildActionContext(context, action, row, event = null) {
 	};
 }
 
+function preserveTableScroll(context, callback) {
+	const currentScroll = context.grid.viewContainer instanceof HTMLElement
+		? context.grid.viewContainer.querySelector('.mg-table-scroll')
+		: null;
+
+	const scrollTop = currentScroll instanceof HTMLElement ? currentScroll.scrollTop : null;
+	const scrollLeft = currentScroll instanceof HTMLElement ? currentScroll.scrollLeft : null;
+	const result = callback();
+
+	if (!(currentScroll instanceof HTMLElement)) {
+		return result;
+	}
+
+	const restore = () => {
+		const nextScroll = context.grid.viewContainer instanceof HTMLElement
+			? context.grid.viewContainer.querySelector('.mg-table-scroll')
+			: null;
+
+		if (!(nextScroll instanceof HTMLElement)) {
+			return;
+		}
+
+		if (typeof scrollTop === 'number') {
+			nextScroll.scrollTop = scrollTop;
+		}
+
+		if (typeof scrollLeft === 'number') {
+			nextScroll.scrollLeft = scrollLeft;
+		}
+	};
+
+	window.requestAnimationFrame(() => {
+		restore();
+		window.requestAnimationFrame(() => {
+			restore();
+		});
+	});
+
+	return result;
+}
+
 function evaluateActionItem(item, row, context) {
 	if (!item || typeof item !== 'object') {
 		return null;
@@ -186,24 +227,26 @@ function renderColumnVisibilitySection(context, item, details, stateKey) {
 			input.checked = column.visible !== false;
 
 			input.addEventListener('change', () => {
-				const columns = context.peekState().columns || [];
-				const nextColumns = normalizeColumnPinning(
-					columns.map((entry) => {
-						if (entry.key !== column.key) {
-							return entry;
-						}
+				preserveTableScroll(context, () => {
+					const columns = context.peekState().columns || [];
+					const nextColumns = normalizeColumnPinning(
+						columns.map((entry) => {
+							if (entry.key !== column.key) {
+								return entry;
+							}
 
-						return {
-							...entry,
-							visible: input.checked
-						};
-					})
-				);
+							return {
+								...entry,
+								visible: input.checked
+							};
+						})
+					);
 
-				setFloatingDropdownOpenState(context.grid, stateKey, true);
+					setFloatingDropdownOpenState(context.grid, stateKey, true);
 
-				context.setState({
-					columns: nextColumns
+					context.setState({
+						columns: nextColumns
+					});
 				});
 			});
 
@@ -227,26 +270,28 @@ function renderColumnVisibilitySection(context, item, details, stateKey) {
 		resetButton.textContent = item.resetLabel || 'Reset columns';
 
 		resetButton.addEventListener('click', () => {
-			setFloatingDropdownOpenState(context.grid, stateKey, false);
+			preserveTableScroll(context, () => {
+				setFloatingDropdownOpenState(context.grid, stateKey, false);
 
-			context.setState({
-				columns: normalizeColumnPinning(
-					(context.peekState().columns || []).map((column) => {
-						if (isUtilityColumn(column)) {
-							return column;
-						}
+				context.setState({
+					columns: normalizeColumnPinning(
+						(context.peekState().columns || []).map((column) => {
+							if (isUtilityColumn(column)) {
+								return column;
+							}
 
-						return {
-							...column,
-							visible: true
-						};
-					})
-				)
+							return {
+								...column,
+								visible: true
+							};
+						})
+					)
+				});
+
+				if (details) {
+					details.open = false;
+				}
 			});
-
-			if (details) {
-				details.open = false;
-			}
 		});
 
 		actions.appendChild(resetButton);

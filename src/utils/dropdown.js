@@ -53,6 +53,52 @@ function resolveHorizontalAlignment(triggerRect, menuWidth, preferredAlign) {
 	return align;
 }
 
+function storeOriginalMenuMount(menu) {
+	if (!(menu instanceof HTMLElement)) {
+		return;
+	}
+
+	if (menu._mgOriginalMount) {
+		return;
+	}
+
+	menu._mgOriginalMount = {
+		parent: menu.parentNode || null,
+		nextSibling: menu.nextSibling || null
+	};
+}
+
+function mountMenuToBody(menu) {
+	if (!(menu instanceof HTMLElement)) {
+		return;
+	}
+
+	storeOriginalMenuMount(menu);
+
+	if (menu.parentNode !== document.body) {
+		document.body.appendChild(menu);
+	}
+}
+
+function restoreMenuMount(menu) {
+	if (!(menu instanceof HTMLElement)) {
+		return;
+	}
+
+	const originalMount = menu._mgOriginalMount;
+
+	if (!originalMount?.parent) {
+		return;
+	}
+
+	if (originalMount.nextSibling && originalMount.nextSibling.parentNode === originalMount.parent) {
+		originalMount.parent.insertBefore(menu, originalMount.nextSibling);
+		return;
+	}
+
+	originalMount.parent.appendChild(menu);
+}
+
 function positionFloatingDropdown(details, summary, menu, grid, preferredAlign = 'end') {
 	if (!(details instanceof HTMLDetailsElement) || !(summary instanceof HTMLElement) || !(menu instanceof HTMLElement)) {
 		return;
@@ -116,6 +162,21 @@ function positionFloatingDropdown(details, summary, menu, grid, preferredAlign =
 	menu.dataset.mgDropdownVertical = openUpward ? 'up' : 'down';
 }
 
+function resetFloatingDropdown(menu) {
+	if (!(menu instanceof HTMLElement)) {
+		return;
+	}
+
+	menu.classList.remove('mg-dropdown-menu-floating');
+	menu.style.position = '';
+	menu.style.left = '';
+	menu.style.top = '';
+	menu.style.maxHeight = '';
+	menu.style.overflowY = '';
+	delete menu.dataset.mgDropdownAlign;
+	delete menu.dataset.mgDropdownVertical;
+}
+
 export function isFloatingDropdownOpen(grid, stateKey) {
 	if (!grid || !stateKey) {
 		return false;
@@ -133,11 +194,11 @@ export function setFloatingDropdownOpenState(grid, stateKey, isOpen) {
 }
 
 export function attachFloatingDropdown(details, {
-		grid,
-		summary,
-		menu,
-		preferredAlign = 'end',
-		stateKey = ''
+	grid,
+	summary,
+	menu,
+	preferredAlign = 'end',
+	stateKey = ''
 }) {
 	if (!(details instanceof HTMLDetailsElement) || !(summary instanceof HTMLElement) || !(menu instanceof HTMLElement)) {
 		return details;
@@ -153,8 +214,38 @@ export function attachFloatingDropdown(details, {
 		});
 	};
 
+	const closeDropdown = () => {
+		if (details.open) {
+			details.open = false;
+		}
+	};
+
 	const onViewportChange = () => {
 		requestPosition();
+	};
+
+	const onDocumentPointerDown = (event) => {
+		const target = event.target;
+
+		if (!(target instanceof Node)) {
+			return;
+		}
+
+		if (details.contains(target)) {
+			return;
+		}
+
+		if (menu.contains(target)) {
+			return;
+		}
+
+		closeDropdown();
+	};
+
+	const onDocumentKeyDown = (event) => {
+		if (event.key === 'Escape') {
+			closeDropdown();
+		}
 	};
 
 	const attachViewportListeners = () => {
@@ -165,6 +256,8 @@ export function attachFloatingDropdown(details, {
 		listenersAttached = true;
 		window.addEventListener('resize', onViewportChange);
 		window.addEventListener('scroll', onViewportChange, true);
+		document.addEventListener('pointerdown', onDocumentPointerDown, true);
+		document.addEventListener('keydown', onDocumentKeyDown, true);
 	};
 
 	const detachViewportListeners = () => {
@@ -175,6 +268,8 @@ export function attachFloatingDropdown(details, {
 		listenersAttached = false;
 		window.removeEventListener('resize', onViewportChange);
 		window.removeEventListener('scroll', onViewportChange, true);
+		document.removeEventListener('pointerdown', onDocumentPointerDown, true);
+		document.removeEventListener('keydown', onDocumentKeyDown, true);
 	};
 
 	details.addEventListener('toggle', () => {
@@ -183,12 +278,14 @@ export function attachFloatingDropdown(details, {
 		}
 
 		if (details.open) {
+			mountMenuToBody(menu);
 			attachViewportListeners();
 			requestPosition();
 		}
 		else {
 			detachViewportListeners();
-			menu.classList.remove('mg-dropdown-menu-floating');
+			resetFloatingDropdown(menu);
+			restoreMenuMount(menu);
 		}
 	});
 
@@ -202,6 +299,7 @@ export function attachFloatingDropdown(details, {
 
 	if (stateKey && isFloatingDropdownOpen(grid, stateKey)) {
 		details.open = true;
+		mountMenuToBody(menu);
 		attachViewportListeners();
 		requestPosition();
 	}

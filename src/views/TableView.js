@@ -442,6 +442,21 @@ function buildActiveDetailIdentityList(rows, grid, rowDetailOptions) {
 		.filter(Boolean);
 }
 
+function buildHeaderStateSignature(viewModel) {
+	return JSON.stringify({
+		sortKey: viewModel.sortKey || '',
+		sortDirection: viewModel.sortDirection || 'asc'
+	});
+}
+
+function buildTextDisplaySignature(grid) {
+	return JSON.stringify(grid.store.peek().textDisplay?.expanded || {});
+}
+
+function buildSelectionSignature(grid) {
+	return JSON.stringify(grid.store.peek().selection?.selectedRowIds || []);
+}
+
 function haveEqualArrays(a, b) {
 	if (!Array.isArray(a) || !Array.isArray(b)) {
 		return false;
@@ -500,6 +515,10 @@ function buildRenderSignature(renderColumns, groupingKey, tableOptions) {
 function isStateAttachedToContainer(state, container) {
 	if (!state) {
 		return false;
+	}
+
+	if (state.mode === 'loading') {
+		return state.scroll instanceof HTMLElement && container.contains(state.scroll);
 	}
 
 	if (!(state.scroll instanceof HTMLElement) || !(state.table instanceof HTMLElement) || !(state.tbody instanceof HTMLElement)) {
@@ -563,7 +582,7 @@ function canAppendRows(state, renderSignature, rowIdentities, activeDetailIdenti
 	return hasMatchingPrefix(state.rowIdentities, rowIdentities);
 }
 
-function canRefreshBodyOnly(state, renderSignature, rowIdentities, groupingKey, viewModel) {
+function canRefreshBodyOnly(state, renderSignature, rowIdentities, groupingKey, headerStateSignature, viewModel) {
 	if (!state || state.mode !== 'data') {
 		return false;
 	}
@@ -576,7 +595,35 @@ function canRefreshBodyOnly(state, renderSignature, rowIdentities, groupingKey, 
 		return false;
 	}
 
-	return haveEqualArrays(state.rowIdentities, rowIdentities) && groupingKey === state.groupingKey;
+	if (state.groupingKey !== groupingKey) {
+		return false;
+	}
+
+	if (state.headerStateSignature !== headerStateSignature) {
+		return false;
+	}
+
+	return haveEqualArrays(state.rowIdentities, rowIdentities);
+}
+
+function shouldRefreshBodyOnly(previousState, activeDetailIdentities, textDisplaySignature, selectionSignature) {
+	if (!previousState) {
+		return false;
+	}
+
+	if (!haveEqualArrays(previousState.activeDetailIdentities, activeDetailIdentities)) {
+		return true;
+	}
+
+	if (previousState.textDisplaySignature !== textDisplaySignature) {
+		return true;
+	}
+
+	if (previousState.selectionSignature !== selectionSignature) {
+		return true;
+	}
+
+	return false;
 }
 
 function appendDataRow(tbody, row, grid, viewModel, renderColumns, rowDetailOptions, tableOptions, rowNumber) {
@@ -720,16 +767,29 @@ function renderBodyIntoTbody(tbody, grid, viewModel, renderColumns, rowDetailOpt
 	};
 }
 
-function renderStableLoadingState(container) {
+function renderStableLoadingState(container, preservedDimensions = {}) {
 	clearElement(container);
 
 	const scroll = createElement('div', 'mg-table-scroll');
 	const scrollInner = createElement('div', 'mg-table-scroll-inner');
 	const loadingBox = createElement('div', 'mg-state mg-state-loading');
+	const height = Math.max(0, Number(preservedDimensions.height) || 0);
+	const minHeight = Math.max(0, Number(preservedDimensions.minHeight) || 0);
+
+	if (height > 0) {
+		scroll.style.height = `${height}px`;
+		scroll.style.minHeight = `${height}px`;
+		scroll.style.maxHeight = `${height}px`;
+	}
+
+	if (minHeight > 0) {
+		scrollInner.style.minHeight = `${minHeight}px`;
+	}
 
 	loadingBox.textContent = 'Loading...';
-	loadingBox.style.minHeight = '100%';
-	loadingBox.style.height = '100%';
+	loadingBox.style.width = '100%';
+	loadingBox.style.minHeight = minHeight > 0 ? `${minHeight}px` : '100%';
+	loadingBox.style.height = minHeight > 0 ? `${minHeight}px` : '100%';
 	loadingBox.style.display = 'flex';
 	loadingBox.style.alignItems = 'center';
 	loadingBox.style.justifyContent = 'center';
@@ -737,6 +797,38 @@ function renderStableLoadingState(container) {
 	scrollInner.appendChild(loadingBox);
 	scroll.appendChild(scrollInner);
 	container.appendChild(scroll);
+
+	return {
+		mode: 'loading',
+		scroll,
+		preservedDimensions: {
+			height,
+			minHeight
+		}
+	};
+}
+
+function getPreservedScrollDimensions(previousState) {
+	if (!(previousState?.scroll instanceof HTMLElement)) {
+		return {
+			height: 0,
+			minHeight: 0
+		};
+	}
+
+	const rect = previousState.scroll.getBoundingClientRect();
+	const height = Math.round(rect.height || previousState.scroll.offsetHeight || previousState.scroll.clientHeight || 0);
+	const minHeight = Math.max(
+		height,
+		Math.round(previousState.scroll.scrollHeight || 0),
+		Math.round(previousState.scroll.firstElementChild?.getBoundingClientRect?.().height || 0),
+		Math.round(previousState.scroll.firstElementChild?.scrollHeight || 0)
+	);
+
+	return {
+		height,
+		minHeight
+	};
 }
 
 function storeTableViewState(container, state) {
@@ -763,8 +855,11 @@ export class TableView {
 		const groupingState = getGroupingState(grid, groupingOptions);
 		const groupingKey = groupingState.key || '';
 		const renderSignature = buildRenderSignature(renderColumns, groupingKey, tableOptions);
+		const headerStateSignature = buildHeaderStateSignature(viewModel);
 		const rowIdentities = buildRowIdentityList(viewModel.rows || [], rowDetailOptions);
 		const activeDetailIdentities = buildActiveDetailIdentityList(viewModel.rows || [], grid, rowDetailOptions);
+		const textDisplaySignature = buildTextDisplaySignature(grid);
+		const selectionSignature = buildSelectionSignature(grid);
 
 		if (viewModel.error) {
 			clearTableViewState(container);
@@ -777,8 +872,9 @@ export class TableView {
 		}
 
 		if (viewModel.loading) {
-			clearTableViewState(container);
-			renderStableLoadingState(container);
+			const preservedDimensions = getPreservedScrollDimensions(previousState);
+			const loadingState = renderStableLoadingState(container, preservedDimensions);
+			storeTableViewState(container, loadingState);
 			return;
 		}
 
@@ -818,17 +914,20 @@ export class TableView {
 				...previousState,
 				mode: 'data',
 				renderSignature,
+				headerStateSignature,
 				groupingKey,
 				rowIdentities,
-				activeDetailIdentities
+				activeDetailIdentities,
+				textDisplaySignature,
+				selectionSignature
 			});
 
 			return;
 		}
 
 		if (
-			canRefreshBodyOnly(previousState, renderSignature, rowIdentities, groupingKey, viewModel)
-			&& !haveEqualArrays(previousState.activeDetailIdentities, activeDetailIdentities)
+			canRefreshBodyOnly(previousState, renderSignature, rowIdentities, groupingKey, headerStateSignature, viewModel)
+			&& shouldRefreshBodyOnly(previousState, activeDetailIdentities, textDisplaySignature, selectionSignature)
 		) {
 			const preservedScrollTop = previousState.scroll.scrollTop;
 
@@ -857,10 +956,13 @@ export class TableView {
 				...previousState,
 				mode: 'data',
 				renderSignature,
+				headerStateSignature,
 				groupingKey,
 				rowIdentities,
 				activeDetailIdentities,
-				visualRowNumber: bodyState.visualRowNumber
+				visualRowNumber: bodyState.visualRowNumber,
+				textDisplaySignature,
+				selectionSignature
 			});
 
 			return;
@@ -1127,10 +1229,13 @@ export class TableView {
 			table,
 			tbody,
 			renderSignature,
+			headerStateSignature,
 			groupingKey,
 			rowIdentities,
 			activeDetailIdentities,
-			visualRowNumber: bodyState.visualRowNumber
+			visualRowNumber: bodyState.visualRowNumber,
+			textDisplaySignature,
+			selectionSignature
 		});
 	}
 }

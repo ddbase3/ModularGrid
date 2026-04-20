@@ -126,6 +126,36 @@ function dispatchDragEvent(target, type, {
 	return event;
 }
 
+function closeOpenDetails(exceptDetails = null) {
+	Array.from(document.querySelectorAll('details[open]')).forEach((details) => {
+		if (details !== exceptDetails) {
+			details.open = false;
+		}
+	});
+}
+
+function getOpenFloatingMenu(selector = '.mg-dropdown-menu-floating') {
+	const matches = Array.from(document.querySelectorAll(selector)).filter((element) => {
+		const details = element.closest('details');
+
+		return element instanceof HTMLElement
+			&& element.isConnected
+			&& window.getComputedStyle(element).position === 'fixed'
+			&& details instanceof HTMLDetailsElement
+			&& details.open === true;
+	});
+
+	return matches[matches.length - 1] || null;
+}
+
+function getOpenHeaderMenuDropdown() {
+	return getOpenFloatingMenu('.mg-header-menu-dropdown.mg-dropdown-menu-floating');
+}
+
+function getOpenGenericDropdown() {
+	return getOpenFloatingMenu('.mg-dropdown-menu-floating');
+}
+
 async function openDetailsMenu(summaryElement, settleCount = 2) {
 	if (!(summaryElement instanceof HTMLElement)) {
 		return null;
@@ -136,6 +166,9 @@ async function openDetailsMenu(summaryElement, settleCount = 2) {
 	if (!(details instanceof HTMLDetailsElement)) {
 		return null;
 	}
+
+	closeOpenDetails(details);
+	await settleFrames(1);
 
 	if (!details.open) {
 		summaryElement.click();
@@ -151,15 +184,15 @@ async function openDetailsMenu(summaryElement, settleCount = 2) {
 }
 
 function findActionByKey(container, key) {
-	return container.querySelector(`[data-mg-header-menu-action="${key}"]`);
+	return container?.querySelector(`[data-mg-header-menu-action="${key}"]`) || null;
 }
 
 function findRowActionsHeaderActionByKey(container, key) {
-	return container.querySelector(`[data-mg-row-actions-header-action="${key}"]`);
+	return container?.querySelector(`[data-mg-row-actions-header-action="${key}"]`) || null;
 }
 
 function findCheckboxRowByText(container, text) {
-	return Array.from(container.querySelectorAll('.mg-checkbox-row')).find((row) => {
+	return Array.from(container?.querySelectorAll('.mg-checkbox-row') || []).find((row) => {
 		return row.textContent.includes(text);
 	}) || null;
 }
@@ -634,7 +667,10 @@ try {
 	const rowActionsHeaderTriggerForOrderCheck = document.querySelector('#test-grid thead .mg-row-actions .mg-row-actions-trigger');
 	await openDetailsMenu(rowActionsHeaderTriggerForOrderCheck, 1);
 
-	const selectorLabelsAfterReorder = Array.from(document.querySelectorAll('#test-grid thead details.mg-row-actions .mg-checkbox-row span')).map((node) => {
+	const reorderSelectorMenu = getOpenGenericDropdown();
+	const selectorLabelsAfterReorder = Array.from(
+		reorderSelectorMenu?.querySelectorAll('.mg-row-actions-header-section .mg-checkbox-row span') || []
+	).map((node) => {
 		return node.textContent.trim();
 	});
 
@@ -731,7 +767,7 @@ try {
 
 	await openDetailsMenu(personHeaderMenuTrigger, 2);
 
-	const personHeaderMenu = personHeaderCell.querySelector('.mg-header-menu-dropdown');
+	let personHeaderMenu = getOpenHeaderMenuDropdown();
 	const personHeaderMenuRect = personHeaderMenu?.getBoundingClientRect();
 
 	assert(personHeaderMenu?.classList.contains('mg-dropdown-menu-floating') === true, 'Header dropdown is promoted to floating positioning');
@@ -739,7 +775,7 @@ try {
 	assert((personHeaderMenuRect?.left || 0) >= 0 && (personHeaderMenuRect?.right || 0) <= window.innerWidth, 'Header dropdown stays inside the viewport horizontally');
 	assert((personHeaderMenuRect?.bottom || 0) <= window.innerHeight, 'Header dropdown stays inside the viewport vertically');
 
-	const personSortActions = Array.from(personHeaderCell.querySelectorAll('[data-mg-header-menu-action^="sort-"]'));
+	const personSortActions = Array.from(personHeaderMenu?.querySelectorAll('[data-mg-header-menu-action^="sort-"]') || []);
 	assert(personSortActions.length === 6, 'Person header menu exposes 6 sort actions for lastname, firstname and email');
 	assert(
 		personSortActions.every((button) => {
@@ -748,11 +784,11 @@ try {
 		'Header menu sort actions use the unified lightweight menu style'
 	);
 
-	const pinLeftAction = findActionByKey(personHeaderCell, 'pin-left');
+	const pinLeftAction = findActionByKey(personHeaderMenu, 'pin-left');
 	assert(!!pinLeftAction, 'Leftmost unpinned visible column exposes the pin-left action');
-	assert(!findActionByKey(personHeaderCell, 'pin-right'), 'Non-rightmost visible column does not expose the pin-right action');
+	assert(!findActionByKey(personHeaderMenu, 'pin-right'), 'Non-rightmost visible column does not expose the pin-right action');
 
-	const emailDescAction = findActionByKey(personHeaderCell, 'sort-email-desc');
+	const emailDescAction = findActionByKey(personHeaderMenu, 'sort-email-desc');
 	assert(!!emailDescAction, 'Configured email descending sort action exists');
 
 	dispatchClick(emailDescAction);
@@ -763,7 +799,8 @@ try {
 
 	personHeaderCell = getHeaderCell('person');
 	await openDetailsMenu(personHeaderCell.querySelector('.mg-header-menu-trigger'), 1);
-	dispatchClick(findActionByKey(personHeaderCell, 'pin-left'));
+	personHeaderMenu = getOpenHeaderMenuDropdown();
+	dispatchClick(findActionByKey(personHeaderMenu, 'pin-left'));
 	await settleFrames(2);
 
 	assert(grid.getState().columns.find((column) => column.key === 'person').pinned === 'left', 'Header menu can pin the current left boundary column to the left side');
@@ -773,7 +810,8 @@ try {
 	let descriptionHeaderCell = getHeaderCell('description');
 	await openDetailsMenu(descriptionHeaderCell.querySelector('.mg-header-menu-trigger'), 1);
 
-	const pinRightAction = findActionByKey(descriptionHeaderCell, 'pin-right');
+	let descriptionHeaderMenu = getOpenHeaderMenuDropdown();
+	const pinRightAction = findActionByKey(descriptionHeaderMenu, 'pin-right');
 	assert(!!pinRightAction, 'Rightmost unpinned visible column exposes the pin-right action');
 
 	dispatchClick(pinRightAction);
@@ -785,17 +823,19 @@ try {
 
 	personHeaderCell = getHeaderCell('person');
 	await openDetailsMenu(personHeaderCell.querySelector('.mg-header-menu-trigger'), 1);
+	personHeaderMenu = getOpenHeaderMenuDropdown();
 
-	assert(!!findActionByKey(personHeaderCell, 'unpin-left'), 'The outermost pinned-left column exposes the unpin-left action');
+	assert(!!findActionByKey(personHeaderMenu, 'unpin-left'), 'The outermost pinned-left column exposes the unpin-left action');
 
 	descriptionHeaderCell = getHeaderCell('description');
 	await openDetailsMenu(descriptionHeaderCell.querySelector('.mg-header-menu-trigger'), 1);
+	descriptionHeaderMenu = getOpenHeaderMenuDropdown();
 
-	assert(!!findActionByKey(descriptionHeaderCell, 'unpin-right'), 'The outermost pinned-right column exposes the unpin-right action');
+	assert(!!findActionByKey(descriptionHeaderMenu, 'unpin-right'), 'The outermost pinned-right column exposes the unpin-right action');
 
 	let rowActionsHeaderTrigger = document.querySelector('#test-grid thead .mg-row-actions .mg-row-actions-trigger');
 	let rowActionsHeaderMenu = await openDetailsMenu(rowActionsHeaderTrigger, 2);
-	let rowActionsDropdown = rowActionsHeaderMenu?.querySelector('.mg-dropdown-menu');
+	let rowActionsDropdown = getOpenGenericDropdown();
 	const rowActionsDropdownRect = rowActionsDropdown?.getBoundingClientRect();
 
 	assert(rowActionsHeaderMenu?.open === true, 'Row-actions header menu opens successfully');
@@ -805,7 +845,7 @@ try {
 	assert(parseFloat(rowActionsDropdown?.style.maxHeight || '0') > 0, 'Floating row-actions dropdown receives a computed max height');
 	assert((rowActionsDropdownRect?.right || 0) <= window.innerWidth, 'Row-actions dropdown stays inside the viewport horizontally');
 
-	const trailingNoteVisibilityRow = findCheckboxRowByText(document.querySelector('#test-grid'), 'Trailing note');
+	const trailingNoteVisibilityRow = findCheckboxRowByText(rowActionsDropdown, 'Trailing note');
 	assert(!!trailingNoteVisibilityRow, 'Hidden trailing column exists in the row-actions header column selector');
 
 	const trailingNoteCheckbox = trailingNoteVisibilityRow.querySelector('input');
@@ -822,8 +862,9 @@ try {
 
 	rowActionsHeaderTrigger = document.querySelector('#test-grid thead .mg-row-actions .mg-row-actions-trigger');
 	await openDetailsMenu(rowActionsHeaderTrigger, 1);
+	rowActionsDropdown = getOpenGenericDropdown();
 
-	const unpinAllAction = findRowActionsHeaderActionByKey(document.querySelector('#test-grid'), 'unpin-all');
+	const unpinAllAction = findRowActionsHeaderActionByKey(rowActionsDropdown, 'unpin-all');
 	assert(!!unpinAllAction, 'Row-actions header menu exposes the unpin-all action when pinned data columns exist');
 
 	dispatchClick(unpinAllAction);
@@ -839,8 +880,9 @@ try {
 	assert(!!rowActionsHeaderTrigger, 'Row actions header trigger exists');
 
 	rowActionsHeaderMenu = await openDetailsMenu(rowActionsHeaderTrigger, 1);
+	rowActionsDropdown = getOpenGenericDropdown();
 
-	const cityVisibilityRow = findCheckboxRowByText(document.querySelector('#test-grid'), 'City');
+	const cityVisibilityRow = findCheckboxRowByText(rowActionsDropdown, 'City');
 	assert(!!cityVisibilityRow, 'City visibility row exists in row-actions header menu');
 
 	const cityVisibilityCheckbox = cityVisibilityRow.querySelector('input');
@@ -852,12 +894,12 @@ try {
 
 	const toolbarColumnVisibilityTrigger = document.querySelector('#test-grid .mg-column-visibility summary');
 	const toolbarColumnVisibilityMenu = await openDetailsMenu(toolbarColumnVisibilityTrigger, 2);
-	const toolbarColumnVisibilityDropdown = toolbarColumnVisibilityMenu?.querySelector('.mg-dropdown-menu');
+	const toolbarColumnVisibilityDropdown = getOpenGenericDropdown();
 
 	assert(toolbarColumnVisibilityMenu?.open === true, 'Toolbar column-visibility menu opens successfully');
 	assert(toolbarColumnVisibilityDropdown?.classList.contains('mg-dropdown-menu-floating') === true, 'Toolbar column-visibility menu also uses floating positioning');
 
-	const toolbarCityRow = findCheckboxRowByText(toolbarColumnVisibilityMenu, 'City');
+	const toolbarCityRow = findCheckboxRowByText(toolbarColumnVisibilityDropdown, 'City');
 	dispatchClick(toolbarCityRow.querySelector('input'));
 	await settleFrames(2);
 

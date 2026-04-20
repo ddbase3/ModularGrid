@@ -1,5 +1,5 @@
 import { createElement } from '../utils/dom.js';
-import { attachFloatingDropdown } from '../utils/dropdown.js';
+import { attachFloatingDropdown, setFloatingDropdownOpenState } from '../utils/dropdown.js';
 
 function resolveOptions(context) {
 	return {
@@ -116,6 +116,47 @@ function resolveMenuAlignmentClass(context, column) {
 	return 'mg-header-menu-align-end';
 }
 
+function preserveTableScroll(context, callback) {
+	const currentScroll = context.grid.viewContainer instanceof HTMLElement
+		? context.grid.viewContainer.querySelector('.mg-table-scroll')
+		: null;
+
+	const scrollTop = currentScroll instanceof HTMLElement ? currentScroll.scrollTop : null;
+	const scrollLeft = currentScroll instanceof HTMLElement ? currentScroll.scrollLeft : null;
+	const result = callback();
+
+	if (!(currentScroll instanceof HTMLElement)) {
+		return result;
+	}
+
+	const restore = () => {
+		const nextScroll = context.grid.viewContainer instanceof HTMLElement
+			? context.grid.viewContainer.querySelector('.mg-table-scroll')
+			: null;
+
+		if (!(nextScroll instanceof HTMLElement)) {
+			return;
+		}
+
+		if (typeof scrollTop === 'number') {
+			nextScroll.scrollTop = scrollTop;
+		}
+
+		if (typeof scrollLeft === 'number') {
+			nextScroll.scrollLeft = scrollLeft;
+		}
+	};
+
+	window.requestAnimationFrame(() => {
+		restore();
+		window.requestAnimationFrame(() => {
+			restore();
+		});
+	});
+
+	return result;
+}
+
 function clearSort(context) {
 	context.setState({
 		query: {
@@ -153,47 +194,51 @@ function setSort(context, key, direction) {
 }
 
 function setPinnedState(context, key, pinned) {
-	const columns = context.peekState().columns || [];
+	return preserveTableScroll(context, () => {
+		const columns = context.peekState().columns || [];
 
-	context.setState({
-		columns: columns.map((column) => {
-			if (column.key !== key) {
-				return column;
-			}
+		context.setState({
+			columns: columns.map((column) => {
+				if (column.key !== key) {
+					return column;
+				}
 
-			return {
-				...column,
-				pinned: pinned || null
-			};
-		})
+				return {
+					...column,
+					pinned: pinned || null
+				};
+			})
+		});
+
+		context.events.emit('columnPinning:changed', {
+			grid: context.grid,
+			columnKey: key,
+			pinned: pinned || null
+		});
+
+		return context.grid;
 	});
-
-	context.events.emit('columnPinning:changed', {
-		grid: context.grid,
-		columnKey: key,
-		pinned: pinned || null
-	});
-
-	return context.grid;
 }
 
 function hideColumn(context, key) {
-	const columns = context.peekState().columns || [];
+	return preserveTableScroll(context, () => {
+		const columns = context.peekState().columns || [];
 
-	context.setState({
-		columns: columns.map((column) => {
-			if (column.key !== key) {
-				return column;
-			}
+		context.setState({
+			columns: columns.map((column) => {
+				if (column.key !== key) {
+					return column;
+				}
 
-			return {
-				...column,
-				visible: false
-			};
-		})
+				return {
+					...column,
+					visible: false
+				};
+			})
+		});
+
+		return context.grid;
 	});
-
-	return context.grid;
 }
 
 function resolveSortConfig(column) {
@@ -410,6 +455,7 @@ function renderHeaderSortHint(column, grid, options) {
 }
 
 function renderHeaderMenu(column, grid, context, options) {
+	const stateKey = `headerMenu.${column.key}`;
 	const alignmentClassName = resolveMenuAlignmentClass(context, column);
 	const preferredAlign = alignmentClassName === 'mg-header-menu-align-start' ? 'start' : 'end';
 	const wrapper = createElement('div', `mg-header-menu-bar ${alignmentClassName}`.trim());
@@ -460,6 +506,9 @@ function renderHeaderMenu(column, grid, context, options) {
 		button.disabled = disabled;
 
 		button.addEventListener('click', () => {
+			setFloatingDropdownOpenState(context.grid, stateKey, false);
+			details.open = false;
+
 			if (typeof item.onClick === 'function') {
 				item.onClick({
 					grid,
@@ -475,8 +524,6 @@ function renderHeaderMenu(column, grid, context, options) {
 					item
 				});
 			}
-
-			details.open = false;
 		});
 
 		menu.appendChild(button);
@@ -492,7 +539,7 @@ function renderHeaderMenu(column, grid, context, options) {
 		summary,
 		menu,
 		preferredAlign,
-		stateKey: `headerMenu.${column.key}`
+		stateKey
 	});
 
 	topLine.appendChild(labelStack);

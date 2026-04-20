@@ -71,22 +71,65 @@ function getSelectedRowIds(context) {
 	return getSelectionState(context).selectedRowIds;
 }
 
-function setSelectedRowIds(context, ids) {
-	const nextIds = buildUniqueIds(ids);
+function preserveTableScroll(context, callback) {
+	const currentScroll = context.grid.viewContainer instanceof HTMLElement
+		? context.grid.viewContainer.querySelector('.mg-table-scroll')
+		: null;
 
-	context.setState({
-		selection: {
-			enabled: true,
-			selectedRowIds: nextIds
+	const scrollTop = currentScroll instanceof HTMLElement ? currentScroll.scrollTop : null;
+	const scrollLeft = currentScroll instanceof HTMLElement ? currentScroll.scrollLeft : null;
+	const result = callback();
+
+	if (!(currentScroll instanceof HTMLElement)) {
+		return result;
+	}
+
+	const restore = () => {
+		const nextScroll = context.grid.viewContainer instanceof HTMLElement
+			? context.grid.viewContainer.querySelector('.mg-table-scroll')
+			: null;
+
+		if (!(nextScroll instanceof HTMLElement)) {
+			return;
 		}
+
+		if (typeof scrollTop === 'number') {
+			nextScroll.scrollTop = scrollTop;
+		}
+
+		if (typeof scrollLeft === 'number') {
+			nextScroll.scrollLeft = scrollLeft;
+		}
+	};
+
+	window.requestAnimationFrame(() => {
+		restore();
+		window.requestAnimationFrame(() => {
+			restore();
+		});
 	});
 
-	context.events.emit('selection:changed', {
-		grid: context.grid,
-		selectedRowIds: nextIds
-	});
+	return result;
+}
 
-	return context.grid;
+function setSelectedRowIds(context, ids) {
+	return preserveTableScroll(context, () => {
+		const nextIds = buildUniqueIds(ids);
+
+		context.setState({
+			selection: {
+				enabled: true,
+				selectedRowIds: nextIds
+			}
+		});
+
+		context.events.emit('selection:changed', {
+			grid: context.grid,
+			selectedRowIds: nextIds
+		});
+
+		return context.grid;
+	});
 }
 
 function isRowSelected(context, row, options) {

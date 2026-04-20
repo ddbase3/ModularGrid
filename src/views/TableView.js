@@ -517,17 +517,20 @@ function isStateAttachedToContainer(state, container) {
 		return false;
 	}
 
-	if (state.mode === 'loading') {
-		return state.scroll instanceof HTMLElement && container.contains(state.scroll);
-	}
-
-	if (!(state.scroll instanceof HTMLElement) || !(state.table instanceof HTMLElement) || !(state.tbody instanceof HTMLElement)) {
+	if (!(state.scroll instanceof HTMLElement)) {
 		return false;
 	}
 
-	return container.contains(state.scroll)
-		&& state.scroll.contains(state.table)
-		&& state.table.contains(state.tbody);
+	if (!container.contains(state.scroll)) {
+		return false;
+	}
+
+	if (state.table instanceof HTMLElement && state.tbody instanceof HTMLElement) {
+		return state.scroll.contains(state.table)
+			&& state.table.contains(state.tbody);
+	}
+
+	return true;
 }
 
 function canReuseDuringLoadingMore(state, renderSignature, rowIdentities, groupingKey, viewModel) {
@@ -767,14 +770,91 @@ function renderBodyIntoTbody(tbody, grid, viewModel, renderColumns, rowDetailOpt
 	};
 }
 
-function renderStableLoadingState(container, preservedDimensions = {}) {
+function createLoadingOverlay() {
+	const overlay = createElement('div', 'mg-state mg-state-loading mg-table-loading-overlay');
+	overlay.textContent = 'Loading...';
+	overlay.style.position = 'absolute';
+	overlay.style.inset = '0';
+	overlay.style.display = 'flex';
+	overlay.style.alignItems = 'center';
+	overlay.style.justifyContent = 'center';
+	overlay.style.pointerEvents = 'none';
+	overlay.style.background = 'rgba(255, 255, 255, 0.72)';
+	overlay.style.backdropFilter = 'blur(1px)';
+	overlay.style.zIndex = '40';
+
+	return overlay;
+}
+
+function getMountedTableState(container) {
+	if (!(container instanceof HTMLElement)) {
+		return null;
+	}
+
+	const scroll = container.querySelector('.mg-table-scroll');
+
+	if (!(scroll instanceof HTMLElement)) {
+		return null;
+	}
+
+	const table = scroll.querySelector('.mg-table');
+	const tbody = table instanceof HTMLTableElement
+		? table.querySelector('tbody')
+		: null;
+	const overlay = scroll.querySelector('.mg-table-loading-overlay');
+
+	return {
+		scroll,
+		table: table instanceof HTMLTableElement ? table : null,
+		tbody: tbody instanceof HTMLElement ? tbody : null,
+		loadingOverlay: overlay instanceof HTMLElement ? overlay : null
+	};
+}
+
+function clearLoadingPresentation(state) {
+	if (!(state?.scroll instanceof HTMLElement)) {
+		return;
+	}
+
+	if (state.loadingOverlay instanceof HTMLElement && state.loadingOverlay.parentNode) {
+		state.loadingOverlay.parentNode.removeChild(state.loadingOverlay);
+	}
+}
+
+function renderStableLoadingState(container, previousState, preservedDimensions = {}) {
+	const mountedState = getMountedTableState(container);
+	const activeState = mountedState || previousState || null;
+	const height = Math.max(0, Number(preservedDimensions.height) || 0);
+	const minHeight = Math.max(0, Number(preservedDimensions.minHeight) || 0);
+
+	if (activeState?.scroll instanceof HTMLElement) {
+		const scroll = activeState.scroll;
+		let overlay = activeState.loadingOverlay;
+
+		scroll.style.position = 'relative';
+
+		if (!(overlay instanceof HTMLElement) || !scroll.contains(overlay)) {
+			overlay = createLoadingOverlay();
+			scroll.appendChild(overlay);
+		}
+
+		return {
+			...(previousState || {}),
+			...activeState,
+			mode: 'loading',
+			loadingOverlay: overlay,
+			preservedDimensions: {
+				height,
+				minHeight
+			}
+		};
+	}
+
 	clearElement(container);
 
 	const scroll = createElement('div', 'mg-table-scroll');
 	const scrollInner = createElement('div', 'mg-table-scroll-inner');
 	const loadingBox = createElement('div', 'mg-state mg-state-loading');
-	const height = Math.max(0, Number(preservedDimensions.height) || 0);
-	const minHeight = Math.max(0, Number(preservedDimensions.minHeight) || 0);
 
 	if (height > 0) {
 		scroll.style.height = `${height}px`;
@@ -808,21 +888,28 @@ function renderStableLoadingState(container, preservedDimensions = {}) {
 	};
 }
 
-function getPreservedScrollDimensions(previousState) {
-	if (!(previousState?.scroll instanceof HTMLElement)) {
+function getPreservedScrollDimensions(previousState, container) {
+	const mountedState = getMountedTableState(container);
+	const scroll = mountedState?.scroll instanceof HTMLElement
+		? mountedState.scroll
+		: previousState?.scroll instanceof HTMLElement
+			? previousState.scroll
+			: null;
+
+	if (!(scroll instanceof HTMLElement)) {
 		return {
 			height: 0,
 			minHeight: 0
 		};
 	}
 
-	const rect = previousState.scroll.getBoundingClientRect();
-	const height = Math.round(rect.height || previousState.scroll.offsetHeight || previousState.scroll.clientHeight || 0);
+	const rect = scroll.getBoundingClientRect();
+	const height = Math.round(scroll.clientHeight || rect.height || scroll.offsetHeight || 0);
 	const minHeight = Math.max(
 		height,
-		Math.round(previousState.scroll.scrollHeight || 0),
-		Math.round(previousState.scroll.firstElementChild?.getBoundingClientRect?.().height || 0),
-		Math.round(previousState.scroll.firstElementChild?.scrollHeight || 0)
+		Math.round(scroll.scrollHeight || 0),
+		Math.round(scroll.firstElementChild?.getBoundingClientRect?.().height || 0),
+		Math.round(scroll.firstElementChild?.scrollHeight || 0)
 	);
 
 	return {
@@ -872,10 +959,14 @@ export class TableView {
 		}
 
 		if (viewModel.loading) {
-			const preservedDimensions = getPreservedScrollDimensions(previousState);
-			const loadingState = renderStableLoadingState(container, preservedDimensions);
+			const preservedDimensions = getPreservedScrollDimensions(previousState, container);
+			const loadingState = renderStableLoadingState(container, previousState, preservedDimensions);
 			storeTableViewState(container, loadingState);
 			return;
+		}
+
+		if (previousState) {
+			clearLoadingPresentation(previousState);
 		}
 
 		if (renderColumns.length === 0) {
@@ -919,7 +1010,8 @@ export class TableView {
 				rowIdentities,
 				activeDetailIdentities,
 				textDisplaySignature,
-				selectionSignature
+				selectionSignature,
+				loadingOverlay: null
 			});
 
 			return;
@@ -962,7 +1054,8 @@ export class TableView {
 				activeDetailIdentities,
 				visualRowNumber: bodyState.visualRowNumber,
 				textDisplaySignature,
-				selectionSignature
+				selectionSignature,
+				loadingOverlay: null
 			});
 
 			return;
@@ -1235,7 +1328,8 @@ export class TableView {
 			activeDetailIdentities,
 			visualRowNumber: bodyState.visualRowNumber,
 			textDisplaySignature,
-			selectionSignature
+			selectionSignature,
+			loadingOverlay: null
 		});
 	}
 }

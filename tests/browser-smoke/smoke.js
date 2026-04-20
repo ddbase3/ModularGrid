@@ -53,9 +53,25 @@ function nextFrame() {
 }
 
 async function settleFrames(count = 1) {
-	for (let index = 0; index < count; index++) {
+	for (let index = 0; index < count; index += 1) {
 		await nextFrame();
 	}
+}
+
+async function waitFor(getValue, frames = 6) {
+	let value = null;
+
+	for (let index = 0; index < frames; index += 1) {
+		value = getValue();
+
+		if (value) {
+			return value;
+		}
+
+		await settleFrames(1);
+	}
+
+	return getValue();
 }
 
 function dispatchClick(element) {
@@ -134,15 +150,51 @@ function closeOpenDetails(exceptDetails = null) {
 	});
 }
 
+function getFloatingMenuOwnerDetails(element) {
+	if (!(element instanceof HTMLElement)) {
+		return null;
+	}
+
+	const directDetails = element.closest('details');
+
+	if (directDetails instanceof HTMLDetailsElement) {
+		return directDetails;
+	}
+
+	const originalMountParent = element._mgOriginalMount?.parent || null;
+
+	if (originalMountParent instanceof HTMLDetailsElement) {
+		return originalMountParent;
+	}
+
+	if (originalMountParent instanceof HTMLElement) {
+		const nestedDetails = originalMountParent.closest('details');
+
+		if (nestedDetails instanceof HTMLDetailsElement) {
+			return nestedDetails;
+		}
+	}
+
+	return null;
+}
+
 function getOpenFloatingMenu(selector = '.mg-dropdown-menu-floating') {
 	const matches = Array.from(document.querySelectorAll(selector)).filter((element) => {
-		const details = element.closest('details');
+		if (!(element instanceof HTMLElement)) {
+			return false;
+		}
 
-		return element instanceof HTMLElement
-			&& element.isConnected
-			&& window.getComputedStyle(element).position === 'fixed'
-			&& details instanceof HTMLDetailsElement
-			&& details.open === true;
+		if (!element.isConnected) {
+			return false;
+		}
+
+		if (window.getComputedStyle(element).position !== 'fixed') {
+			return false;
+		}
+
+		const ownerDetails = getFloatingMenuOwnerDetails(element);
+
+		return ownerDetails instanceof HTMLDetailsElement && ownerDetails.open === true;
 	});
 
 	return matches[matches.length - 1] || null;
@@ -181,6 +233,58 @@ async function openDetailsMenu(summaryElement, settleCount = 2) {
 	}
 
 	return details;
+}
+
+async function openHeaderMenuForColumn(columnKey, settleCount = 2) {
+	const headerCell = getHeaderCell(columnKey);
+
+	if (!(headerCell instanceof HTMLElement)) {
+		return {
+			headerCell: null,
+			details: null,
+			menu: null
+		};
+	}
+
+	const trigger = headerCell.querySelector('.mg-header-menu-trigger');
+	const details = await openDetailsMenu(trigger, settleCount);
+	const menu = await waitFor(() => {
+		return getOpenHeaderMenuDropdown();
+	}, Math.max(4, settleCount + 2));
+
+	return {
+		headerCell,
+		details,
+		menu
+	};
+}
+
+async function openRowActionsHeaderMenu(settleCount = 2) {
+	const trigger = document.querySelector('#test-grid thead .mg-row-actions .mg-row-actions-trigger');
+	const details = await openDetailsMenu(trigger, settleCount);
+	const menu = await waitFor(() => {
+		return getOpenGenericDropdown();
+	}, Math.max(4, settleCount + 2));
+
+	return {
+		trigger,
+		details,
+		menu
+	};
+}
+
+async function openToolbarColumnVisibilityMenu(settleCount = 2) {
+	const trigger = document.querySelector('#test-grid .mg-column-visibility summary');
+	const details = await openDetailsMenu(trigger, settleCount);
+	const menu = await waitFor(() => {
+		return getOpenGenericDropdown();
+	}, Math.max(4, settleCount + 2));
+
+	return {
+		trigger,
+		details,
+		menu
+	};
 }
 
 function findActionByKey(container, key) {
@@ -664,16 +768,18 @@ try {
 		'Column reorder updates the shared column state order'
 	);
 
-	const rowActionsHeaderTriggerForOrderCheck = document.querySelector('#test-grid thead .mg-row-actions .mg-row-actions-trigger');
-	await openDetailsMenu(rowActionsHeaderTriggerForOrderCheck, 1);
+	const rowActionsOrderState = await openRowActionsHeaderMenu(2);
 
-	const reorderSelectorMenu = getOpenGenericDropdown();
+	assert(rowActionsOrderState.details?.open === true, 'Row-actions header column selector opens after reorder');
+	assert(!!rowActionsOrderState.menu, 'Row-actions header column selector menu is available after reorder');
+
 	const selectorLabelsAfterReorder = Array.from(
-		reorderSelectorMenu?.querySelectorAll('.mg-row-actions-header-section .mg-checkbox-row span') || []
+		rowActionsOrderState.menu?.querySelectorAll('.mg-checkbox-row span') || []
 	).map((node) => {
 		return node.textContent.trim();
 	});
 
+	assert(selectorLabelsAfterReorder.length > 0, 'Row-actions header column selector renders checkbox entries');
 	assert(
 		selectorLabelsAfterReorder.indexOf('Amount') < selectorLabelsAfterReorder.indexOf('Person'),
 		'Column selector order stays synchronized with the reordered columns'
@@ -731,9 +837,9 @@ try {
 
 	const firstRowActionMenuButton = document.querySelector('#test-grid tbody tr.mg-row .mg-row-action-button');
 	assert(
-		firstRowActionMenuButton &&
-		firstRowActionMenuButton.classList.contains('mg-menu-action') &&
-		!firstRowActionMenuButton.classList.contains('mg-button'),
+		firstRowActionMenuButton
+		&& firstRowActionMenuButton.classList.contains('mg-menu-action')
+		&& !firstRowActionMenuButton.classList.contains('mg-button'),
 		'Row action menu items use the unified lightweight menu style'
 	);
 
@@ -765,9 +871,8 @@ try {
 	const personHeaderMenuTrigger = personHeaderCell.querySelector('.mg-header-menu-trigger');
 	assert(!!personHeaderMenuTrigger, 'Person header menu trigger exists');
 
-	await openDetailsMenu(personHeaderMenuTrigger, 2);
-
-	let personHeaderMenu = getOpenHeaderMenuDropdown();
+	let headerMenuState = await openHeaderMenuForColumn('person', 2);
+	let personHeaderMenu = headerMenuState.menu;
 	const personHeaderMenuRect = personHeaderMenu?.getBoundingClientRect();
 
 	assert(personHeaderMenu?.classList.contains('mg-dropdown-menu-floating') === true, 'Header dropdown is promoted to floating positioning');
@@ -797,10 +902,13 @@ try {
 	assert(grid.getState().query.sortKey === 'email' && grid.getState().query.sortDirection === 'desc', 'Header menu can sort by configured secondary field');
 	assert(document.querySelector('#test-grid .mg-header-menu-label-sub').textContent.includes('Email'), 'Active header sort hint switches to the selected database field');
 
-	personHeaderCell = getHeaderCell('person');
-	await openDetailsMenu(personHeaderCell.querySelector('.mg-header-menu-trigger'), 1);
-	personHeaderMenu = getOpenHeaderMenuDropdown();
-	dispatchClick(findActionByKey(personHeaderMenu, 'pin-left'));
+	headerMenuState = await openHeaderMenuForColumn('person', 1);
+	personHeaderMenu = headerMenuState.menu;
+	const personPinLeftAction = findActionByKey(personHeaderMenu, 'pin-left');
+
+	assert(!!personPinLeftAction, 'Pin-left action is available after reopening the person header menu');
+
+	dispatchClick(personPinLeftAction);
 	await settleFrames(2);
 
 	assert(grid.getState().columns.find((column) => column.key === 'person').pinned === 'left', 'Header menu can pin the current left boundary column to the left side');
@@ -808,10 +916,10 @@ try {
 	assert(document.querySelector('#test-grid tbody [data-mg-column-key="person"]')?.classList.contains('mg-cell-pinned-left') === true, 'Pinned left body cells receive the sticky left class');
 
 	let descriptionHeaderCell = getHeaderCell('description');
-	await openDetailsMenu(descriptionHeaderCell.querySelector('.mg-header-menu-trigger'), 1);
-
-	let descriptionHeaderMenu = getOpenHeaderMenuDropdown();
+	let descriptionMenuState = await openHeaderMenuForColumn('description', 1);
+	let descriptionHeaderMenu = descriptionMenuState.menu;
 	const pinRightAction = findActionByKey(descriptionHeaderMenu, 'pin-right');
+
 	assert(!!pinRightAction, 'Rightmost unpinned visible column exposes the pin-right action');
 
 	dispatchClick(pinRightAction);
@@ -821,21 +929,20 @@ try {
 	assert(document.querySelector('#test-grid thead [data-mg-column-key="description"]')?.classList.contains('mg-cell-pinned-right') === true, 'Pinned right header cell receives the sticky right class');
 	assert(document.querySelector('#test-grid tbody [data-mg-column-key="description"]')?.classList.contains('mg-cell-pinned-right') === true, 'Pinned right body cells receive the sticky right class');
 
-	personHeaderCell = getHeaderCell('person');
-	await openDetailsMenu(personHeaderCell.querySelector('.mg-header-menu-trigger'), 1);
-	personHeaderMenu = getOpenHeaderMenuDropdown();
+	headerMenuState = await openHeaderMenuForColumn('person', 1);
+	personHeaderMenu = headerMenuState.menu;
 
 	assert(!!findActionByKey(personHeaderMenu, 'unpin-left'), 'The outermost pinned-left column exposes the unpin-left action');
 
 	descriptionHeaderCell = getHeaderCell('description');
-	await openDetailsMenu(descriptionHeaderCell.querySelector('.mg-header-menu-trigger'), 1);
-	descriptionHeaderMenu = getOpenHeaderMenuDropdown();
+	descriptionMenuState = await openHeaderMenuForColumn('description', 1);
+	descriptionHeaderMenu = descriptionMenuState.menu;
 
 	assert(!!findActionByKey(descriptionHeaderMenu, 'unpin-right'), 'The outermost pinned-right column exposes the unpin-right action');
 
-	let rowActionsHeaderTrigger = document.querySelector('#test-grid thead .mg-row-actions .mg-row-actions-trigger');
-	let rowActionsHeaderMenu = await openDetailsMenu(rowActionsHeaderTrigger, 2);
-	let rowActionsDropdown = getOpenGenericDropdown();
+	let rowActionsHeaderState = await openRowActionsHeaderMenu(2);
+	let rowActionsHeaderMenu = rowActionsHeaderState.details;
+	let rowActionsDropdown = rowActionsHeaderState.menu;
 	const rowActionsDropdownRect = rowActionsDropdown?.getBoundingClientRect();
 
 	assert(rowActionsHeaderMenu?.open === true, 'Row-actions header menu opens successfully');
@@ -860,9 +967,8 @@ try {
 	assert(document.querySelector('#test-grid thead [data-mg-column-key="trailing_note"]')?.classList.contains('mg-cell-pinned-right') === true, 'Auto-pinned trailing header cell receives the sticky right class');
 	assert(getHeaderCell('trailing_note')?.style.width === '18rem', 'String based width configuration also works for newly shown columns');
 
-	rowActionsHeaderTrigger = document.querySelector('#test-grid thead .mg-row-actions .mg-row-actions-trigger');
-	await openDetailsMenu(rowActionsHeaderTrigger, 1);
-	rowActionsDropdown = getOpenGenericDropdown();
+	rowActionsHeaderState = await openRowActionsHeaderMenu(1);
+	rowActionsDropdown = rowActionsHeaderState.menu;
 
 	const unpinAllAction = findRowActionsHeaderActionByKey(rowActionsDropdown, 'unpin-all');
 	assert(!!unpinAllAction, 'Row-actions header menu exposes the unpin-all action when pinned data columns exist');
@@ -876,11 +982,8 @@ try {
 	assert(document.querySelector('#test-grid thead .mg-selection-toggle')?.closest('th')?.classList.contains('mg-cell-pinned-left') === true, 'Unpin all does not remove the default pinned selection column');
 	assert(document.querySelector('#test-grid thead .mg-row-actions .mg-row-actions-trigger')?.closest('th')?.classList.contains('mg-cell-pinned-right') === true, 'Unpin all does not remove the default pinned row-actions column');
 
-	rowActionsHeaderTrigger = document.querySelector('#test-grid thead .mg-row-actions .mg-row-actions-trigger');
-	assert(!!rowActionsHeaderTrigger, 'Row actions header trigger exists');
-
-	rowActionsHeaderMenu = await openDetailsMenu(rowActionsHeaderTrigger, 1);
-	rowActionsDropdown = getOpenGenericDropdown();
+	rowActionsHeaderState = await openRowActionsHeaderMenu(1);
+	rowActionsDropdown = rowActionsHeaderState.menu;
 
 	const cityVisibilityRow = findCheckboxRowByText(rowActionsDropdown, 'City');
 	assert(!!cityVisibilityRow, 'City visibility row exists in row-actions header menu');
@@ -892,9 +995,9 @@ try {
 	assert(document.querySelector('#test-grid thead details.mg-row-actions')?.open === true, 'Row-actions header menu also stays open after toggling another visible column');
 	assert(grid.getState().columns.find((column) => column.key === 'city').visible === false, 'Row actions header menu can toggle column visibility');
 
-	const toolbarColumnVisibilityTrigger = document.querySelector('#test-grid .mg-column-visibility summary');
-	const toolbarColumnVisibilityMenu = await openDetailsMenu(toolbarColumnVisibilityTrigger, 2);
-	const toolbarColumnVisibilityDropdown = getOpenGenericDropdown();
+	const toolbarColumnVisibilityState = await openToolbarColumnVisibilityMenu(2);
+	const toolbarColumnVisibilityMenu = toolbarColumnVisibilityState.details;
+	const toolbarColumnVisibilityDropdown = toolbarColumnVisibilityState.menu;
 
 	assert(toolbarColumnVisibilityMenu?.open === true, 'Toolbar column-visibility menu opens successfully');
 	assert(toolbarColumnVisibilityDropdown?.classList.contains('mg-dropdown-menu-floating') === true, 'Toolbar column-visibility menu also uses floating positioning');
@@ -1047,9 +1150,9 @@ try {
 	assert(secondGridTitleHeaderCell?.style.minWidth === '180px', 'Column minWidth configuration also works on a second independent grid instance');
 	assert(!!secondGridIdResizeHandle, 'Resize handles also render on a second independent grid instance');
 	assert(
-		secondGridRow &&
-		!secondGridRow.classList.contains('mg-row-odd') &&
-		!secondGridRow.classList.contains('mg-row-even'),
+		secondGridRow
+		&& !secondGridRow.classList.contains('mg-row-odd')
+		&& !secondGridRow.classList.contains('mg-row-even'),
 		'Table zebra rows can be disabled per grid instance'
 	);
 

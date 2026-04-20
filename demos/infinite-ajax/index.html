@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>ModularGrid Demo - Infinite Ajax</title>
+	<link rel="stylesheet" href="../../src/styles/modulargrid.css">
+	<style>
+		body {
+			margin: 16px;
+			font-family: Inter, system-ui, sans-serif;
+			color: #222;
+			background: #fafafa;
+		}
+
+		h1 {
+			margin: 0 0 8px 0;
+			font-size: 24px;
+			line-height: 1.2;
+			font-weight: 600;
+		}
+
+		p {
+			margin: 0 0 16px 0;
+			max-width: 1100px;
+			color: #555;
+			line-height: 1.45;
+		}
+
+		.infinite-shell {
+			max-width: 1500px;
+		}
+
+		.infinite-panel {
+			display: flex;
+			align-items: center;
+			flex-wrap: nowrap;
+			gap: 8px;
+			min-width: 0;
+			width: 100%;
+			padding: 8px 10px;
+			border: 1px solid #e2e2e2;
+			border-radius: 8px;
+			background: #fff;
+			overflow-x: auto;
+		}
+
+		.infinite-panel > * {
+			flex: 0 0 auto;
+		}
+
+		.infinite-main {
+			border: 1px solid #e2e2e2;
+			border-radius: 8px;
+			background: #fff;
+			padding: 4px 0;
+		}
+
+		.infinite-grid .mg-control-group {
+			flex-direction: row;
+			align-items: center;
+			gap: 6px;
+			min-width: auto;
+		}
+
+		.infinite-grid .mg-label {
+			white-space: nowrap;
+			color: #666;
+			font-size: 12px;
+		}
+
+		.infinite-grid .mg-inline-buttons {
+			flex-wrap: nowrap;
+		}
+
+		.infinite-grid .mg-input,
+		.infinite-grid .mg-select,
+		.infinite-grid .mg-button {
+			min-height: 28px;
+			font-size: 13px;
+		}
+
+		.infinite-grid .mg-input {
+			width: auto;
+		}
+
+		.infinite-grid input[type="search"].mg-input {
+			width: 220px;
+		}
+
+		.infinite-grid .mg-select {
+			width: auto;
+			min-width: 96px;
+		}
+
+		.infinite-grid .mg-table-scroll {
+			height: 540px;
+			overflow: auto;
+			padding-bottom: 4px;
+		}
+
+		.infinite-grid .mg-table thead th {
+			position: sticky;
+			top: 0;
+			z-index: 12;
+			background: #fff;
+		}
+
+		.infinite-grid .mg-table thead th.mg-cell-pinned {
+			z-index: 14;
+		}
+
+		.infinite-grid .mg-table th,
+		.infinite-grid .mg-table td {
+			padding: 6px 8px;
+			font-size: 13px;
+		}
+
+		.infinite-grid .mg-bulk-actions-label {
+			font-size: 12px;
+		}
+
+		.demo-pill-row {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 4px;
+			align-items: center;
+		}
+
+		.demo-pill {
+			display: inline-flex;
+			align-items: center;
+			padding: 1px 6px;
+			border: 1px solid #d6d6d6;
+			border-radius: 999px;
+			background: #fafafa;
+			font-size: 11px;
+			line-height: 1.35;
+			color: #444;
+			white-space: nowrap;
+		}
+
+		.demo-pill-strong {
+			background: #f0f0f0;
+			color: #222;
+			border-color: #cfcfcf;
+		}
+
+		.demo-cell-stack {
+			display: grid;
+			gap: 2px;
+		}
+
+		.demo-cell-main {
+			font-weight: 600;
+			color: #222;
+		}
+
+		.demo-cell-sub {
+			font-size: 12px;
+			color: #666;
+		}
+
+		.demo-log {
+			margin-top: 12px;
+			padding: 8px 0 0 0;
+			border-top: 1px solid #e2e2e2;
+			font-size: 13px;
+			color: #555;
+		}
+
+		.demo-log strong {
+			color: #222;
+		}
+
+		@media (max-width: 720px) {
+			body {
+				margin: 12px;
+			}
+
+			h1 {
+				font-size: 21px;
+			}
+
+			.infinite-grid .mg-table-scroll {
+				height: 420px;
+			}
+		}
+	</style>
+</head>
+<body>
+	<div class="infinite-shell">
+		<h1>ModularGrid - Infinite Ajax Workbench</h1>
+		<p>
+			This demo keeps the ajax source and composes the grid mainly through plugins and configuration:
+			search, filters, header menus, info, selection, row actions, bulk actions, export, column visibility,
+			reset, row detail, storage and automatic append loading through the infinite-scroll plugin.
+		</p>
+		<p>
+			The table view uses a fixed-height internal scroll area. It loads the first 50 records and automatically
+			requests the next batch when the scroll position approaches the bottom. The loading state is shown by
+			three pulsing dots inside the scrollable table area.
+		</p>
+
+		<div class="infinite-grid">
+			<div id="infinite-ajax-grid"></div>
+			<div id="infinite-ajax-log" class="demo-log"></div>
+		</div>
+	</div>
+
+	<script type="module" src="./infinite-ajax.js"></script>
+</body>
+</html>

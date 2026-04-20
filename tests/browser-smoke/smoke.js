@@ -7,6 +7,7 @@ import {
 	GroupingPlugin,
 	HeaderMenuPlugin,
 	InfoPlugin,
+	InfiniteScrollPlugin,
 	ModularGrid,
 	PageSizePlugin,
 	PagingPlugin,
@@ -149,10 +150,6 @@ async function openDetailsMenu(summaryElement, settleCount = 2) {
 	return details;
 }
 
-function findHeaderLabelButtonByColumnKey(container, columnKey) {
-	return container.querySelector(`.mg-header-label-button[data-mg-header-column-key="${columnKey}"]`);
-}
-
 function findActionByKey(container, key) {
 	return container.querySelector(`[data-mg-header-menu-action="${key}"]`);
 }
@@ -250,6 +247,10 @@ try {
 	const actionCalls = [];
 	const bulkActionCalls = [];
 	const exportEvents = [];
+	const infiniteRequests = [];
+	let holdInfiniteResponses = false;
+	let releaseInfiniteResponse = null;
+
 	const layout = createClassicLayout({
 		top: ['toolbar', 'filtersZone', 'bulkZone', 'viewZone', 'actions'],
 		bottom: ['footerInfo', 'footerPaging']
@@ -598,7 +599,6 @@ try {
 	const reorderDataTransfer = createDataTransferStub();
 	const currentPersonHeaderCell = getHeaderCell('person');
 	const personHeaderRect = currentPersonHeaderCell.getBoundingClientRect();
-	const visibleHeaderOrderBeforeReorder = getVisibleHeaderColumnKeys();
 	const amountReorderHandle = getHeaderCell('amount_display')?.querySelector('.mg-column-reorder-handle');
 
 	assert(!!amountReorderHandle, 'Reorder handle is still available after rerender');
@@ -1010,6 +1010,173 @@ try {
 		!secondGridRow.classList.contains('mg-row-even'),
 		'Table zebra rows can be disabled per grid instance'
 	);
+
+	const infiniteGrid = new ModularGrid('#infinite-grid', {
+		layout: createClassicLayout({
+			top: [],
+			bottom: ['footerInfo']
+		}),
+		adapter: {
+			async load(request) {
+				infiniteRequests.push({
+					...request
+				});
+
+				if (holdInfiniteResponses) {
+					await new Promise((resolve) => {
+						releaseInfiniteResponse = resolve;
+					});
+					releaseInfiniteResponse = null;
+				}
+
+				await nextFrame();
+
+				const allRows = [
+					{ id: 101, title: 'Server row 1', text: 'Lorem ipsum 1' },
+					{ id: 102, title: 'Server row 2', text: 'Lorem ipsum 2' },
+					{ id: 103, title: 'Server row 3', text: 'Lorem ipsum 3' },
+					{ id: 104, title: 'Server row 4', text: 'Lorem ipsum 4' },
+					{ id: 105, title: 'Server row 5', text: 'Lorem ipsum 5' },
+					{ id: 106, title: 'Server row 6', text: 'Lorem ipsum 6' },
+					{ id: 107, title: 'Server row 7', text: 'Lorem ipsum 7' },
+					{ id: 108, title: 'Server row 8', text: 'Lorem ipsum 8' },
+					{ id: 109, title: 'Server row 9', text: 'Lorem ipsum 9' },
+					{ id: 110, title: 'Server row 10', text: 'Lorem ipsum 10' },
+					{ id: 111, title: 'Server row 11', text: 'Lorem ipsum 11' },
+					{ id: 112, title: 'Server row 12', text: 'Lorem ipsum 12' },
+					{ id: 113, title: 'Server row 13', text: 'Lorem ipsum 13' },
+					{ id: 114, title: 'Server row 14', text: 'Lorem ipsum 14' },
+					{ id: 115, title: 'Server row 15', text: 'Lorem ipsum 15' }
+				];
+
+				const page = Math.max(1, Number(request.page) || 1);
+				const pageSize = Math.max(1, Number(request.pageSize) || 5);
+				const startIndex = (page - 1) * pageSize;
+				const rows = allRows.slice(startIndex, startIndex + pageSize);
+
+				return {
+					rows,
+					total: allRows.length
+				};
+			}
+		},
+		dataMode: 'server',
+		features: {
+			paging: false
+		},
+		pageSize: 5,
+		plugins: [
+			InfoPlugin,
+			InfiniteScrollPlugin,
+			RowDetailPlugin
+		],
+		pluginOptions: {
+			info: {
+				zone: 'footerInfo'
+			},
+			infiniteScroll: {
+				threshold: 16,
+				pageSize: 5,
+				autoFill: false
+			},
+			rowDetail: {
+				rowIdKey: 'id',
+				detailRenderer(row) {
+					const detail = document.createElement('div');
+					detail.textContent = `Detail for ${row.title}`;
+					return detail;
+				}
+			}
+		},
+		columns: [
+			{
+				key: 'id',
+				label: 'ID',
+				width: 80
+			},
+			{
+				key: 'title',
+				label: 'Title',
+				width: 180
+			},
+			{
+				key: 'text',
+				label: 'Text',
+				width: 260
+			}
+		]
+	});
+
+	await infiniteGrid.init();
+	await settleFrames(4);
+
+	let infiniteScrollContainer = document.querySelector('#infinite-grid .mg-table-scroll');
+	assert(!!infiniteScrollContainer, 'Infinite scroll grid renders a scrollable table container');
+	assert(infiniteScrollContainer.classList.contains('mg-infinite-scroll-container') === true, 'Infinite scroll plugin marks the active scroll container');
+	assert(infiniteRequests.length === 1 && infiniteRequests[0].page === 1, 'Infinite scroll grid starts with the first server page');
+
+	infiniteGrid.execute('moveColumn', {
+		fromKey: 'text',
+		toKey: 'id',
+		position: 'before'
+	});
+	await settleFrames(3);
+
+	infiniteScrollContainer = document.querySelector('#infinite-grid .mg-table-scroll');
+	infiniteScrollContainer.scrollTop = Math.max(0, infiniteScrollContainer.scrollHeight - infiniteScrollContainer.clientHeight - 2);
+	infiniteScrollContainer.dispatchEvent(new Event('scroll', { bubbles: true }));
+	await settleFrames(6);
+
+	assert(infiniteRequests.length === 2 && infiniteRequests[1].page === 2, 'Infinite scroll still loads more records after column reorder');
+	assert(infiniteGrid.getState().data.rows.length === 10, 'Infinite scroll appends the second batch after reorder');
+
+	infiniteGrid.setState({
+		columns: infiniteGrid.getState().columns.map((column) => {
+			if (column.key === 'text') {
+				return {
+					...column,
+					visible: false
+				};
+			}
+
+			return column;
+		})
+	});
+	await settleFrames(3);
+
+	infiniteScrollContainer = document.querySelector('#infinite-grid .mg-table-scroll');
+	infiniteScrollContainer.scrollTop = Math.max(0, infiniteScrollContainer.scrollHeight - infiniteScrollContainer.clientHeight - 2);
+	infiniteScrollContainer.dispatchEvent(new Event('scroll', { bubbles: true }));
+	await settleFrames(6);
+
+	assert(infiniteRequests.length === 3 && infiniteRequests[2].page === 3, 'Infinite scroll still loads more records after column visibility changes');
+	assert(infiniteGrid.getState().data.rows.length === 15, 'Infinite scroll appends the third batch after a visibility rerender');
+
+	const scrollTopBeforeDetailToggle = infiniteScrollContainer.scrollTop;
+	const infiniteFirstDataRow = document.querySelector('#infinite-grid tbody tr.mg-row');
+
+	dispatchClick(infiniteFirstDataRow);
+	await settleFrames(4);
+
+	assert(document.querySelectorAll('#infinite-grid .mg-row-detail').length === 1, 'Infinite scroll grid renders row detail inline');
+	assert(Math.abs(infiniteScrollContainer.scrollTop - scrollTopBeforeDetailToggle) <= 2, 'Toggling row detail keeps the internal scroll position instead of jumping to the top');
+
+	holdInfiniteResponses = true;
+	const stableHeightBeforeReload = infiniteScrollContainer.clientHeight;
+	const reloadPromise = infiniteGrid.reload();
+	await settleFrames(2);
+
+	const loadingScrollContainer = document.querySelector('#infinite-grid .mg-table-scroll');
+	assert(!!loadingScrollContainer, 'A full reload keeps the table scroll container mounted during loading');
+	assert(Math.abs((loadingScrollContainer?.clientHeight || 0) - stableHeightBeforeReload) <= 2, 'A full reload keeps the table zone height stable during loading');
+
+	if (typeof releaseInfiniteResponse === 'function') {
+		releaseInfiniteResponse();
+	}
+
+	holdInfiniteResponses = false;
+	await reloadPromise;
+	await settleFrames(4);
 
 	log('Smoke test completed successfully.', 'pass');
 } catch (error) {

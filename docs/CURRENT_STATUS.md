@@ -82,6 +82,7 @@ The current code base already contains:
 - `src/plugins/SplitDetailViewPlugin.js`
 - `src/plugins/ViewSwitcherPlugin.js`
 - `src/plugins/ResponsiveViewPlugin.js`
+- `src/plugins/InfiniteScrollPlugin.js`
 
 ### Utilities
 
@@ -114,6 +115,7 @@ The following already work in the current foundation:
 - basic paging with plugin UI
 - page size control via plugin
 - info display via plugin
+- loaded-record info mode for incremental server loading
 - summary metrics via plugin
 - group summary rendering in table view
 - zebra row classes in table view with per-grid on/off option
@@ -160,6 +162,11 @@ The following already work in the current foundation:
 - custom detail renderers via plugin options
 - server-mode data preparation in the core
 - watched server-state reload strategy
+- append-capable server loading foundation via `loadMore`
+- preserved internal scroll position during append-driven infinite-scroll loads
+- stable `lastLoadedPage` tracking for incremental server loads
+- plugin-driven infinite scrolling on top of the append-capable server loading foundation
+- bottom loader with pulsing dots inside the active scrollable table area during append loads
 - server-mode paging/search/sort/filter demo wiring via adapter request mapping
 - custom layout tree
 - named zones
@@ -183,6 +190,7 @@ The repo currently includes demos for:
 - modern layout with session storage
 - responsive cards and split detail demo
 - multifunction ajax demo with plugin-driven search, filters, grouping, header menus, selection, row actions, bulk actions, export, summaries, row details and multiple views
+- infinite ajax demo with plugin-driven search, filters, sorting, selection, row actions, export, storage, row detail and automatic append loading inside a fixed-height scrollable table area
 
 ## Current architectural direction
 
@@ -210,6 +218,8 @@ That means:
 Controls are optional and layout-driven.
 
 The core now supports a dedicated `dataMode: 'server'` strategy for adapter-backed grids, while request shaping remains adapter-level and plugin state can participate through watched top-level state keys.
+
+The core also has a neutral distinction between replace-style server reloads and append-style server loads. This keeps classic page-based paging intact while enabling plugin-driven alternatives such as infinite scroll.
 
 Shared row-detail behavior is plugin-driven and view-integrated, not hardcoded as a one-off demo behavior.
 
@@ -250,8 +260,10 @@ The following should preferably be implemented as plugins instead of expanding t
 - charts
 - advanced filters
 - resize and reorder behaviour if they can be moved behind a cleaner extension layer later
+- incremental loading UI such as infinite scroll, using the append-capable server loading foundation instead of hardcoding scroll behavior into the core
 
 ## Current important technical note
 
 `deepMerge()` must not destroy class instances such as adapters or other service objects.
 Only plain objects should be deeply merged.
+

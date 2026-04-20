@@ -21,25 +21,25 @@ If the new chat only needs a short briefing, provide:
 ## Purpose of these files
 
 - `CURRENT_STATUS.md`
-	Summary of what already exists and what is already working.
+		Summary of what already exists and what is already working.
 
 - `WORKING_RULES.md`
-	Project rules for how new work should be done.
+		Project rules for how new work should be done.
 
 - `NEW_CHAT_BRIEFING.md`
-	A ready-to-copy briefing for starting a new chat.
+		A ready-to-copy briefing for starting a new chat.
 
 - `architecture/CORE_CONTRACT.md`
-	Defines what the core is allowed to do and what should be handled via plugins.
+		Defines what the core is allowed to do and what should be handled via plugins.
 
 - `architecture/PLUGIN_API.md`
-	Defines the plugin system, plugin responsibilities and usage patterns.
+		Defines the plugin system, plugin responsibilities and usage patterns.
 
 - `architecture/LAYOUT_MODEL.md`
-	Defines the free layout tree and zone-based rendering model.
+		Defines the free layout tree and zone-based rendering model.
 
 - `todo/FEATURE_TODO.md`
-	Main feature roadmap and checklist.
+		Main feature roadmap and checklist.
 
 ## Main project goal
 
@@ -68,3 +68,15 @@ Search bars, paging controls, info bars, reset buttons and other UI controls sho
 - optional layout helpers for demos or convenience
 
 This keeps the core neutral and prevents fixed top/bottom control structures from becoming mandatory.
+
+## Current loading-strategy note
+
+Classic page-based paging remains part of the stable baseline.
+
+The core now also has a neutral append-capable server loading foundation, and the project includes a plugin-driven infinite-scroll variant on top of that foundation.
+
+This means consumers can now choose between:
+
+- classic page-based paging with paging and page-size plugins
+- plugin-driven infinite scrolling with automatic append loads and a bottom loader inside the scrollable table area
+

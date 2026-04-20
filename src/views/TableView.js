@@ -9,6 +9,8 @@ import { computeSummaryMetric, formatSummaryMetric } from '../utils/summary.js';
 import { wrapTextDisplayContent } from '../utils/textDisplay.js';
 import { isUtilityColumn, resolveEffectivePinnedSide } from '../utils/columnPinning.js';
 
+const tableViewStateMap = new WeakMap();
+
 function isInteractiveTarget(target) {
 	return target instanceof Element && !!target.closest('a, button, input, select, textarea, label, summary, details');
 }
@@ -408,6 +410,175 @@ function setColumnHoverState(table, columnIndex, isActive) {
 	});
 }
 
+function resolveRowIdentity(row, rowDetailOptions, index) {
+	const explicitRowIdKey = rowDetailOptions?.rowIdKey;
+
+	if (explicitRowIdKey && row && row[explicitRowIdKey] !== undefined && row[explicitRowIdKey] !== null) {
+		return `${explicitRowIdKey}:${String(row[explicitRowIdKey])}`;
+	}
+
+	if (row && row.id !== undefined && row.id !== null) {
+		return `id:${String(row.id)}`;
+	}
+
+	return `index:${index}`;
+}
+
+function buildRowIdentityList(rows, rowDetailOptions) {
+	return rows.map((row, index) => {
+		return resolveRowIdentity(row, rowDetailOptions, index);
+	});
+}
+
+function buildActiveDetailIdentityList(rows, grid, rowDetailOptions) {
+	return rows
+		.map((row, index) => {
+			if (!isDetailRowActive(row, grid, rowDetailOptions)) {
+				return null;
+			}
+
+			return resolveRowIdentity(row, rowDetailOptions, index);
+		})
+		.filter(Boolean);
+}
+
+function haveEqualArrays(a, b) {
+	if (!Array.isArray(a) || !Array.isArray(b)) {
+		return false;
+	}
+
+	if (a.length !== b.length) {
+		return false;
+	}
+
+	for (let index = 0; index < a.length; index += 1) {
+		if (a[index] !== b[index]) {
+			return false;
+		}
+	}
+
+	return true;
+}
+
+function hasMatchingPrefix(previousValues, nextValues) {
+	if (!Array.isArray(previousValues) || !Array.isArray(nextValues)) {
+		return false;
+	}
+
+	if (previousValues.length > nextValues.length) {
+		return false;
+	}
+
+	for (let index = 0; index < previousValues.length; index += 1) {
+		if (previousValues[index] !== nextValues[index]) {
+			return false;
+		}
+	}
+
+	return true;
+}
+
+function buildRenderSignature(renderColumns, groupingKey, tableOptions) {
+	return JSON.stringify({
+		groupingKey: groupingKey || '',
+		zebraRows: tableOptions.zebraRows !== false,
+		columns: renderColumns.map((column) => {
+			return {
+				key: column.key,
+				width: column.width ?? null,
+				minWidth: column.minWidth ?? null,
+				maxWidth: column.maxWidth ?? null,
+				pinned: resolveEffectivePinnedSide(column),
+				resizable: column.resizable !== false,
+				reorderable: column.reorderable !== false,
+				visible: column.visible !== false
+			};
+		})
+	});
+}
+
+function isStateAttachedToContainer(state, container) {
+	if (!state) {
+		return false;
+	}
+
+	if (!(state.scroll instanceof HTMLElement) || !(state.table instanceof HTMLElement) || !(state.tbody instanceof HTMLElement)) {
+		return false;
+	}
+
+	return container.contains(state.scroll)
+		&& state.scroll.contains(state.table)
+		&& state.table.contains(state.tbody);
+}
+
+function canReuseDuringLoadingMore(state, renderSignature, rowIdentities, groupingKey, viewModel) {
+	if (!state || state.mode !== 'data') {
+		return false;
+	}
+
+	if (groupingKey) {
+		return false;
+	}
+
+	if (viewModel.loadingMore !== true) {
+		return false;
+	}
+
+	if (state.renderSignature !== renderSignature) {
+		return false;
+	}
+
+	if (state.rowIdentities.length !== rowIdentities.length) {
+		return false;
+	}
+
+	return haveEqualArrays(state.rowIdentities, rowIdentities);
+}
+
+function canAppendRows(state, renderSignature, rowIdentities, activeDetailIdentities, groupingKey, viewModel) {
+	if (!state || state.mode !== 'data') {
+		return false;
+	}
+
+	if (groupingKey) {
+		return false;
+	}
+
+	if (viewModel.loading || viewModel.error || viewModel.loadingMore === true) {
+		return false;
+	}
+
+	if (state.renderSignature !== renderSignature) {
+		return false;
+	}
+
+	if (!haveEqualArrays(state.activeDetailIdentities, activeDetailIdentities)) {
+		return false;
+	}
+
+	if (rowIdentities.length <= state.rowIdentities.length) {
+		return false;
+	}
+
+	return hasMatchingPrefix(state.rowIdentities, rowIdentities);
+}
+
+function canRefreshBodyOnly(state, renderSignature, rowIdentities, groupingKey, viewModel) {
+	if (!state || state.mode !== 'data') {
+		return false;
+	}
+
+	if (viewModel.loading || viewModel.error || viewModel.loadingMore === true) {
+		return false;
+	}
+
+	if (state.renderSignature !== renderSignature) {
+		return false;
+	}
+
+	return haveEqualArrays(state.rowIdentities, rowIdentities) && groupingKey === state.groupingKey;
+}
+
 function appendDataRow(tbody, row, grid, viewModel, renderColumns, rowDetailOptions, tableOptions, rowNumber) {
 	const rowId = getRowDetailRowId(row, rowDetailOptions);
 	const canToggleDetail = rowDetailOptions.enabled !== false && rowDetailOptions.renderInTable !== false && rowDetailOptions.toggleOnRowClick !== false && rowId !== null;
@@ -478,11 +649,127 @@ function appendDataRow(tbody, row, grid, viewModel, renderColumns, rowDetailOpti
 	}
 }
 
+function renderBodyIntoTbody(tbody, grid, viewModel, renderColumns, rowDetailOptions, tableOptions, groupingOptions, groupingKey) {
+	clearElement(tbody);
+
+	let visualRowNumber = 0;
+
+	const appendNumberedDataRow = (row) => {
+		visualRowNumber += 1;
+
+		appendDataRow(
+			tbody,
+			row,
+			grid,
+			viewModel,
+			renderColumns,
+			rowDetailOptions,
+			tableOptions,
+			visualRowNumber
+		);
+	};
+
+	if (viewModel.rows.length === 0) {
+		const emptyRow = createElement('tr', 'mg-empty-row');
+		const emptyCell = createElement('td', 'mg-empty-cell');
+		emptyCell.colSpan = Math.max(renderColumns.length, 1);
+		emptyCell.textContent = 'No rows found.';
+		emptyRow.appendChild(emptyCell);
+		tbody.appendChild(emptyRow);
+
+		return {
+			visualRowNumber
+		};
+	}
+
+	const groupingField = groupingKey ? findGroupingField(groupingOptions, groupingKey) : null;
+
+	if (groupingKey && groupingField) {
+		const groups = buildGroups(viewModel.rows, groupingKey);
+
+		groups.forEach((group) => {
+			tbody.appendChild(
+				createGroupHeaderRow(
+					renderColumns,
+					groupingField,
+					group.value,
+					group.rows.length,
+					groupingOptions
+				)
+			);
+
+			group.rows.forEach((row) => {
+				appendNumberedDataRow(row);
+			});
+
+			const summaryRow = createGroupSummaryRow(renderColumns, group.rows, groupingOptions);
+
+			if (summaryRow) {
+				tbody.appendChild(summaryRow);
+			}
+		});
+	}
+	else {
+		viewModel.rows.forEach((row) => {
+			appendNumberedDataRow(row);
+		});
+	}
+
+	return {
+		visualRowNumber
+	};
+}
+
+function renderStableLoadingState(container) {
+	clearElement(container);
+
+	const scroll = createElement('div', 'mg-table-scroll');
+	const scrollInner = createElement('div', 'mg-table-scroll-inner');
+	const loadingBox = createElement('div', 'mg-state mg-state-loading');
+
+	loadingBox.textContent = 'Loading...';
+	loadingBox.style.minHeight = '100%';
+	loadingBox.style.height = '100%';
+	loadingBox.style.display = 'flex';
+	loadingBox.style.alignItems = 'center';
+	loadingBox.style.justifyContent = 'center';
+
+	scrollInner.appendChild(loadingBox);
+	scroll.appendChild(scrollInner);
+	container.appendChild(scroll);
+}
+
+function storeTableViewState(container, state) {
+	tableViewStateMap.set(container, state);
+}
+
+function clearTableViewState(container) {
+	tableViewStateMap.delete(container);
+}
+
 export class TableView {
 	render(container, grid, viewModel) {
-		clearElement(container);
+		let previousState = tableViewStateMap.get(container) || null;
+
+		if (previousState && !isStateAttachedToContainer(previousState, container)) {
+			clearTableViewState(container);
+			previousState = null;
+		}
+
+		const renderColumns = (viewModel.renderColumns || viewModel.columns || []).filter((column) => column.visible !== false);
+		const rowDetailOptions = resolveRowDetailOptions(grid);
+		const tableOptions = resolveTableOptions(grid);
+		const groupingOptions = resolveGroupingOptions(grid);
+		const groupingState = getGroupingState(grid, groupingOptions);
+		const groupingKey = groupingState.key || '';
+		const renderSignature = buildRenderSignature(renderColumns, groupingKey, tableOptions);
+		const rowIdentities = buildRowIdentityList(viewModel.rows || [], rowDetailOptions);
+		const activeDetailIdentities = buildActiveDetailIdentityList(viewModel.rows || [], grid, rowDetailOptions);
 
 		if (viewModel.error) {
+			clearTableViewState(container);
+			clearElement(container);
+
 			const errorBox = createElement('div', 'mg-state mg-state-error');
 			errorBox.textContent = viewModel.error;
 			container.appendChild(errorBox);
@@ -490,22 +777,96 @@ export class TableView {
 		}
 
 		if (viewModel.loading) {
-			const loadingBox = createElement('div', 'mg-state mg-state-loading');
-			loadingBox.textContent = 'Loading...';
-			container.appendChild(loadingBox);
+			clearTableViewState(container);
+			renderStableLoadingState(container);
 			return;
 		}
 
-		const renderColumns = (viewModel.renderColumns || viewModel.columns || []).filter((column) => column.visible !== false);
-		const rowDetailOptions = resolveRowDetailOptions(grid);
-		const tableOptions = resolveTableOptions(grid);
-
 		if (renderColumns.length === 0) {
+			clearTableViewState(container);
+			clearElement(container);
+
 			const emptyColumnsBox = createElement('div', 'mg-state');
 			emptyColumnsBox.textContent = 'No visible columns selected.';
 			container.appendChild(emptyColumnsBox);
 			return;
 		}
+
+		if (canReuseDuringLoadingMore(previousState, renderSignature, rowIdentities, groupingKey, viewModel)) {
+			return;
+		}
+
+		if (canAppendRows(previousState, renderSignature, rowIdentities, activeDetailIdentities, groupingKey, viewModel)) {
+			for (let index = previousState.rowIdentities.length; index < viewModel.rows.length; index += 1) {
+				previousState.visualRowNumber += 1;
+
+				appendDataRow(
+					previousState.tbody,
+					viewModel.rows[index],
+					grid,
+					viewModel,
+					renderColumns,
+					rowDetailOptions,
+					tableOptions,
+					previousState.visualRowNumber
+				);
+			}
+
+			applyPinnedColumnStyles(previousState.table, renderColumns);
+
+			storeTableViewState(container, {
+				...previousState,
+				mode: 'data',
+				renderSignature,
+				groupingKey,
+				rowIdentities,
+				activeDetailIdentities
+			});
+
+			return;
+		}
+
+		if (
+			canRefreshBodyOnly(previousState, renderSignature, rowIdentities, groupingKey, viewModel)
+			&& !haveEqualArrays(previousState.activeDetailIdentities, activeDetailIdentities)
+		) {
+			const preservedScrollTop = previousState.scroll.scrollTop;
+
+			const bodyState = renderBodyIntoTbody(
+				previousState.tbody,
+				grid,
+				viewModel,
+				renderColumns,
+				rowDetailOptions,
+				tableOptions,
+				groupingOptions,
+				groupingKey
+			);
+
+			previousState.scroll.scrollTop = preservedScrollTop;
+
+			window.requestAnimationFrame(() => {
+				if (previousState.scroll instanceof HTMLElement) {
+					previousState.scroll.scrollTop = preservedScrollTop;
+				}
+			});
+
+			applyPinnedColumnStyles(previousState.table, renderColumns);
+
+			storeTableViewState(container, {
+				...previousState,
+				mode: 'data',
+				renderSignature,
+				groupingKey,
+				rowIdentities,
+				activeDetailIdentities,
+				visualRowNumber: bodyState.visualRowNumber
+			});
+
+			return;
+		}
+
+		clearElement(container);
 
 		const scroll = createElement('div', 'mg-table-scroll');
 		const scrollInner = createElement('div', 'mg-table-scroll-inner');
@@ -519,7 +880,6 @@ export class TableView {
 			})
 		);
 
-		let visualRowNumber = 0;
 		let activeDropCell = null;
 		let activeDropPosition = '';
 		let dragSourceKey = '';
@@ -574,21 +934,6 @@ export class TableView {
 			const relativeX = event.clientX - rect.left;
 
 			return relativeX <= rect.width / 2 ? 'before' : 'after';
-		};
-
-		const appendNumberedDataRow = (row) => {
-			visualRowNumber += 1;
-
-			appendDataRow(
-				tbody,
-				row,
-				grid,
-				viewModel,
-				renderColumns,
-				rowDetailOptions,
-				tableOptions,
-				visualRowNumber
-			);
 		};
 
 		const createReorderHandle = (column) => {
@@ -758,51 +1103,16 @@ export class TableView {
 		thead.appendChild(headerRow);
 		table.appendChild(thead);
 
-		if (viewModel.rows.length === 0) {
-			const emptyRow = createElement('tr', 'mg-empty-row');
-			const emptyCell = createElement('td', 'mg-empty-cell');
-			emptyCell.colSpan = Math.max(renderColumns.length, 1);
-			emptyCell.textContent = 'No rows found.';
-			emptyRow.appendChild(emptyCell);
-			tbody.appendChild(emptyRow);
-		}
-		else {
-			const groupingOptions = resolveGroupingOptions(grid);
-			const groupingState = getGroupingState(grid, groupingOptions);
-			const groupingKey = groupingState.key || '';
-			const groupingField = groupingKey ? findGroupingField(groupingOptions, groupingKey) : null;
-
-			if (groupingKey && groupingField) {
-				const groups = buildGroups(viewModel.rows, groupingKey);
-
-				groups.forEach((group) => {
-					tbody.appendChild(
-						createGroupHeaderRow(
-							renderColumns,
-							groupingField,
-							group.value,
-							group.rows.length,
-							groupingOptions
-						)
-					);
-
-					group.rows.forEach((row) => {
-						appendNumberedDataRow(row);
-					});
-
-					const summaryRow = createGroupSummaryRow(renderColumns, group.rows, groupingOptions);
-
-					if (summaryRow) {
-						tbody.appendChild(summaryRow);
-					}
-				});
-			}
-			else {
-				viewModel.rows.forEach((row) => {
-					appendNumberedDataRow(row);
-				});
-			}
-		}
+		const bodyState = renderBodyIntoTbody(
+			tbody,
+			grid,
+			viewModel,
+			renderColumns,
+			rowDetailOptions,
+			tableOptions,
+			groupingOptions,
+			groupingKey
+		);
 
 		table.appendChild(tbody);
 		scrollInner.appendChild(table);
@@ -810,5 +1120,17 @@ export class TableView {
 		container.appendChild(scroll);
 
 		applyPinnedColumnStyles(table, renderColumns);
+
+		storeTableViewState(container, {
+			mode: 'data',
+			scroll,
+			table,
+			tbody,
+			renderSignature,
+			groupingKey,
+			rowIdentities,
+			activeDetailIdentities,
+			visualRowNumber: bodyState.visualRowNumber
+		});
 	}
 }

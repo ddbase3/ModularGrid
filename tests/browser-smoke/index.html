@@ -37,6 +37,22 @@
 			min-height: 200px;
 		}
 
+		#infinite-grid .mg-table-scroll {
+			max-height: 160px;
+			overflow: auto;
+		}
+
+		#infinite-grid .mg-table thead th {
+			position: sticky;
+			top: 0;
+			z-index: 12;
+			background: #fff;
+		}
+
+		#infinite-grid .mg-table thead th.mg-cell-pinned {
+			z-index: 14;
+		}
+
 		.pass {
 			color: #7CFC98;
 		}
@@ -58,6 +74,11 @@
 		<div class="test-card">
 			<h2>Second Grid</h2>
 			<div id="second-grid"></div>
+		</div>
+
+		<div class="test-card">
+			<h2>Infinite Scroll Grid</h2>
+			<div id="infinite-grid"></div>
 		</div>
 
 		<div class="test-card">

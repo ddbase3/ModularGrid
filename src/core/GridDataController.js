@@ -3,28 +3,30 @@ export class GridDataController {
 		this.grid = grid;
 	}
 
-	buildRequest() {
+	buildRequest(options = {}) {
 		const state = this.grid.store.peek();
 
 		return {
-			page: state.query.page,
-			pageSize: state.query.pageSize,
-			search: state.query.search,
-			sortKey: state.query.sortKey,
-			sortDirection: state.query.sortDirection
+			page: options.page ?? state.query.page,
+			pageSize: options.pageSize ?? state.query.pageSize,
+			search: options.search ?? state.query.search,
+			sortKey: options.sortKey ?? state.query.sortKey,
+			sortDirection: options.sortDirection ?? state.query.sortDirection
 		};
 	}
 
-	async load() {
+	async load(options = {}) {
 		if (!this.grid.adapter || typeof this.grid.adapter.load !== 'function') {
 			throw new Error('No valid data adapter configured.');
 		}
 
-		const request = this.buildRequest();
+		const loadMode = options.mode === 'append' ? 'append' : 'replace';
+		const request = this.buildRequest(options);
 
 		this.grid.events.emit('data:before-load', {
 			grid: this.grid,
-			request
+			request,
+			mode: loadMode
 		});
 
 		const result = await this.grid.adapter.load(request, this.grid);
@@ -32,7 +34,8 @@ export class GridDataController {
 
 		this.grid.events.emit('data:after-load', {
 			grid: this.grid,
-			result: normalized
+			result: normalized,
+			mode: loadMode
 		});
 
 		return normalized;
@@ -58,3 +61,4 @@ export class GridDataController {
 		};
 	}
 }
+

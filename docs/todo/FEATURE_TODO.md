@@ -50,6 +50,7 @@ It is based on the originally requested feature set, translated into a more stru
 - [x] Server-side search strategy
 - [x] Server-side filter strategy
 - [x] Watched server-state reload strategy
+- [x] Append-capable server load foundation
 - [ ] Hybrid client/server processing strategy
 
 ---
@@ -120,7 +121,8 @@ It is based on the originally requested feature set, translated into a more stru
 - [x] Page-based paging
 - [x] Replace built-in paging UI with plugin-based paging UI
 - [x] Alternative page size UI via plugin
-- [ ] Infinite scroll / auto paging
+- [x] Infinite scroll / auto paging
+- [x] Append-capable server accumulation for incremental loading strategies
 - [x] Pluggable paging controls
 
 ---
@@ -291,6 +293,7 @@ It is based on the originally requested feature set, translated into a more stru
 - [x] Modern layout demo
 - [x] Card view demo
 - [x] Extended ajax demo
+- [x] Infinite ajax demo
 - [x] Smoke coverage for responsive view switching
 - [x] Smoke coverage for inline row detail behavior
 - [x] Smoke coverage for bulk actions
@@ -308,6 +311,7 @@ It is based on the originally requested feature set, translated into a more stru
 - [x] Smoke coverage for synchronized column selector order
 - [x] Smoke coverage for header-driven column hover highlighting
 - [x] Smoke coverage for row-menu stacking behaviour
+- [x] Smoke coverage for infinite-scroll append loading and bottom loader behaviour
 - [ ] Export demo
 
 ---
@@ -316,8 +320,9 @@ It is based on the originally requested feature set, translated into a more stru
 
 The next good steps are:
 
-1. header filter row
-2. grouping expansion and collapse
-3. export refinement for filtered/all rows
-4. ajax/database storage adapter
-5. responsive mobile card refinement
+1. server-side grouping over full filtered dataset
+2. header filter row
+3. grouping expansion and collapse
+4. export refinement for filtered/all rows
+5. ajax/database storage adapter
+

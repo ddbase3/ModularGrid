@@ -33,3 +33,5 @@ export { CardViewPlugin } from './plugins/CardViewPlugin.js';
 export { SplitDetailViewPlugin } from './plugins/SplitDetailViewPlugin.js';
 export { ViewSwitcherPlugin } from './plugins/ViewSwitcherPlugin.js';
 export { ResponsiveViewPlugin } from './plugins/ResponsiveViewPlugin.js';
+export { InfiniteScrollPlugin } from './plugins/InfiniteScrollPlugin.js';
+

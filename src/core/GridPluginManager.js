@@ -35,8 +35,12 @@ export class GridPluginManager {
 				return this.grid;
 			},
 
-			requestReload: () => {
-				return this.grid.reload();
+			requestReload: (options) => {
+				return this.grid.reload(options);
+			},
+
+			requestLoadMore: (options) => {
+				return this.grid.loadMore(options);
 			},
 
 			getZone: (zoneKey) => {
@@ -227,3 +231,4 @@ export class GridPluginManager {
 		this.plugins = [];
 	}
 }
+

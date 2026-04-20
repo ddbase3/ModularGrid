@@ -58,8 +58,11 @@ The core owns:
 - handing data into the rendering pipeline
 - deciding whether rows should be prepared client-side or treated as already prepared server-side
 - watching configured top-level state sections in server mode and coordinating reloads
+- supporting both replace-style and append-style server loading when incremental loading strategies need accumulated rows
 
 Important: backend-specific request mapping still belongs to adapters or demo/application code, not the core.
+
+Important: paging UI or infinite-scroll UI still belongs outside the core even when the core exposes a neutral append-capable loading path.
 
 ### 6. Layout coordination
 
@@ -121,6 +124,7 @@ The core should preferably not directly implement:
 - drag and drop implementations
 - resizable columns
 - reorderable rows or columns
+- infinite-scroll UI, scroll listeners or demo-specific loading indicators
 
 These belong in plugins, views, drivers or adapters.
 
@@ -140,6 +144,7 @@ Good examples of acceptable core changes:
 - a missing data preparation strategy such as explicit server mode
 - a missing watched-state reload mechanism for adapter-backed grids
 - a small generic state-backed command needed for stable rendering interactions across rerenders
+- a neutral append-style server loading path that can be reused by plugin-driven incremental loading strategies
 
 Bad examples of unnecessary core changes:
 
@@ -147,6 +152,7 @@ Bad examples of unnecessary core changes:
 - adding hardcoded feature flags for one plugin
 - special-casing one future feature directly inside `ModularGrid.js`
 - forcing a mandatory toolbar/footer control structure
+- hardcoding one particular infinite-scroll or loader UI implementation into the core
 
 ## Core stability goal
 
@@ -174,3 +180,4 @@ Over time, most future growth should use these extension points:
 ## Warning sign
 
 If a new feature requires large changes in multiple unrelated parts of the core, stop and check whether the architecture is drifting in the wrong direction.
+

@@ -52,8 +52,12 @@ export class GridCommandRegistry {
 				return this.grid;
 			},
 
-			requestReload: () => {
-				return this.grid.reload();
+			requestReload: (options) => {
+				return this.grid.reload(options);
+			},
+
+			requestLoadMore: (options) => {
+				return this.grid.loadMore(options);
 			},
 
 			getOptions: () => {
@@ -80,3 +84,4 @@ export class GridCommandRegistry {
 		return handler(this.createContext(), payload);
 	}
 }
+

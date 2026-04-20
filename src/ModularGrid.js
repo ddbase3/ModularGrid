@@ -164,6 +164,7 @@ export class ModularGrid {
 		this.initialized = false;
 		this.initialStateSnapshot = this.store.getState();
 		this.serverReloadTimer = null;
+		this.activeLoadSequence = 0;
 
 		this.registerBuiltInCommands();
 	}
@@ -180,7 +181,9 @@ export class ModularGrid {
 				rows: [],
 				total: 0,
 				loading: false,
-				error: null
+				loadingMore: false,
+				error: null,
+				lastLoadedPage: 0
 			},
 			query: {
 				page: 1,
@@ -201,8 +204,11 @@ export class ModularGrid {
 
 	registerBuiltInCommands() {
 		this.commands
-			.register('reload', ({ grid }) => {
-				return grid.reload();
+			.register('reload', ({ grid }, payload) => {
+				return grid.reload(payload);
+			})
+			.register('loadMore', ({ grid }, payload) => {
+				return grid.loadMore(payload);
 			})
 			.register('render', ({ grid }) => {
 				return grid.render();
@@ -362,6 +368,25 @@ export class ModularGrid {
 		}
 	}
 
+	nextLoadSequence() {
+		this.activeLoadSequence += 1;
+		return this.activeLoadSequence;
+	}
+
+	isActiveLoadSequence(loadSequence) {
+		return loadSequence === this.activeLoadSequence;
+	}
+
+	resolveLoadedColumns(result) {
+		let columns = result.columns ? normalizeColumns(result.columns) : this.store.peek().columns;
+
+		if (columns.length === 0 && result.rows.length > 0) {
+			columns = inferColumnsFromRow(result.rows[0]);
+		}
+
+		return columns;
+	}
+
 	async init() {
 		if (this.initialized) {
 			return this;
@@ -397,27 +422,44 @@ export class ModularGrid {
 		return this;
 	}
 
-	async reload() {
+	async reload(options = {}) {
+		const loadMode = options?.mode === 'append' ? 'append' : 'replace';
+
+		if (loadMode === 'append') {
+			return this.loadMore(options);
+		}
+
 		this.clearPendingServerReload();
+
+		const requestedPage = Math.max(1, Number(options.page) || Number(this.store.peek().query.page) || 1);
+		const loadSequence = this.nextLoadSequence();
 
 		this.store.setState({
 			data: {
 				loading: true,
+				loadingMore: false,
 				error: null
 			}
 		});
 
 		this.events.emit('data:loading', {
-			grid: this
+			grid: this,
+			mode: 'replace',
+			page: requestedPage
 		});
 
 		try {
-			const result = await this.dataController.load();
-			let columns = result.columns ? normalizeColumns(result.columns) : this.store.peek().columns;
+			const result = await this.dataController.load({
+				...options,
+				mode: 'replace',
+				page: requestedPage
+			});
 
-			if (columns.length === 0 && result.rows.length > 0) {
-				columns = inferColumnsFromRow(result.rows[0]);
+			if (!this.isActiveLoadSequence(loadSequence)) {
+				return this;
 			}
+
+			const columns = this.resolveLoadedColumns(result);
 
 			this.store.setState({
 				columns,
@@ -425,27 +467,148 @@ export class ModularGrid {
 					rows: result.rows,
 					total: result.total,
 					loading: false,
-					error: null
+					loadingMore: false,
+					error: null,
+					lastLoadedPage: requestedPage
 				}
 			});
 
 			this.events.emit('data:loaded', {
 				grid: this,
-				result
+				result,
+				mode: 'replace',
+				page: requestedPage
 			});
 		} catch (error) {
+			if (!this.isActiveLoadSequence(loadSequence)) {
+				return this;
+			}
+
 			const errorMessage = error instanceof Error ? error.message : String(error);
 
 			this.store.setState({
 				data: {
 					loading: false,
+					loadingMore: false,
 					error: errorMessage
 				}
 			});
 
 			this.events.emit('data:error', {
 				grid: this,
-				error: errorMessage
+				error: errorMessage,
+				mode: 'replace',
+				page: requestedPage
+			});
+		}
+
+		return this;
+	}
+
+	async loadMore(options = {}) {
+		if (!this.isServerMode()) {
+			return this;
+		}
+
+		const state = this.store.peek();
+
+		if (state.data.loading || state.data.loadingMore) {
+			return this;
+		}
+
+		const existingRows = Array.isArray(state.data.rows) ? state.data.rows.slice() : [];
+		const currentTotal = Math.max(0, Number(state.data.total) || 0);
+
+		if (currentTotal === 0 && existingRows.length === 0) {
+			return this;
+		}
+
+		if (currentTotal > 0 && existingRows.length >= currentTotal) {
+			return this;
+		}
+
+		const pageSize = Math.max(1, Number(options.pageSize) || Number(state.query.pageSize) || 1);
+		const lastLoadedPage = Math.max(0, Number(state.data.lastLoadedPage) || 0);
+		const nextPage = Math.max(1, Number(options.page) || (lastLoadedPage > 0 ? lastLoadedPage + 1 : 1));
+		const loadSequence = this.nextLoadSequence();
+
+		this.store.setState({
+			data: {
+				loadingMore: true,
+				error: null
+			}
+		});
+
+		this.events.emit('data:loading', {
+			grid: this,
+			mode: 'append',
+			page: nextPage
+		});
+
+		try {
+			const result = await this.dataController.load({
+				...options,
+				mode: 'append',
+				page: nextPage,
+				pageSize
+			});
+
+			if (!this.isActiveLoadSequence(loadSequence)) {
+				return this;
+			}
+
+			const columns = this.resolveLoadedColumns(result);
+			const combinedRows = existingRows.concat(result.rows);
+			const combinedTotal = Math.max(currentTotal, Number(result.total) || 0, combinedRows.length);
+
+			this.store.setState({
+				columns,
+				data: {
+					rows: combinedRows,
+					total: combinedTotal,
+					loading: false,
+					loadingMore: false,
+					error: null,
+					lastLoadedPage: nextPage
+				}
+			});
+
+			this.events.emit('data:loaded', {
+				grid: this,
+				result,
+				mode: 'append',
+				page: nextPage,
+				appendedCount: result.rows.length,
+				totalLoaded: combinedRows.length
+			});
+
+			this.events.emit('data:appended', {
+				grid: this,
+				result,
+				page: nextPage,
+				appendedCount: result.rows.length,
+				totalLoaded: combinedRows.length
+			});
+		} catch (error) {
+			if (!this.isActiveLoadSequence(loadSequence)) {
+				return this;
+			}
+
+			const errorMessage = error instanceof Error ? error.message : String(error);
+
+			this.store.setState({
+				data: {
+					loading: false,
+					loadingMore: false,
+					error: errorMessage
+				}
+			});
+
+			this.events.emit('data:error', {
+				grid: this,
+				error: errorMessage,
+				mode: 'append',
+				page: nextPage
 			});
 		}
 
@@ -588,6 +751,9 @@ export class ModularGrid {
 			sortDirection: state.query.sortDirection,
 			viewMode: state.view?.mode || 'table',
 			loading: state.data.loading,
+			loadingMore: state.data.loadingMore === true,
+			loadedRowCount: Array.isArray(state.data.rows) ? state.data.rows.length : 0,
+			lastLoadedPage: Math.max(0, Number(state.data.lastLoadedPage) || 0),
 			error: state.data.error
 		};
 	}
@@ -866,3 +1032,4 @@ export class ModularGrid {
 		return value ?? '';
 	}
 }
+

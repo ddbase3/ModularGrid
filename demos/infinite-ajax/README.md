@@ -22,6 +22,7 @@ It keeps the ajax source and composes the grid mainly through plugins and config
 - column visibility
 - reset
 - async row detail
+- interactive nested child detail
 - session storage
 - automatic append loading through the infinite-scroll plugin
 
@@ -63,9 +64,23 @@ That means the row-detail feature can now be used for:
 - timelines or audit data
 - nested or follow-up content that would be too expensive for the main list payload
 
+## Interactive nested child detail
+
+The returned root detail payload now includes child items.
+
+Those child items are rendered directly inside the expanded row detail and can be clicked independently.
+Each child item performs its own ajax request and can render another structured detail layer below itself.
+
+That means the demo now covers:
+
+- first list level in the main grid
+- second level inside the expanded row detail
+- third level below an interactive child item
+- distinct visual styling per detail level
+
 ## Detail request shape
 
-When the detail panel opens, the demo sends a POST body like:
+When the root detail panel opens, the demo sends a POST body like:
 
 ```json
 {
@@ -89,13 +104,27 @@ The server responds with a shape like:
 		],
 		"activity": [
 			{ "label": "Created", "value": "2026-04-01 12:00" }
+		],
+		"children": [
+			{ "id": "contact-panel", "title": "Contact profile" }
 		]
 	}
 }
 ```
 
+When one of those child items is opened, the demo sends another POST body like:
+
+```json
+{
+	"mode": "detail-child",
+	"id": 42,
+	"childId": "contact-panel",
+	"parentPath": ["contact-panel"]
+}
+```
+
 The exact detail payload is demo-specific.
-The important part is that row detail can now load asynchronously and then render the returned payload through plugin configuration.
+The important part is that row detail can now load asynchronously, render structured payloads and continue with additional lazy child-detail requests inside the same expanded area.
 
 ## Data loading model
 
@@ -226,26 +255,28 @@ Use `demos/infinite-ajax/` when you want to demonstrate:
 - automatic next-page loading
 - an alternative paging strategy without page-picker UI
 - server-loaded row detail
-- nested child items rendered inside the expanded detail layer
+- interactive nested child items rendered inside the expanded detail layer
+- third-level lazy detail content below a child item
 
 ## Current design scope
 
-This demo currently focuses on incremental loading over a filtered and sorted server result set plus a second ajax detail request per expanded row. That detail payload now also includes nested child items rendered inside the expanded detail container.
+This demo currently focuses on incremental loading over a filtered and sorted server result set plus a second ajax detail request per expanded row and additional follow-up ajax requests below interactive child items.
 
 It is intentionally separate from the larger future topic:
 
 - server-side grouping over the full filtered dataset
-- interactive recursive expansion below child items
+- fully generic recursive tree-state coordination across multiple simultaneously open root rows
 
-Those topics should be handled as dedicated backend-aware feature steps instead of being mixed into the current nested-child baseline.
+Those topics should be handled as dedicated backend-aware feature steps instead of being mixed into the current nested-child interaction baseline.
 
 ## Next architectural step
 
-The current infinite-scroll baseline now proves three things:
+The current infinite-scroll baseline now proves four things:
 
 1. ModularGrid can support more than one server-loading strategy.
 2. Row detail can load server content lazily after expansion.
 3. The async detail payload can render nested child items with a distinct visual level.
+4. Those child items can lazily load their own follow-up detail content.
 
-The next deeper technical step is to make those child items interactive so they can load their own follow-up detail content.
+The next deeper technical step is to generalize that child-detail interaction so multiple independent nested branches can be coordinated more formally.
 

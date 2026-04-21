@@ -536,6 +536,11 @@
 	background: #fdfaf7;
 }
 
+.mg-row-detail-level-4 {
+	border-left-color: #a58ac4;
+	background: #fbf8ff;
+}
+
 .mg-row-detail-status {
 	display: flex;
 	align-items: center;
@@ -557,6 +562,28 @@
 	display: grid;
 	grid-template-columns: repeat(2, minmax(0, 1fr));
 	gap: 8px 12px;
+}
+
+.mg-row-detail-fields-item,
+.mg-row-detail-list-item-fields-item {
+	display: grid;
+	gap: 2px;
+}
+
+.mg-row-detail-fields-label,
+.mg-row-detail-list-item-fields-label {
+	font-size: 11px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.03em;
+	color: #666;
+}
+
+.mg-row-detail-fields-value,
+.mg-row-detail-list-item-fields-value {
+	font-size: 13px;
+	color: #222;
+	line-height: 1.45;
 }
 
 .mg-row-detail-field {
@@ -673,6 +700,11 @@
 	background: rgba(253, 250, 247, 0.96);
 }
 
+.mg-row-detail-list-item-level-4 {
+	border-left-color: #a58ac4;
+	background: rgba(251, 248, 255, 0.96);
+}
+
 .mg-row-detail-list-item-header {
 	display: grid;
 	gap: 2px;
@@ -696,7 +728,57 @@
 }
 
 .mg-row-detail-list-item-fields {
+	display: grid;
 	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 8px 12px;
+}
+
+.mg-row-detail-child-trigger,
+.mg-row-detail-child-static {
+	display: grid;
+	gap: 8px;
+	width: 100%;
+	padding: 0;
+	margin: 0;
+	border: 0;
+	background: transparent;
+	color: inherit;
+	text-align: left;
+}
+
+.mg-row-detail-child-trigger {
+	font: inherit;
+	cursor: pointer;
+}
+
+.mg-row-detail-child-trigger:hover .mg-row-detail-list-item-title {
+	color: #12263a;
+}
+
+.mg-row-detail-child-trigger:focus-visible {
+	outline: 2px solid #8db7a0;
+	outline-offset: 2px;
+	border-radius: 4px;
+}
+
+.mg-row-detail-list-item-toggle {
+	font-size: 11px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.03em;
+	color: #627284;
+}
+
+.mg-row-detail-list-item-expanded > .mg-row-detail-child-trigger .mg-row-detail-list-item-toggle {
+	color: #344657;
+}
+
+.mg-row-detail-child-detail {
+	display: grid;
+	gap: 8px;
+	margin-top: 2px;
+	padding-top: 8px;
+	border-top: 1px solid rgba(129, 145, 164, 0.24);
 }
 
 .mg-empty-cell {

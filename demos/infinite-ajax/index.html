@@ -161,79 +161,6 @@
 			color: #666;
 		}
 
-		.demo-remote-detail {
-			display: grid;
-			gap: 10px;
-		}
-
-		.demo-remote-detail-header {
-			display: grid;
-			gap: 3px;
-		}
-
-		.demo-remote-detail-title {
-			font-size: 15px;
-			font-weight: 600;
-			color: #1f2c3c;
-		}
-
-		.demo-remote-detail-subtitle {
-			font-size: 12px;
-			color: #5f6d7e;
-		}
-
-		.demo-remote-detail-fields {
-			display: grid;
-			grid-template-columns: repeat(2, minmax(0, 1fr));
-			gap: 8px 12px;
-		}
-
-		.demo-remote-detail-field {
-			display: grid;
-			gap: 2px;
-		}
-
-		.demo-remote-detail-label {
-			font-size: 11px;
-			font-weight: 600;
-			text-transform: uppercase;
-			letter-spacing: 0.03em;
-			color: #6c7685;
-		}
-
-		.demo-remote-detail-value {
-			font-size: 13px;
-			color: #223041;
-			line-height: 1.45;
-		}
-
-		.demo-remote-detail-timeline {
-			display: grid;
-			gap: 6px;
-		}
-
-		.demo-remote-detail-timeline-item {
-			display: flex;
-			justify-content: space-between;
-			gap: 12px;
-			padding: 6px 8px;
-			border: 1px solid #dfe6ef;
-			border-radius: 6px;
-			background: rgba(255, 255, 255, 0.7);
-		}
-
-		.demo-remote-detail-timeline-label {
-			font-size: 12px;
-			font-weight: 600;
-			color: #465466;
-		}
-
-		.demo-remote-detail-timeline-value {
-			font-size: 12px;
-			color: #223041;
-			text-align: right;
-		}
-
 		.demo-remote-detail-status {
 			font-size: 13px;
 			color: #5a6980;
@@ -275,18 +202,6 @@
 			.infinite-grid .mg-table-scroll {
 				height: 420px;
 			}
-
-			.demo-remote-detail-fields {
-				grid-template-columns: 1fr;
-			}
-
-			.demo-remote-detail-timeline-item {
-				flex-direction: column;
-			}
-
-			.demo-remote-detail-timeline-value {
-				text-align: left;
-			}
 		}
 	</style>
 </head>
@@ -301,7 +216,8 @@
 		<p>
 			The table view uses a fixed-height internal scroll area. It loads the first 50 records and automatically
 			requests the next batch when the scroll position approaches the bottom. Clicking a row opens a server-loaded
-			detail panel with extra content that is not rendered in the main list.
+			detail panel. The nested child cards inside that panel are also interactive and can lazily load their own
+			follow-up detail layers.
 		</p>
 
 		<div class="infinite-grid">

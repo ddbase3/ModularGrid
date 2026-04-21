@@ -324,6 +324,21 @@ async function loadRemoteDetail(row) {
 	return response.detail;
 }
 
+async function loadRemoteChildDetail(row, childId, parentPath = []) {
+	const response = await postJson(ENDPOINT_URL, {
+		mode: 'detail-child',
+		id: row.id,
+		childId,
+		parentPath
+	});
+
+	if (!response?.found || !response.detail) {
+		throw new Error(`No child detail data returned for ${childId}`);
+	}
+
+	return response.detail;
+}
+
 function createDetailLoadingPlaceholder(row) {
 	const wrapper = document.createElement('div');
 	wrapper.className = 'demo-remote-detail-status';
@@ -336,6 +351,22 @@ function createDetailErrorPlaceholder(row, error) {
 	const wrapper = document.createElement('div');
 	wrapper.className = 'demo-remote-detail-status demo-remote-detail-status-error';
 	wrapper.textContent = `Failed to load server detail for ${getFullName(row)}: ${error || 'Unknown error'}`;
+
+	return wrapper;
+}
+
+function createChildDetailLoadingPlaceholder(child) {
+	const wrapper = document.createElement('div');
+	wrapper.className = 'demo-remote-detail-status';
+	wrapper.textContent = `Loading child detail for ${getText(child?.title, 'item')}...`;
+
+	return wrapper;
+}
+
+function createChildDetailErrorPlaceholder(child, error) {
+	const wrapper = document.createElement('div');
+	wrapper.className = 'demo-remote-detail-status demo-remote-detail-status-error';
+	wrapper.textContent = `Failed to load child detail for ${getText(child?.title, 'item')}: ${error || 'Unknown error'}`;
 
 	return wrapper;
 }
@@ -553,11 +584,20 @@ grid = new ModularGrid('#infinite-ajax-grid', {
 				load({ row }) {
 					return loadRemoteDetail(row);
 				},
+				loadChildDetail({ row, childId, parentPath }) {
+					return loadRemoteChildDetail(row, childId, parentPath);
+				},
 				renderLoading({ row }) {
 					return createDetailLoadingPlaceholder(row);
 				},
 				renderError({ row, error }) {
 					return createDetailErrorPlaceholder(row, error);
+				},
+				renderChildLoading({ child }) {
+					return createChildDetailLoadingPlaceholder(child);
+				},
+				renderChildError({ child, error }) {
+					return createChildDetailErrorPlaceholder(child, error);
 				}
 			}
 		},
@@ -770,15 +810,20 @@ grid.on('data:appended', ({ appendedCount, totalLoaded }) => {
 
 grid.on('detail:loaded', ({ rowId, payload }) => {
 	const childCount = Array.isArray(payload?.children) ? payload.children.length : 0;
-	setLog(`Loaded server detail for row ${rowId} with ${childCount} nested child item${childCount === 1 ? '' : 's'}.`);
+	setLog(`Loaded server detail for row ${rowId} with ${childCount} child panel${childCount === 1 ? '' : 's'}.`);
+});
+
+grid.on('detail:child:loaded', ({ child, childId, payload }) => {
+	const nestedCount = Array.isArray(payload?.children) ? payload.children.length : 0;
+	setLog(`Loaded child detail for ${getText(child?.title, childId)} with ${nestedCount} nested follow-up item${nestedCount === 1 ? '' : 's'}.`);
 });
 
 grid.on('detail:error', ({ rowId, error }) => {
 	setLog(`Failed to load server detail for row ${rowId}: ${error}`);
 });
 
-grid.on('detail:loaded', ({ rowId }) => {
-	setLog(`Loaded server detail for row ${rowId}.`);
+grid.on('detail:child:error', ({ child, childId, error }) => {
+	setLog(`Failed to load child detail for ${getText(child?.title, childId)}: ${error}`);
 });
 
 await grid.init();

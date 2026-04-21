@@ -27,6 +27,16 @@ function cloneEntries(sectionState) {
 	};
 }
 
+function cloneChildEntries(entry) {
+	if (!entry || typeof entry.childEntries !== 'object' || entry.childEntries === null) {
+		return {};
+	}
+
+	return {
+		...entry.childEntries
+	};
+}
+
 function buildStatePatch(stateKey, sectionState, patch = {}) {
 	return {
 		[stateKey]: {
@@ -47,6 +57,46 @@ function buildEntryPatch(stateKey, sectionState, rowId, entryPatch) {
 	entries[entryKey] = {
 		...previousEntry,
 		...entryPatch
+	};
+
+	return buildStatePatch(stateKey, sectionState, {
+		entries
+	});
+}
+
+function buildChildEntryKey(parentPath) {
+	if (!Array.isArray(parentPath) || parentPath.length === 0) {
+		return '';
+	}
+
+	return parentPath.map((part) => String(part)).join('>');
+}
+
+function buildChildEntryPatch(stateKey, sectionState, rowId, parentPath, childEntryPatch) {
+	const childEntryKey = buildChildEntryKey(parentPath);
+
+	if (!childEntryKey) {
+		return buildStatePatch(stateKey, sectionState);
+	}
+
+	const entries = cloneEntries(sectionState);
+	const entryKey = String(rowId);
+	const previousEntry = entries[entryKey] && typeof entries[entryKey] === 'object'
+		? entries[entryKey]
+		: {};
+	const childEntries = cloneChildEntries(previousEntry);
+	const previousChildEntry = childEntries[childEntryKey] && typeof childEntries[childEntryKey] === 'object'
+		? childEntries[childEntryKey]
+		: {};
+
+	childEntries[childEntryKey] = {
+		...previousChildEntry,
+		...childEntryPatch
+	};
+
+	entries[entryKey] = {
+		...previousEntry,
+		childEntries
 	};
 
 	return buildStatePatch(stateKey, sectionState, {
@@ -112,6 +162,42 @@ function normalizePayload(payload, options, context) {
 		row: rowId !== null && rowId !== undefined ? findRowById(context, rowId, options.rowIdKey || 'id') : null,
 		level: Number(options.level) || 1,
 		parentPath: Array.isArray(options.parentPath) ? options.parentPath : []
+	};
+}
+
+function normalizeChildPayload(payload, options, context) {
+	if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+		return {
+			rowId: null,
+			row: null,
+			child: null,
+			childId: null,
+			level: Number(options.level) || 1,
+			parentPath: Array.isArray(options.parentPath) ? options.parentPath : []
+		};
+	}
+
+	const rowId = payload.rowId ?? payload.id ?? null;
+	const row = payload.row && typeof payload.row === 'object'
+		? payload.row
+		: rowId !== null && rowId !== undefined
+			? findRowById(context, rowId, options.rowIdKey || 'id')
+			: null;
+	const child = payload.child && typeof payload.child === 'object'
+		? payload.child
+		: null;
+	const parentPath = Array.isArray(payload.parentPath)
+		? payload.parentPath
+		: [];
+	const childId = payload.childId ?? (parentPath.length > 0 ? parentPath[parentPath.length - 1] : null);
+
+	return {
+		rowId,
+		row,
+		child,
+		childId,
+		level: Number(payload.level) || Number(options.level) || 1,
+		parentPath
 	};
 }
 
@@ -200,6 +286,116 @@ async function loadAsyncDetail(context, options, payloadInfo) {
 			grid: context.grid,
 			rowId,
 			row: payloadInfo.row,
+			error: normalizeErrorMessage(error),
+			stateKey
+		});
+	}
+}
+
+async function loadAsyncChildDetail(context, options, payloadInfo) {
+	const asyncDetail = options.asyncDetail;
+
+	if (!asyncDetail || typeof asyncDetail.loadChildDetail !== 'function') {
+		return;
+	}
+
+	const rowId = payloadInfo.rowId;
+	const childPath = payloadInfo.parentPath;
+	const childEntryKey = buildChildEntryKey(childPath);
+
+	if (rowId === null || rowId === undefined || !childEntryKey) {
+		return;
+	}
+
+	const stateKey = options.stateKey || 'detailView';
+	const sectionState = context.peekState()[stateKey] || buildInitialState();
+	const existingEntry = sectionState.entries?.[String(rowId)] || null;
+	const existingChildEntry = existingEntry?.childEntries?.[childEntryKey] || null;
+
+	if (options.cache !== false && existingChildEntry?.status === 'loaded') {
+		return;
+	}
+
+	context.setState(
+		buildChildEntryPatch(stateKey, sectionState, rowId, childPath, {
+			expanded: true,
+			status: 'loading',
+			payload: existingChildEntry?.payload ?? null,
+			error: null,
+			level: payloadInfo.level,
+			parentPath: childPath,
+			childId: payloadInfo.childId
+		})
+	);
+
+	context.events.emit('detail:child:loading', {
+		grid: context.grid,
+		rowId,
+		row: payloadInfo.row,
+		child: payloadInfo.child,
+		childId: payloadInfo.childId,
+		parentPath: childPath,
+		stateKey
+	});
+
+	try {
+		const payload = await asyncDetail.loadChildDetail({
+			row: payloadInfo.row,
+			rowId,
+			child: payloadInfo.child,
+			childId: payloadInfo.childId,
+			grid: context.grid,
+			level: payloadInfo.level,
+			parentPath: childPath
+		});
+
+		const nextSectionState = context.peekState()[stateKey] || buildInitialState();
+
+		context.setState(
+			buildChildEntryPatch(stateKey, nextSectionState, rowId, childPath, {
+				expanded: true,
+				status: 'loaded',
+				payload: payload ?? null,
+				error: null,
+				level: payloadInfo.level,
+				parentPath: childPath,
+				childId: payloadInfo.childId
+			})
+		);
+
+		context.events.emit('detail:child:loaded', {
+			grid: context.grid,
+			rowId,
+			row: payloadInfo.row,
+			child: payloadInfo.child,
+			childId: payloadInfo.childId,
+			parentPath: childPath,
+			payload: payload ?? null,
+			stateKey
+		});
+	}
+	catch (error) {
+		const nextSectionState = context.peekState()[stateKey] || buildInitialState();
+
+		context.setState(
+			buildChildEntryPatch(stateKey, nextSectionState, rowId, childPath, {
+				expanded: true,
+				status: 'error',
+				payload: null,
+				error: normalizeErrorMessage(error),
+				level: payloadInfo.level,
+				parentPath: childPath,
+				childId: payloadInfo.childId
+			})
+		);
+
+		context.events.emit('detail:child:error', {
+			grid: context.grid,
+			rowId,
+			row: payloadInfo.row,
+			child: payloadInfo.child,
+			childId: payloadInfo.childId,
+			parentPath: childPath,
 			error: normalizeErrorMessage(error),
 			stateKey
 		});
@@ -324,6 +520,53 @@ export const RowDetailPlugin = {
 			}
 
 			return context.grid;
+		},
+
+		toggleDetailChild(context, payload = null) {
+			const options = resolveOptions(context);
+			const stateKey = options.stateKey || 'detailView';
+			const normalizedPayload = normalizeChildPayload(payload, options, context);
+			const sectionState = context.peekState()[stateKey] || buildInitialState();
+			const entry = sectionState.entries?.[String(normalizedPayload.rowId)] || null;
+			const childEntryKey = buildChildEntryKey(normalizedPayload.parentPath);
+			const currentChildEntry = childEntryKey && entry?.childEntries
+				? entry.childEntries[childEntryKey] || null
+				: null;
+			const nextExpanded = currentChildEntry?.expanded === true ? false : true;
+
+			if (normalizedPayload.rowId === null || normalizedPayload.rowId === undefined || !childEntryKey) {
+				return context.grid;
+			}
+
+			context.setState(
+				buildChildEntryPatch(stateKey, sectionState, normalizedPayload.rowId, normalizedPayload.parentPath, {
+					expanded: nextExpanded,
+					status: currentChildEntry?.status || 'idle',
+					payload: currentChildEntry?.payload ?? null,
+					error: currentChildEntry?.error ?? null,
+					level: normalizedPayload.level,
+					parentPath: normalizedPayload.parentPath,
+					childId: normalizedPayload.childId
+				})
+			);
+
+			context.events.emit('detail:child:changed', {
+				grid: context.grid,
+				rowId: normalizedPayload.rowId,
+				row: normalizedPayload.row,
+				child: normalizedPayload.child,
+				childId: normalizedPayload.childId,
+				parentPath: normalizedPayload.parentPath,
+				expanded: nextExpanded,
+				stateKey
+			});
+
+			if (nextExpanded === true) {
+				void loadAsyncChildDetail(context, options, normalizedPayload);
+			}
+
+			return context.grid;
 		}
 	}
 };
+

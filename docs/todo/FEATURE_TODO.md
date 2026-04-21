@@ -146,6 +146,7 @@ It is based on the originally requested feature set, translated into a more stru
 - [ ] Expand / collapse groups
 - [x] Group summary rendering
 - [ ] Custom aggregation strategies
+- [ ] Server-loaded hierarchy via expandable detail content
 
 ---
 
@@ -158,6 +159,10 @@ It is based on the originally requested feature set, translated into a more stru
 - [x] Inline detail expansion option
 - [x] Shared row-detail state plugin
 - [x] Table and card detail rendering from one feature
+- [x] Async row-detail loading
+- [x] Loading / error state in row-detail views
+- [~] Cached row-detail payload reuse
+- [ ] Nested child lists in async row detail
 
 ---
 
@@ -237,6 +242,7 @@ It is based on the originally requested feature set, translated into a more stru
 - [x] Multi-line wrapping strategy
 - [x] Clamp / expand strategy
 - [x] Header-driven column hover highlight
+- [x] Visual detail-level styling for row detail
 - [ ] Theme organization
 
 ---
@@ -294,6 +300,7 @@ It is based on the originally requested feature set, translated into a more stru
 - [x] Infinite ajax demo
 - [x] Smoke coverage for responsive view switching
 - [x] Smoke coverage for inline row detail behavior
+- [x] Smoke coverage for async row detail behavior
 - [x] Smoke coverage for bulk actions
 - [x] Smoke coverage for export events
 - [x] Smoke coverage for filters plugin
@@ -320,8 +327,9 @@ It is based on the originally requested feature set, translated into a more stru
 
 The next good steps are:
 
-1. header filter row
-2. grouping expansion and collapse
-3. export refinement for filtered/all rows
-4. ajax/database storage adapter
-5. responsive mobile card refinement
+1. nested child content inside async row detail
+2. header filter row
+3. grouping expansion and collapse
+4. export refinement for filtered/all rows
+5. ajax/database storage adapter
+

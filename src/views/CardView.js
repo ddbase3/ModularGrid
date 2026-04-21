@@ -39,6 +39,18 @@ function isInteractiveTarget(target) {
 	return target instanceof Element && !!target.closest('a, button, input, select, textarea, label, summary, details');
 }
 
+function applyRowDetailPresentationClasses(detailWrapper, presentation) {
+	if (!(detailWrapper instanceof HTMLElement) || !presentation) {
+		return;
+	}
+
+	const level = Math.max(1, Number(presentation.level) || 1);
+	const status = presentation.status || 'loaded';
+
+	detailWrapper.classList.add(`mg-row-detail-level-${level}`);
+	detailWrapper.classList.add(`mg-row-detail-${status}`);
+}
+
 export class CardView {
 	render(container, grid, viewModel) {
 		clearElement(container);
@@ -82,6 +94,12 @@ export class CardView {
 			const canToggleDetail = rowDetailEnabled && rowDetailOptions.toggleOnRowClick !== false && rowId !== null;
 			const isActiveDetailRow = rowDetailEnabled && isDetailRowActive(row, grid, rowDetailOptions);
 			const hasExternalRowClick = typeof grid.options.onRowClick === 'function';
+			const detailTogglePayload = {
+				rowId,
+				row,
+				viewModel,
+				level: Number(rowDetailOptions.level) || 1
+			};
 
 			const card = createElement('article', 'mg-card');
 
@@ -94,7 +112,7 @@ export class CardView {
 					}
 
 					if (canToggleDetail) {
-						grid.execute('toggleDetailRow', rowId);
+						grid.execute('toggleDetailRow', detailTogglePayload);
 					}
 
 					if (hasExternalRowClick) {
@@ -213,11 +231,15 @@ export class CardView {
 			card.appendChild(content);
 
 			if (isActiveDetailRow) {
-				const detailContent = createRowDetailContent(row, grid, viewModel, renderColumns, rowDetailOptions);
+				const detailPresentation = createRowDetailContent(row, grid, viewModel, renderColumns, rowDetailOptions);
 
-				if (detailContent) {
+				if (detailPresentation?.content) {
 					const detailWrapper = createElement('div', 'mg-card-detail');
-					appendContent(detailWrapper, detailContent);
+					const detailContent = createElement('div', 'mg-row-detail');
+
+					applyRowDetailPresentationClasses(detailContent, detailPresentation);
+					appendContent(detailContent, detailPresentation.content);
+					detailWrapper.appendChild(detailContent);
 					card.appendChild(detailWrapper);
 				}
 			}
@@ -228,3 +250,4 @@ export class CardView {
 		container.appendChild(cards);
 	}
 }
+

@@ -51,6 +51,7 @@ The current code base already includes:
 - split detail view
 - responsive view switching
 - shared inline row detail behavior
+- async row detail loading with loading/error/cache states
 - group summary rendering in table view
 - configurable zebra rows in table view
 - per-column long-text display strategies
@@ -79,49 +80,56 @@ Example with Python:
 
 ```bash
 python3 -m http.server 8000
+```
 
 Then open for example:
 
-http://localhost:8000/demos/basic-array/
-http://localhost:8000/demos/card-view/
-http://localhost:8000/demos/extended-ajax/
-http://localhost:8000/tests/browser-smoke/
-Table zebra rows
+- `http://localhost:8000/demos/basic-array/`
+- `http://localhost:8000/demos/card-view/`
+- `http://localhost:8000/demos/extended-ajax/`
+- `http://localhost:8000/demos/infinite-ajax/`
+- `http://localhost:8000/tests/browser-smoke/`
+
+## Table zebra rows
 
 The table view supports zebra row classes by default.
 
 Visible data rows receive alternating classes:
 
-mg-row-odd
-mg-row-even
+- `mg-row-odd`
+- `mg-row-even`
 
 Inline detail rows receive matching classes:
 
-mg-detail-row-odd
-mg-detail-row-even
+- `mg-detail-row-odd`
+- `mg-detail-row-even`
 
 This keeps zebra styling stable even when grouped table sections insert additional non-data rows.
 
 You can disable zebra classes per grid instance like this:
 
+```javascript
 const grid = new ModularGrid('#grid', {
 	table: {
 		zebraRows: false
 	}
 });
-Long text display strategies
+```
+
+## Long text display strategies
 
 Columns can define how text should be displayed across table, card and split-detail rendering.
 
 Supported strategies:
 
-wrap
-ellipsis
-nowrap
-clamp
+- `wrap`
+- `ellipsis`
+- `nowrap`
+- `clamp`
 
 Example:
 
+```javascript
 const grid = new ModularGrid('#grid', {
 	columns: [
 		{
@@ -152,43 +160,87 @@ const grid = new ModularGrid('#grid', {
 		}
 	]
 });
+```
 
-For ellipsis, the full value is exposed through the title attribute by default.
+For ellipsis, the full value is exposed through the `title` attribute by default.
 
 For clamp, the rendered text is limited to a configured number of lines and can optionally be expanded through a small view-level toggle. The expanded state is stored in the grid state instead of being handled only in the DOM.
 
-Table column interaction baseline
+## Async row detail
+
+The row-detail plugin can now load detail content lazily after a row has been expanded.
+
+This is useful when the main list should stay lightweight but the expanded detail view should render additional server-provided content.
+
+Example:
+
+```javascript
+const grid = new ModularGrid('#grid', {
+	plugins: [RowDetailPlugin],
+	pluginOptions: {
+		rowDetail: {
+			rowIdKey: 'id',
+			asyncDetail: {
+				async load({ row }) {
+					const response = await fetch('/detail-endpoint', {
+						method: 'POST',
+						headers: {
+							'Content-Type': 'application/json'
+						},
+						body: JSON.stringify({
+							id: row.id
+						})
+					});
+
+					return response.json();
+				},
+				render({ payload }) {
+					const detail = document.createElement('div');
+					detail.textContent = payload.title;
+					return detail;
+				}
+			}
+		}
+	}
+});
+```
+
+The plugin keeps the active row state in the shared grid state and stores per-row async detail cache entries with loading and error information.
+
+## Table column interaction baseline
 
 In table view, hovering a visible header cell highlights the whole rendered column.
 
 This includes:
 
-the hovered header cell
-the visible body cells that belong to the same column
+- the hovered header cell
+- the visible body cells that belong to the same column
 
 Pinned cells keep their sticky behavior while still participating in the same hover state.
 
 Open row-action menus are also raised above neighbouring table rows, so action dropdowns are not visually clipped by later-rendered row cells.
 
-Documentation
+## Documentation
 
 For continuation across chats, start with:
 
-docs/README.md
-docs/CURRENT_STATUS.md
-docs/WORKING_RULES.md
-docs/architecture/CORE_CONTRACT.md
-docs/architecture/PLUGIN_API.md
-docs/architecture/LAYOUT_MODEL.md
-docs/todo/FEATURE_TODO.md
-Important design rule
+- `docs/README.md`
+- `docs/CURRENT_STATUS.md`
+- `docs/WORKING_RULES.md`
+- `docs/architecture/CORE_CONTRACT.md`
+- `docs/architecture/PLUGIN_API.md`
+- `docs/architecture/LAYOUT_MODEL.md`
+- `docs/todo/FEATURE_TODO.md`
+
+## Important design rule
 
 The core default layout is view-only.
 
 Controls such as search, filters, grouping, paging, info bars, summaries, bulk actions, export buttons or extra tools must be added through:
 
-plugins
-named layout zones
-optional layout helpers
+- plugins
+- named layout zones
+- optional layout helpers
 
 This keeps the core neutral and avoids hardcoded toolbar/footer structures.
+

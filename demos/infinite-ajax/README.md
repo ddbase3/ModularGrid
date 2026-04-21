@@ -21,7 +21,7 @@ It keeps the ajax source and composes the grid mainly through plugins and config
 - export
 - column visibility
 - reset
-- row detail
+- async row detail
 - session storage
 - automatic append loading through the infinite-scroll plugin
 
@@ -48,6 +48,54 @@ The table header is intended to stay sticky inside that internal scroll area so 
 While an append request is in flight, the demo shows a small loading indicator with three pulsing dots inside the scrollable table area near the bottom.
 
 The indicator disappears again after the additional rows have been loaded.
+
+## Async detail loading
+
+Clicking a data row opens an inline detail panel.
+
+In this demo the detail panel is not rendered only from already loaded row data.
+Instead it performs a second ajax request and renders server-provided detail content after the row has been expanded.
+
+That means the row-detail feature can now be used for:
+
+- server-composed summaries
+- related objects
+- timelines or audit data
+- nested or follow-up content that would be too expensive for the main list payload
+
+## Detail request shape
+
+When the detail panel opens, the demo sends a POST body like:
+
+```json
+{
+	"mode": "detail",
+	"id": 42
+}
+```
+
+The server responds with a shape like:
+
+```json
+{
+	"mode": "detail",
+	"found": true,
+	"detail": {
+		"headline": "Alice Alpha",
+		"summary": "Server-loaded detail",
+		"badges": ["Active", "Verified"],
+		"sections": [
+			{ "label": "Email", "value": "alice@example.com" }
+		],
+		"activity": [
+			{ "label": "Created", "value": "2026-04-01 12:00" }
+		]
+	}
+}
+```
+
+The exact detail payload is demo-specific.
+The important part is that row detail can now load asynchronously and then render the returned payload through plugin configuration.
 
 ## Data loading model
 
@@ -82,34 +130,36 @@ server: {
 	searchDebounceMs: 220,
 	watchStateKeys: ['query', 'filters']
 }
+```
 
 That is why changes in the query state and the external filters state trigger backend reloads.
 
-Append-capable server loading foundation
+## Append-capable server loading foundation
 
-The core provides a neutral append-capable server loading path through loadMore.
+The core provides a neutral append-capable server loading path through `loadMore`.
 
 This demo uses that foundation through the infinite-scroll plugin.
 
 The core itself does not implement scroll listeners or a fixed infinite-scroll UI.
 Those remain plugin-driven.
 
-Info display semantics
+## Info display semantics
 
 Because this demo accumulates rows incrementally, the info display should be understood as a loaded-progress indicator rather than classic page navigation info.
 
 Typical examples are:
 
-Loaded 50 of 734 records
-Loaded all 734 records
-No records
+- `Loaded 50 of 734 records`
+- `Loaded all 734 records`
+- `No records`
 
 This differs intentionally from classic page-based demos, where the info display describes the current visible page window.
 
-Expected backend request shape
+## Expected backend request shape
 
-The demo sends a POST body like:
+The list request still sends a POST body like:
 
+```json
 {
 	"mode": "page",
 	"page": 1,
@@ -127,22 +177,25 @@ The demo sends a POST body like:
 	},
 	"group": []
 }
+```
 
 The first request usually uses page 1.
 Later append requests continue with page 2, page 3, and so on.
 
-Expected backend response shape
+## Expected backend response shape
 
 At minimum:
 
+```json
 {
 	"data": [],
 	"total": 0
 }
+```
 
-Optional fields such as columns can also be returned and are accepted by AjaxAdapter.
+Optional fields such as columns can also be returned and are accepted by `AjaxAdapter`.
 
-Important reset behavior
+## Important reset behavior
 
 Search, filter, sort and reset actions are not append operations.
 
@@ -150,40 +203,47 @@ They restart the result set from the beginning.
 
 That means the expected behavior is:
 
-clear previously accumulated rows
-request the first batch again
-rebuild the loaded result set from the new backend state
+- clear previously accumulated rows
+- request the first batch again
+- rebuild the loaded result set from the new backend state
 
 This keeps infinite loading compatible with server-driven filtering and sorting.
 
-Relationship to the classic server demo
+## Relationship to the classic server demo
 
 This demo does not replace the classic server paging demo.
 
-Use demos/extended-ajax/ when you want to demonstrate:
+Use `demos/extended-ajax/` when you want to demonstrate:
 
-classic page navigation
-page-size switching
-stable page-based server interaction
+- classic page navigation
+- page-size switching
+- stable page-based server interaction
 
-Use demos/infinite-ajax/ when you want to demonstrate:
+Use `demos/infinite-ajax/` when you want to demonstrate:
 
-internal scroll-based loading
-append accumulation
-automatic next-page loading
-an alternative paging strategy without page-picker UI
-Current design scope
+- internal scroll-based loading
+- append accumulation
+- automatic next-page loading
+- an alternative paging strategy without page-picker UI
+- server-loaded row detail
 
-This demo currently focuses on incremental loading over a filtered and sorted server result set.
+## Current design scope
+
+This demo currently focuses on incremental loading over a filtered and sorted server result set plus a second ajax detail request per expanded row.
 
 It is intentionally separate from the larger future topic:
 
-server-side grouping over the full filtered dataset
+- server-side grouping over the full filtered dataset
+- nested hierarchical child lists below expanded rows
 
-That topic should be handled as its own backend-aware feature step instead of being mixed into the first infinite-scroll baseline.
+Those topics should be handled as dedicated backend-aware feature steps instead of being mixed into the first async-detail baseline.
 
-Next architectural step
+## Next architectural step
 
-The current infinite-scroll baseline proves that ModularGrid can support more than one server-loading strategy.
+The current infinite-scroll baseline now proves two things:
 
-The next deeper technical step is to improve append rendering so that large append operations do not require rebuilding more DOM than necessary in the table view.
+1. ModularGrid can support more than one server-loading strategy.
+2. Row detail can load server content lazily after expansion.
+
+The next deeper technical step is to reuse the same async detail mechanism for nested child content or server-driven hierarchy levels.
+

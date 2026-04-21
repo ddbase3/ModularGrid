@@ -52,6 +52,16 @@ function nextFrame() {
 	});
 }
 
+function waitTwoFrames() {
+	return new Promise((resolve) => {
+		requestAnimationFrame(() => {
+			requestAnimationFrame(() => {
+				resolve();
+			});
+		});
+	});
+}
+
 async function settleFrames(count = 1) {
 	for (let index = 0; index < count; index += 1) {
 		await nextFrame();
@@ -385,6 +395,8 @@ try {
 	const bulkActionCalls = [];
 	const exportEvents = [];
 	const infiniteRequests = [];
+	const detailLoadCalls = [];
+	const infiniteDetailLoadCalls = [];
 	let holdInfiniteResponses = false;
 	let releaseInfiniteResponse = null;
 
@@ -530,10 +542,26 @@ try {
 			},
 			rowDetail: {
 				rowIdKey: 'id',
-				detailRenderer(row) {
-					const detail = document.createElement('div');
-					detail.textContent = `Detail for ${row.firstname}`;
-					return detail;
+				asyncDetail: {
+					load({ row }) {
+						detailLoadCalls.push(row.id);
+
+						return waitTwoFrames().then(() => {
+							return {
+								text: `Async detail for ${row.firstname}`
+							};
+						});
+					},
+					render({ payload }) {
+						const detail = document.createElement('div');
+						detail.textContent = payload.text;
+						return detail;
+					},
+					renderLoading({ row }) {
+						const detail = document.createElement('div');
+						detail.textContent = `Loading detail for ${row.firstname}...`;
+						return detail;
+					}
 				}
 			},
 			splitDetailView: {
@@ -1020,15 +1048,57 @@ try {
 
 	const firstDataRow = document.querySelector('#test-grid tbody tr.mg-row');
 	dispatchClick(firstDataRow);
-	await settleFrames(2);
+	await settleFrames(1);
 
 	assert(document.querySelectorAll('#test-grid .mg-row-detail').length === 1, 'Row detail renders inline in table view');
 	assert(document.querySelector('#test-grid tbody tr.mg-detail-row')?.classList.contains('mg-detail-row-odd') === true, 'Detail row keeps the zebra parity class of its owning row');
+	assert(document.querySelector('#test-grid .mg-row-detail')?.classList.contains('mg-row-detail-loading') === true, 'Async row detail starts in the loading state');
+	assert(document.querySelector('#test-grid .mg-row-detail')?.classList.contains('mg-row-detail-level-1') === true, 'Async row detail receives the configured level class');
+	assert((document.querySelector('#test-grid .mg-row-detail')?.textContent || '').includes('Loading detail') === true, 'Async row detail renders a loading placeholder');
+
+	const expectedAsyncDetailText = (() => {
+		const loadedRowId = detailLoadCalls[0] ?? null;
+		const loadedRow = data.find((row) => row.id === loadedRowId) || null;
+
+		if (!loadedRow) {
+			return '';
+		}
+
+		return `Async detail for ${loadedRow.firstname}`;
+	})();
+
+	const loadedAsyncDetail = await waitFor(() => {
+		const element = document.querySelector('#test-grid .mg-row-detail');
+
+		if (!(element instanceof HTMLElement)) {
+			return null;
+		}
+
+		if (!expectedAsyncDetailText || !element.textContent.includes(expectedAsyncDetailText)) {
+			return null;
+		}
+
+		return element;
+	}, 12);
+
+	assert(!!loadedAsyncDetail, 'Async row detail switches to the loaded state');
+	assert(loadedAsyncDetail?.classList.contains('mg-row-detail-loading') === false, 'Async row detail leaves the loading state after the async request resolves');
+	assert(loadedAsyncDetail?.textContent.includes(expectedAsyncDetailText) === true, 'Async row detail renders the loaded content');
+	assert(detailLoadCalls.length === 1, 'Async row detail loader runs once for the first opened row');
 
 	dispatchClick(firstDataRow);
 	await settleFrames(2);
 
 	assert(document.querySelectorAll('#test-grid .mg-row-detail').length === 0, 'Row detail can be toggled closed again');
+
+	dispatchClick(firstDataRow);
+	await settleFrames(1);
+
+	assert(document.querySelector('#test-grid .mg-row-detail')?.textContent.includes(expectedAsyncDetailText) === true, 'Reopening the same async row detail reuses cached content');
+	assert(detailLoadCalls.length === 1, 'Reopening the same async row detail does not trigger a second load');
+
+	dispatchClick(firstDataRow);
+	await settleFrames(2);
 
 	const searchInput = document.querySelector('#test-grid input[type="search"]');
 	searchInput.focus();
@@ -1226,10 +1296,26 @@ try {
 			},
 			rowDetail: {
 				rowIdKey: 'id',
-				detailRenderer(row) {
-					const detail = document.createElement('div');
-					detail.textContent = `Detail for ${row.title}`;
-					return detail;
+				asyncDetail: {
+					load({ row }) {
+						infiniteDetailLoadCalls.push(row.id);
+
+						return waitTwoFrames().then(() => {
+							return {
+								text: `Async detail for ${row.title}`
+							};
+						});
+					},
+					render({ payload }) {
+						const detail = document.createElement('div');
+						detail.textContent = payload.text;
+						return detail;
+					},
+					renderLoading({ row }) {
+						const detail = document.createElement('div');
+						detail.textContent = `Loading detail for ${row.title}...`;
+						return detail;
+					}
 				}
 			}
 		},
@@ -1301,10 +1387,41 @@ try {
 	const infiniteFirstDataRow = document.querySelector('#infinite-grid tbody tr.mg-row');
 
 	dispatchClick(infiniteFirstDataRow);
-	await settleFrames(4);
+	await settleFrames(1);
 
 	assert(document.querySelectorAll('#infinite-grid .mg-row-detail').length === 1, 'Infinite scroll grid renders row detail inline');
+	assert(document.querySelector('#infinite-grid .mg-row-detail')?.classList.contains('mg-row-detail-loading') === true, 'Infinite scroll async detail starts in the loading state');
+	assert((document.querySelector('#infinite-grid .mg-row-detail')?.textContent || '').includes('Loading detail') === true, 'Infinite scroll async detail renders a loading placeholder');
 	assert(Math.abs(infiniteScrollContainer.scrollTop - scrollTopBeforeDetailToggle) <= 2, 'Toggling row detail keeps the internal scroll position instead of jumping to the top');
+
+	const expectedInfiniteAsyncDetailText = (() => {
+		const loadedRowId = infiniteDetailLoadCalls[0] ?? null;
+		const loadedRowNumber = loadedRowId !== null ? loadedRowId - 100 : null;
+
+		if (!loadedRowNumber) {
+			return '';
+		}
+
+		return `Async detail for Server row ${loadedRowNumber}`;
+	})();
+
+	const loadedInfiniteAsyncDetail = await waitFor(() => {
+		const element = document.querySelector('#infinite-grid .mg-row-detail');
+
+		if (!(element instanceof HTMLElement)) {
+			return null;
+		}
+
+		if (!expectedInfiniteAsyncDetailText || !element.textContent.includes(expectedInfiniteAsyncDetailText)) {
+			return null;
+		}
+
+		return element;
+	}, 12);
+
+	assert(!!loadedInfiniteAsyncDetail, 'Infinite scroll async detail switches to the loaded state');
+	assert(loadedInfiniteAsyncDetail?.classList.contains('mg-row-detail-loading') === false, 'Infinite scroll async detail leaves the loading state after the async request resolves');
+	assert(loadedInfiniteAsyncDetail?.textContent.includes(expectedInfiniteAsyncDetailText) === true, 'Infinite scroll async detail renders the loaded content');
 
 	holdInfiniteResponses = true;
 	const stableHeightBeforeReload = infiniteScrollContainer.clientHeight;
@@ -1324,7 +1441,8 @@ try {
 	await settleFrames(4);
 
 	log('Smoke test completed successfully.', 'pass');
-} catch (error) {
+}
+catch (error) {
 	log(`FAIL: ${error.message}`, 'fail');
 	throw error;
 }

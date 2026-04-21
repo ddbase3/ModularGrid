@@ -295,6 +295,135 @@ function buildFilterPayload(filters) {
 	return result;
 }
 
+async function postJson(url, payload) {
+	const response = await fetch(url, {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json'
+		},
+		body: JSON.stringify(payload)
+	});
+
+	if (!response.ok) {
+		throw new Error(`Request failed with status ${response.status}`);
+	}
+
+	return response.json();
+}
+
+async function loadRemoteDetail(row) {
+	const response = await postJson(ENDPOINT_URL, {
+		mode: 'detail',
+		id: row.id
+	});
+
+	if (!response?.found || !response.detail) {
+		throw new Error(`No detail data returned for row ${row.id}`);
+	}
+
+	return response.detail;
+}
+
+function renderRemoteDetail(payload) {
+	const wrapper = document.createElement('div');
+	wrapper.className = 'demo-remote-detail';
+
+	const header = document.createElement('div');
+	header.className = 'demo-remote-detail-header';
+
+	const title = document.createElement('div');
+	title.className = 'demo-remote-detail-title';
+	title.textContent = getText(payload.headline);
+
+	const subtitle = document.createElement('div');
+	subtitle.className = 'demo-remote-detail-subtitle';
+	subtitle.textContent = getText(payload.summary);
+
+	header.appendChild(title);
+	header.appendChild(subtitle);
+	wrapper.appendChild(header);
+
+	if (Array.isArray(payload.badges) && payload.badges.length > 0) {
+		const badges = document.createElement('div');
+		badges.className = 'demo-pill-row';
+
+		payload.badges.forEach((badge) => {
+			const pill = document.createElement('span');
+			pill.className = 'demo-pill';
+			pill.textContent = getText(badge);
+			badges.appendChild(pill);
+		});
+
+		wrapper.appendChild(badges);
+	}
+
+	if (Array.isArray(payload.sections) && payload.sections.length > 0) {
+		const fields = document.createElement('div');
+		fields.className = 'demo-remote-detail-fields';
+
+		payload.sections.forEach((section) => {
+			const field = document.createElement('div');
+			field.className = 'demo-remote-detail-field';
+
+			const label = document.createElement('div');
+			label.className = 'demo-remote-detail-label';
+			label.textContent = getText(section.label);
+
+			const value = document.createElement('div');
+			value.className = 'demo-remote-detail-value';
+			value.textContent = getText(section.value);
+
+			field.appendChild(label);
+			field.appendChild(value);
+			fields.appendChild(field);
+		});
+
+		wrapper.appendChild(fields);
+	}
+
+	if (Array.isArray(payload.activity) && payload.activity.length > 0) {
+		const timeline = document.createElement('div');
+		timeline.className = 'demo-remote-detail-timeline';
+
+		payload.activity.forEach((item) => {
+			const timelineItem = document.createElement('div');
+			timelineItem.className = 'demo-remote-detail-timeline-item';
+
+			const itemLabel = document.createElement('div');
+			itemLabel.className = 'demo-remote-detail-timeline-label';
+			itemLabel.textContent = getText(item.label);
+
+			const itemValue = document.createElement('div');
+			itemValue.className = 'demo-remote-detail-timeline-value';
+			itemValue.textContent = getText(item.value);
+
+			timelineItem.appendChild(itemLabel);
+			timelineItem.appendChild(itemValue);
+			timeline.appendChild(timelineItem);
+		});
+
+		wrapper.appendChild(timeline);
+	}
+
+	return wrapper;
+}
+
+function renderDetailLoading(row) {
+	const wrapper = document.createElement('div');
+	wrapper.className = 'demo-remote-detail-status';
+	wrapper.textContent = `Loading server detail for ${getFullName(row)}...`;
+
+	return wrapper;
+}
+
+function renderDetailError(row, error) {
+	const wrapper = document.createElement('div');
+	wrapper.className = 'demo-remote-detail-status demo-remote-detail-status-error';
+	wrapper.textContent = `Failed to load server detail for ${getFullName(row)}: ${error || 'Unknown error'}`;
+
+	return wrapper;
+}
+
 let grid = null;
 
 const adapter = new AjaxAdapter({
@@ -503,7 +632,21 @@ grid = new ModularGrid('#infinite-ajax-grid', {
 		},
 		rowDetail: {
 			rowIdKey: 'id',
-			clearOnDataReload: true
+			clearOnDataReload: true,
+			asyncDetail: {
+				load({ row }) {
+					return loadRemoteDetail(row);
+				},
+				render({ payload }) {
+					return renderRemoteDetail(payload);
+				},
+				renderLoading({ row }) {
+					return renderDetailLoading(row);
+				},
+				renderError({ row, error }) {
+					return renderDetailError(row, error);
+				}
+			}
 		},
 		infiniteScroll: {
 			threshold: 180,
@@ -710,6 +853,10 @@ grid.on('bulkAction:run', ({ selectedRowIds }) => {
 
 grid.on('data:appended', ({ appendedCount, totalLoaded }) => {
 	setLog(`Loaded ${appendedCount} more records. ${totalLoaded} records are currently loaded.`);
+});
+
+grid.on('detail:loaded', ({ rowId }) => {
+	setLog(`Loaded server detail for row ${rowId}.`);
 });
 
 await grid.init();

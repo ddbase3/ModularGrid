@@ -1,6 +1,7 @@
 import { appendContent, clearElement, createElement } from '../utils/dom.js';
 import {
 	createRowDetailContent,
+	getActiveDetailStateSignature,
 	getRowDetailRowId,
 	isDetailRowActive,
 	resolveRowDetailOptions
@@ -533,7 +534,7 @@ function isStateAttachedToContainer(state, container) {
 	return true;
 }
 
-function canReuseDuringLoadingMore(state, renderSignature, rowIdentities, groupingKey, viewModel) {
+function canReuseDuringLoadingMore(state, renderSignature, rowIdentities, groupingKey, viewModel, detailStateSignature) {
 	if (!state || state.mode !== 'data') {
 		return false;
 	}
@@ -550,6 +551,10 @@ function canReuseDuringLoadingMore(state, renderSignature, rowIdentities, groupi
 		return false;
 	}
 
+	if (state.detailStateSignature !== detailStateSignature) {
+		return false;
+	}
+
 	if (state.rowIdentities.length !== rowIdentities.length) {
 		return false;
 	}
@@ -557,7 +562,7 @@ function canReuseDuringLoadingMore(state, renderSignature, rowIdentities, groupi
 	return haveEqualArrays(state.rowIdentities, rowIdentities);
 }
 
-function canAppendRows(state, renderSignature, rowIdentities, activeDetailIdentities, groupingKey, viewModel) {
+function canAppendRows(state, renderSignature, rowIdentities, activeDetailIdentities, groupingKey, viewModel, detailStateSignature) {
 	if (!state || state.mode !== 'data') {
 		return false;
 	}
@@ -571,6 +576,10 @@ function canAppendRows(state, renderSignature, rowIdentities, activeDetailIdenti
 	}
 
 	if (state.renderSignature !== renderSignature) {
+		return false;
+	}
+
+	if (state.detailStateSignature !== detailStateSignature) {
 		return false;
 	}
 
@@ -609,12 +618,16 @@ function canRefreshBodyOnly(state, renderSignature, rowIdentities, groupingKey, 
 	return haveEqualArrays(state.rowIdentities, rowIdentities);
 }
 
-function shouldRefreshBodyOnly(previousState, activeDetailIdentities, textDisplaySignature, selectionSignature) {
+function shouldRefreshBodyOnly(previousState, activeDetailIdentities, detailStateSignature, textDisplaySignature, selectionSignature) {
 	if (!previousState) {
 		return false;
 	}
 
 	if (!haveEqualArrays(previousState.activeDetailIdentities, activeDetailIdentities)) {
+		return true;
+	}
+
+	if (previousState.detailStateSignature !== detailStateSignature) {
 		return true;
 	}
 
@@ -629,12 +642,30 @@ function shouldRefreshBodyOnly(previousState, activeDetailIdentities, textDispla
 	return false;
 }
 
+function applyRowDetailPresentationClasses(detailWrapper, presentation) {
+	if (!(detailWrapper instanceof HTMLElement) || !presentation) {
+		return;
+	}
+
+	const level = Math.max(1, Number(presentation.level) || 1);
+	const status = presentation.status || 'loaded';
+
+	detailWrapper.classList.add(`mg-row-detail-level-${level}`);
+	detailWrapper.classList.add(`mg-row-detail-${status}`);
+}
+
 function appendDataRow(tbody, row, grid, viewModel, renderColumns, rowDetailOptions, tableOptions, rowNumber) {
 	const rowId = getRowDetailRowId(row, rowDetailOptions);
 	const canToggleDetail = rowDetailOptions.enabled !== false && rowDetailOptions.renderInTable !== false && rowDetailOptions.toggleOnRowClick !== false && rowId !== null;
 	const isActiveDetailRow = rowDetailOptions.enabled !== false && rowDetailOptions.renderInTable !== false && isDetailRowActive(row, grid, rowDetailOptions);
 	const hasExternalRowClick = typeof grid.options.onRowClick === 'function';
 	const zebraClassNames = getZebraClassNames(rowNumber, tableOptions);
+	const detailTogglePayload = {
+		rowId,
+		row,
+		viewModel,
+		level: Number(rowDetailOptions.level) || 1
+	};
 
 	const tr = createElement('tr', 'mg-row');
 
@@ -651,7 +682,7 @@ function appendDataRow(tbody, row, grid, viewModel, renderColumns, rowDetailOpti
 			}
 
 			if (canToggleDetail) {
-				grid.execute('toggleDetailRow', rowId);
+				grid.execute('toggleDetailRow', detailTogglePayload);
 			}
 
 			if (hasExternalRowClick) {
@@ -679,9 +710,9 @@ function appendDataRow(tbody, row, grid, viewModel, renderColumns, rowDetailOpti
 	tbody.appendChild(tr);
 
 	if (isActiveDetailRow) {
-		const detailContent = createRowDetailContent(row, grid, viewModel, renderColumns, rowDetailOptions);
+		const detailPresentation = createRowDetailContent(row, grid, viewModel, renderColumns, rowDetailOptions);
 
-		if (detailContent) {
+		if (detailPresentation?.content) {
 			const detailRow = createElement('tr', 'mg-detail-row');
 			const detailCell = createElement('td', 'mg-detail-cell');
 			const detailWrapper = createElement('div', 'mg-row-detail');
@@ -691,7 +722,8 @@ function appendDataRow(tbody, row, grid, viewModel, renderColumns, rowDetailOpti
 			}
 
 			detailCell.colSpan = Math.max(renderColumns.length, 1);
-			appendContent(detailWrapper, detailContent);
+			applyRowDetailPresentationClasses(detailWrapper, detailPresentation);
+			appendContent(detailWrapper, detailPresentation.content);
 			detailCell.appendChild(detailWrapper);
 			detailRow.appendChild(detailCell);
 			tbody.appendChild(detailRow);
@@ -945,6 +977,7 @@ export class TableView {
 		const headerStateSignature = buildHeaderStateSignature(viewModel);
 		const rowIdentities = buildRowIdentityList(viewModel.rows || [], rowDetailOptions);
 		const activeDetailIdentities = buildActiveDetailIdentityList(viewModel.rows || [], grid, rowDetailOptions);
+		const detailStateSignature = getActiveDetailStateSignature(grid, viewModel.rows || [], rowDetailOptions);
 		const textDisplaySignature = buildTextDisplaySignature(grid);
 		const selectionSignature = buildSelectionSignature(grid);
 
@@ -979,11 +1012,11 @@ export class TableView {
 			return;
 		}
 
-		if (canReuseDuringLoadingMore(previousState, renderSignature, rowIdentities, groupingKey, viewModel)) {
+		if (canReuseDuringLoadingMore(previousState, renderSignature, rowIdentities, groupingKey, viewModel, detailStateSignature)) {
 			return;
 		}
 
-		if (canAppendRows(previousState, renderSignature, rowIdentities, activeDetailIdentities, groupingKey, viewModel)) {
+		if (canAppendRows(previousState, renderSignature, rowIdentities, activeDetailIdentities, groupingKey, viewModel, detailStateSignature)) {
 			for (let index = previousState.rowIdentities.length; index < viewModel.rows.length; index += 1) {
 				previousState.visualRowNumber += 1;
 
@@ -1009,6 +1042,7 @@ export class TableView {
 				groupingKey,
 				rowIdentities,
 				activeDetailIdentities,
+				detailStateSignature,
 				textDisplaySignature,
 				selectionSignature,
 				loadingOverlay: null
@@ -1019,7 +1053,7 @@ export class TableView {
 
 		if (
 			canRefreshBodyOnly(previousState, renderSignature, rowIdentities, groupingKey, headerStateSignature, viewModel)
-			&& shouldRefreshBodyOnly(previousState, activeDetailIdentities, textDisplaySignature, selectionSignature)
+			&& shouldRefreshBodyOnly(previousState, activeDetailIdentities, detailStateSignature, textDisplaySignature, selectionSignature)
 		) {
 			const preservedScrollTop = previousState.scroll.scrollTop;
 
@@ -1052,6 +1086,7 @@ export class TableView {
 				groupingKey,
 				rowIdentities,
 				activeDetailIdentities,
+				detailStateSignature,
 				visualRowNumber: bodyState.visualRowNumber,
 				textDisplaySignature,
 				selectionSignature,
@@ -1326,6 +1361,7 @@ export class TableView {
 			groupingKey,
 			rowIdentities,
 			activeDetailIdentities,
+			detailStateSignature,
 			visualRowNumber: bodyState.visualRowNumber,
 			textDisplaySignature,
 			selectionSignature,
@@ -1333,3 +1369,4 @@ export class TableView {
 		});
 	}
 }
+

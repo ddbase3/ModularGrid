@@ -162,12 +162,15 @@ The following already work in the current foundation:
 - shared row-detail state via plugin
 - inline row details in table view
 - inline row details in card view
+- async row-detail loading with loading, loaded and error states
+- cached async row-detail payload reuse when reopening the same row
 - custom detail renderers via plugin options
 - server-mode data preparation in the core
 - watched server-state reload strategy
 - server-mode paging/search/sort/filter demo wiring via adapter request mapping
 - infinite scroll / append loading for server-mode grids through plugin composition
 - preserved scroll position during infinite-scroll append loads
+- preserved scroll position during async row-detail loading in infinite-scroll grids
 - stable table-zone loading state for full reloads in infinite-scroll grids
 - custom layout tree
 - named zones
@@ -191,7 +194,7 @@ The repo currently includes demos for:
 - modern layout with session storage
 - responsive cards and split detail demo
 - multifunction ajax demo with plugin-driven search, filters, grouping, header menus, selection, row actions, bulk actions, export, summaries, row details and multiple views
-- infinite ajax demo with append-based server loading and sticky in-table loader indicator
+- infinite ajax demo with append-based server loading, sticky in-table loader indicator and server-loaded async row detail
 
 ## Current architectural direction
 
@@ -222,6 +225,8 @@ The core now supports a dedicated `dataMode: 'server'` strategy for adapter-back
 
 Shared row-detail behavior is plugin-driven and view-integrated, not hardcoded as a one-off demo behavior.
 
+Async row-detail loading is also plugin-driven. The active detail row stays in shared state, while per-row async detail entries store loading status, loaded payloads and error messages without requiring special-case core logic.
+
 Filters, grouping, header menus, export, summaries and bulk actions are plugin-driven and can be composed through configuration without additional core work.
 
 Infinite scrolling is implemented as a plugin-driven loading mode on top of server-mode state, so the existing page-based paging mode remains available as an alternative composition.
@@ -247,24 +252,27 @@ The core should remain small and stable.
 The following should preferably be implemented as plugins instead of expanding the core:
 
 - search/filter UI
+- page size UI
+- info UI
+- paging UI
+- column visibility logic
+- reset behavior
+- selection UI
+- row actions UI
+- concrete card view switching UI
+- row-detail UI
 - grouping UI
-- group summaries
-- header menus
-- column visibility
-- reset
-- selection
-- row actions
-- bulk actions
-- export
-- summaries
-- row detail behaviour
-- storage
-- responsive cards
-- charts
+- export UI
+- chart UI
 - advanced filters
-- resize and reorder behaviour if they can be moved behind a cleaner extension layer later
+- storage persistence strategies
+- drag and drop implementations
+- resizable columns
+- reorderable rows or columns
+- infinite-scroll UI, scroll listeners or demo-specific loading indicators
 
 ## Current important technical note
 
 `deepMerge()` must not destroy class instances such as adapters or other service objects.
 Only plain objects should be deeply merged.
+

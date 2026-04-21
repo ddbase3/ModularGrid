@@ -501,7 +501,56 @@
 .mg-row-detail {
 	display: grid;
 	gap: 8px;
-	padding: 8px 0 2px 0;
+	padding: 10px 12px;
+	border: 1px solid #e1e5eb;
+	border-left-width: 3px;
+	border-radius: 4px;
+	background: #fcfdff;
+}
+
+.mg-row-detail-loaded {
+	border-color: #d7e2ef;
+}
+
+.mg-row-detail-loading {
+	border-color: #d8dee8;
+}
+
+.mg-row-detail-error {
+	border-color: #e4c3c3;
+	background: #fff8f8;
+}
+
+.mg-row-detail-level-1 {
+	border-left-color: #86a8cf;
+	background: #f8fbff;
+}
+
+.mg-row-detail-level-2 {
+	border-left-color: #8db7a0;
+	background: #f7fcf8;
+}
+
+.mg-row-detail-level-3 {
+	border-left-color: #c3a27f;
+	background: #fdfaf7;
+}
+
+.mg-row-detail-status {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	min-height: 24px;
+	font-size: 13px;
+	line-height: 1.45;
+}
+
+.mg-row-detail-status-loading {
+	color: #56657a;
+}
+
+.mg-row-detail-status-error {
+	color: #8a1f1f;
 }
 
 .mg-row-detail-fields {
@@ -1296,3 +1345,4 @@
 		grid-template-columns: 1fr;
 	}
 }
+

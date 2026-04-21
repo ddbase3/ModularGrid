@@ -226,24 +226,26 @@ Use `demos/infinite-ajax/` when you want to demonstrate:
 - automatic next-page loading
 - an alternative paging strategy without page-picker UI
 - server-loaded row detail
+- nested child items rendered inside the expanded detail layer
 
 ## Current design scope
 
-This demo currently focuses on incremental loading over a filtered and sorted server result set plus a second ajax detail request per expanded row.
+This demo currently focuses on incremental loading over a filtered and sorted server result set plus a second ajax detail request per expanded row. That detail payload now also includes nested child items rendered inside the expanded detail container.
 
 It is intentionally separate from the larger future topic:
 
 - server-side grouping over the full filtered dataset
-- nested hierarchical child lists below expanded rows
+- interactive recursive expansion below child items
 
-Those topics should be handled as dedicated backend-aware feature steps instead of being mixed into the first async-detail baseline.
+Those topics should be handled as dedicated backend-aware feature steps instead of being mixed into the current nested-child baseline.
 
 ## Next architectural step
 
-The current infinite-scroll baseline now proves two things:
+The current infinite-scroll baseline now proves three things:
 
 1. ModularGrid can support more than one server-loading strategy.
 2. Row detail can load server content lazily after expansion.
+3. The async detail payload can render nested child items with a distinct visual level.
 
-The next deeper technical step is to reuse the same async detail mechanism for nested child content or server-driven hierarchy levels.
+The next deeper technical step is to make those child items interactive so they can load their own follow-up detail content.
 

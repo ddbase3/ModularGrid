@@ -146,7 +146,7 @@ It is based on the originally requested feature set, translated into a more stru
 - [ ] Expand / collapse groups
 - [x] Group summary rendering
 - [ ] Custom aggregation strategies
-- [ ] Server-loaded hierarchy via expandable detail content
+- [~] Server-loaded hierarchy via expandable detail content
 
 ---
 
@@ -162,7 +162,7 @@ It is based on the originally requested feature set, translated into a more stru
 - [x] Async row-detail loading
 - [x] Loading / error state in row-detail views
 - [~] Cached row-detail payload reuse
-- [ ] Nested child lists in async row detail
+- [x] Nested child lists in async row detail
 
 ---
 
@@ -327,7 +327,7 @@ It is based on the originally requested feature set, translated into a more stru
 
 The next good steps are:
 
-1. nested child content inside async row detail
+1. interactive nested child detail below async row detail
 2. header filter row
 3. grouping expansion and collapse
 4. export refinement for filtered/all rows

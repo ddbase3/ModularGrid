@@ -164,6 +164,7 @@ The following already work in the current foundation:
 - inline row details in card view
 - async row-detail loading with loading, loaded and error states
 - cached async row-detail payload reuse when reopening the same row
+- structured nested child items inside async row detail
 - custom detail renderers via plugin options
 - server-mode data preparation in the core
 - watched server-state reload strategy
@@ -194,7 +195,7 @@ The repo currently includes demos for:
 - modern layout with session storage
 - responsive cards and split detail demo
 - multifunction ajax demo with plugin-driven search, filters, grouping, header menus, selection, row actions, bulk actions, export, summaries, row details and multiple views
-- infinite ajax demo with append-based server loading, sticky in-table loader indicator and server-loaded async row detail
+- infinite ajax demo with append-based server loading, sticky in-table loader indicator, server-loaded async row detail and nested child items inside the expanded detail layer
 
 ## Current architectural direction
 
@@ -225,7 +226,7 @@ The core now supports a dedicated `dataMode: 'server'` strategy for adapter-back
 
 Shared row-detail behavior is plugin-driven and view-integrated, not hardcoded as a one-off demo behavior.
 
-Async row-detail loading is also plugin-driven. The active detail row stays in shared state, while per-row async detail entries store loading status, loaded payloads and error messages without requiring special-case core logic.
+Async row-detail loading is also plugin-driven. The active detail row stays in shared state, while per-row async detail entries store loading status, loaded payloads and error messages without requiring special-case core logic. Structured async payloads can now also render nested child items on the next visual detail level without changing the core row pipeline.
 
 Filters, grouping, header menus, export, summaries and bulk actions are plugin-driven and can be composed through configuration without additional core work.
 

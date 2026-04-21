@@ -578,6 +578,127 @@
 	line-height: 1.45;
 }
 
+.mg-row-detail-structured {
+	display: grid;
+	gap: 10px;
+}
+
+.mg-row-detail-structured-header {
+	display: grid;
+	gap: 3px;
+}
+
+.mg-row-detail-structured-title {
+	font-size: 15px;
+	font-weight: 600;
+	color: #1f2c3c;
+}
+
+.mg-row-detail-structured-summary {
+	font-size: 12px;
+	color: #5f6d7e;
+	line-height: 1.45;
+}
+
+.mg-row-detail-badges {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	align-items: center;
+}
+
+.mg-row-detail-badge {
+	display: inline-flex;
+	align-items: center;
+	padding: 2px 8px;
+	border: 1px solid #d7dfe8;
+	border-radius: 999px;
+	background: rgba(255, 255, 255, 0.9);
+	font-size: 11px;
+	line-height: 1.35;
+	color: #425466;
+	white-space: nowrap;
+}
+
+.mg-row-detail-section {
+	display: grid;
+	gap: 8px;
+}
+
+.mg-row-detail-section-header {
+	display: grid;
+	gap: 2px;
+}
+
+.mg-row-detail-section-title {
+	font-size: 12px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.03em;
+	color: #546274;
+}
+
+.mg-row-detail-section-summary {
+	font-size: 12px;
+	color: #6a7888;
+	line-height: 1.45;
+}
+
+.mg-row-detail-list {
+	display: grid;
+	gap: 8px;
+}
+
+.mg-row-detail-list-item {
+	display: grid;
+	gap: 8px;
+	padding: 10px 12px;
+	border: 1px solid #dce4ed;
+	border-left-width: 3px;
+	border-radius: 4px;
+	background: rgba(255, 255, 255, 0.72);
+}
+
+.mg-row-detail-list-item-level-1 {
+	border-left-color: #86a8cf;
+}
+
+.mg-row-detail-list-item-level-2 {
+	border-left-color: #8db7a0;
+	background: rgba(247, 252, 248, 0.96);
+}
+
+.mg-row-detail-list-item-level-3 {
+	border-left-color: #c3a27f;
+	background: rgba(253, 250, 247, 0.96);
+}
+
+.mg-row-detail-list-item-header {
+	display: grid;
+	gap: 2px;
+}
+
+.mg-row-detail-list-item-title {
+	font-size: 14px;
+	font-weight: 600;
+	color: #223041;
+}
+
+.mg-row-detail-list-item-subtitle {
+	font-size: 12px;
+	color: #5f6d7e;
+}
+
+.mg-row-detail-list-item-summary {
+	font-size: 12px;
+	color: #4f5e70;
+	line-height: 1.45;
+}
+
+.mg-row-detail-list-item-fields {
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .mg-empty-cell {
 	padding: 12px 8px;
 	color: #666;
@@ -1341,7 +1462,8 @@
 		max-height: 320px;
 	}
 
-	.mg-row-detail-fields {
+	.mg-row-detail-fields,
+	.mg-row-detail-list-item-fields {
 		grid-template-columns: 1fr;
 	}
 }

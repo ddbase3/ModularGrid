@@ -1,254 +1,209 @@
-function isPlainObject(value) {
-	return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
-
-function normalizeState(rawState) {
-	const state = isPlainObject(rawState) ? rawState : {};
-	const entries = isPlainObject(state.entries) ? state.entries : {};
-
-	return {
-		rowId: state.rowId ?? null,
-		entries
-	};
-}
-
-function normalizeEntry(rawEntry) {
-	const entry = isPlainObject(rawEntry) ? rawEntry : {};
-
-	return {
-		status: entry.status || 'idle',
-		payload: entry.payload ?? null,
-		error: entry.error ?? null,
-		requestId: entry.requestId ?? null,
-		version: Number(entry.version) || 0
-	};
-}
-
-function resolveAsyncDetailOptions(configuredOptions) {
-	const configuredAsyncDetail = configuredOptions.asyncDetail;
-	const normalizedConfiguredAsyncDetail = isPlainObject(configuredAsyncDetail)
-		? configuredAsyncDetail
-		: {};
-	const load = typeof normalizedConfiguredAsyncDetail.load === 'function'
-		? normalizedConfiguredAsyncDetail.load
-		: null;
-
-	return {
-		enabled: load !== null,
-		cache: true,
-		load,
-		render: null,
-		renderLoading: null,
-		renderError: null,
-		...normalizedConfiguredAsyncDetail,
-		load
-	};
-}
-
 function resolveOptions(context) {
-	const configuredOptions = context.getPluginOptions('rowDetail') || {};
-	const options = {
+	return {
 		stateKey: 'detailView',
-		rowIdKey: 'id',
-		level: 1,
 		clearOnDataReload: false,
-		...configuredOptions
+		cache: true,
+		level: 1,
+		parentPath: [],
+		asyncDetail: null,
+		...context.getPluginOptions('rowDetail')
 	};
-
-	options.asyncDetail = resolveAsyncDetailOptions(options);
-
-	return options;
 }
 
-function resolveRowIdFromPayload(payload, options) {
-	if (payload === null || payload === undefined || payload === '') {
-		return null;
-	}
-
-	if (typeof payload === 'object' && !Array.isArray(payload)) {
-		if (payload.rowId !== undefined && payload.rowId !== null && payload.rowId !== '') {
-			return payload.rowId;
-		}
-
-		if (payload.row && payload.row[options.rowIdKey] !== undefined && payload.row[options.rowIdKey] !== null) {
-			return payload.row[options.rowIdKey];
-		}
-	}
-
-	return payload;
+function buildInitialState() {
+	return {
+		rowId: null,
+		entries: {}
+	};
 }
 
-function resolveDetailDescriptor(payload, options) {
-	if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
-		return {
-			rowId: resolveRowIdFromPayload(payload, options),
-			row: payload.row ?? null,
-			viewModel: payload.viewModel ?? null,
-			level: Number(payload.level) || Number(options.level) || 1
-		};
+function cloneEntries(sectionState) {
+	if (!sectionState || typeof sectionState.entries !== 'object' || sectionState.entries === null) {
+		return {};
 	}
 
 	return {
-		rowId: resolveRowIdFromPayload(payload, options),
-		row: null,
-		viewModel: null,
-		level: Number(options.level) || 1
+		...sectionState.entries
 	};
 }
 
-function setState(context, stateKey, nextState) {
-	context.setState({
-		[stateKey]: nextState
-	});
+function buildStatePatch(stateKey, sectionState, patch = {}) {
+	return {
+		[stateKey]: {
+			...buildInitialState(),
+			...(sectionState || {}),
+			...patch
+		}
+	};
 }
 
-function updateEntry(entries, rowId, updater) {
+function buildEntryPatch(stateKey, sectionState, rowId, entryPatch) {
+	const entries = cloneEntries(sectionState);
 	const entryKey = String(rowId);
-	const currentEntry = normalizeEntry(entries[entryKey]);
-	const nextEntryPatch = updater(currentEntry) || {};
+	const previousEntry = entries[entryKey] && typeof entries[entryKey] === 'object'
+		? entries[entryKey]
+		: {};
 
-	return {
-		...entries,
-		[entryKey]: {
-			...currentEntry,
-			...nextEntryPatch,
-			version: currentEntry.version + 1
-		}
+	entries[entryKey] = {
+		...previousEntry,
+		...entryPatch
 	};
+
+	return buildStatePatch(stateKey, sectionState, {
+		entries
+	});
 }
 
-function updateRowDetailEntry(context, stateKey, rowId, updater) {
-	if (rowId === null || rowId === undefined || rowId === '') {
+function buildClearedStatePatch(stateKey, sectionState, clearEntries = false) {
+	return buildStatePatch(stateKey, sectionState, {
+		rowId: null,
+		entries: clearEntries ? {} : cloneEntries(sectionState)
+	});
+}
+
+function normalizeErrorMessage(error) {
+	if (error instanceof Error && error.message) {
+		return error.message;
+	}
+
+	if (typeof error === 'string' && error.trim()) {
+		return error.trim();
+	}
+
+	return 'Failed to load detail.';
+}
+
+function findRowById(context, rowId, rowIdKey) {
+	const state = context.peekState();
+	const rows = state?.data?.rows;
+
+	if (!Array.isArray(rows)) {
 		return null;
 	}
 
-	const currentState = normalizeState(context.peekState()[stateKey]);
-	const nextEntries = updateEntry(currentState.entries, rowId, updater);
-	const nextState = {
-		...currentState,
-		entries: nextEntries
-	};
+	return rows.find((row) => {
+		if (!row || typeof row !== 'object') {
+			return false;
+		}
 
-	setState(context, stateKey, nextState);
-
-	return normalizeEntry(nextEntries[String(rowId)]);
+		return row[rowIdKey] === rowId;
+	}) || null;
 }
 
-async function ensureAsyncDetailLoaded(context, options, descriptor) {
-	const asyncDetailOptions = options.asyncDetail;
-	const stateKey = options.stateKey || 'detailView';
-	const rowId = descriptor.rowId;
+function normalizePayload(payload, options, context) {
+	if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
+		const row = payload.row && typeof payload.row === 'object'
+			? payload.row
+			: null;
+		const rowId = payload.rowId ?? payload.id ?? (row ? row[options.rowIdKey || 'id'] : null);
 
-	if (asyncDetailOptions.enabled !== true || typeof asyncDetailOptions.load !== 'function' || rowId === null) {
-		return;
-	}
-
-	const currentState = normalizeState(context.peekState()[stateKey]);
-	const currentEntry = normalizeEntry(currentState.entries[String(rowId)]);
-
-	if (currentEntry.status === 'loading') {
-		return;
-	}
-
-	if (asyncDetailOptions.cache !== false && currentEntry.status === 'loaded') {
-		return;
-	}
-
-	const requestId = `row-detail-${++context._rowDetailLoadSequence}`;
-
-	updateRowDetailEntry(context, stateKey, rowId, () => {
 		return {
-			status: 'loading',
-			payload: null,
-			error: null,
-			requestId
+			rowId,
+			row: row || (rowId !== null && rowId !== undefined ? findRowById(context, rowId, options.rowIdKey || 'id') : null),
+			level: Number(payload.level) || Number(options.level) || 1,
+			parentPath: Array.isArray(payload.parentPath) ? payload.parentPath : (Array.isArray(options.parentPath) ? options.parentPath : [])
 		};
-	});
+	}
+
+	const rowId = payload ?? null;
+
+	return {
+		rowId,
+		row: rowId !== null && rowId !== undefined ? findRowById(context, rowId, options.rowIdKey || 'id') : null,
+		level: Number(options.level) || 1,
+		parentPath: Array.isArray(options.parentPath) ? options.parentPath : []
+	};
+}
+
+async function loadAsyncDetail(context, options, payloadInfo) {
+	const asyncDetail = options.asyncDetail;
+
+	if (!asyncDetail || typeof asyncDetail.load !== 'function') {
+		return;
+	}
+
+	const rowId = payloadInfo.rowId;
+
+	if (rowId === null || rowId === undefined) {
+		return;
+	}
+
+	const stateKey = options.stateKey || 'detailView';
+	const sectionState = context.peekState()[stateKey] || buildInitialState();
+	const entryKey = String(rowId);
+	const existingEntry = sectionState.entries?.[entryKey] || null;
+
+	if (options.cache !== false && existingEntry?.status === 'loaded') {
+		return;
+	}
+
+	context.setState(
+		buildEntryPatch(stateKey, sectionState, rowId, {
+			status: 'loading',
+			payload: existingEntry?.payload ?? null,
+			error: null,
+			level: payloadInfo.level,
+			parentPath: payloadInfo.parentPath
+		})
+	);
 
 	context.events.emit('detail:loading', {
 		grid: context.grid,
 		rowId,
-		stateKey,
-		level: descriptor.level
+		row: payloadInfo.row,
+		stateKey
 	});
 
 	try {
-		const payload = await asyncDetailOptions.load({
-			...descriptor,
+		const payload = await asyncDetail.load({
+			row: payloadInfo.row,
+			rowId,
 			grid: context.grid,
-			context
+			level: payloadInfo.level,
+			parentPath: payloadInfo.parentPath
 		});
-		const latestState = normalizeState(context.peekState()[stateKey]);
-		const latestEntry = normalizeEntry(latestState.entries[String(rowId)]);
 
-		if (latestEntry.requestId !== requestId) {
-			return;
-		}
+		const nextSectionState = context.peekState()[stateKey] || buildInitialState();
 
-		updateRowDetailEntry(context, stateKey, rowId, () => {
-			return {
+		context.setState(
+			buildEntryPatch(stateKey, nextSectionState, rowId, {
 				status: 'loaded',
-				payload,
+				payload: payload ?? null,
 				error: null,
-				requestId: null
-			};
-		});
+				level: payloadInfo.level,
+				parentPath: payloadInfo.parentPath
+			})
+		);
 
 		context.events.emit('detail:loaded', {
 			grid: context.grid,
 			rowId,
-			stateKey,
-			level: descriptor.level,
-			payload
+			row: payloadInfo.row,
+			payload: payload ?? null,
+			stateKey
 		});
 	}
 	catch (error) {
-		const latestState = normalizeState(context.peekState()[stateKey]);
-		const latestEntry = normalizeEntry(latestState.entries[String(rowId)]);
+		const nextSectionState = context.peekState()[stateKey] || buildInitialState();
 
-		if (latestEntry.requestId !== requestId) {
-			return;
-		}
-
-		const message = error instanceof Error
-			? error.message
-			: String(error || 'Failed to load detail.');
-
-		updateRowDetailEntry(context, stateKey, rowId, () => {
-			return {
+		context.setState(
+			buildEntryPatch(stateKey, nextSectionState, rowId, {
 				status: 'error',
 				payload: null,
-				error: message,
-				requestId: null
-			};
-		});
+				error: normalizeErrorMessage(error),
+				level: payloadInfo.level,
+				parentPath: payloadInfo.parentPath
+			})
+		);
 
 		context.events.emit('detail:error', {
 			grid: context.grid,
 			rowId,
-			stateKey,
-			level: descriptor.level,
-			error: message
+			row: payloadInfo.row,
+			error: normalizeErrorMessage(error),
+			stateKey
 		});
 	}
-}
-
-function setActiveDetailRow(context, options, descriptor) {
-	const stateKey = options.stateKey || 'detailView';
-	const currentState = normalizeState(context.peekState()[stateKey]);
-	const nextState = {
-		...currentState,
-		rowId: descriptor.rowId
-	};
-
-	setState(context, stateKey, nextState);
-
-	context.events.emit('detail:changed', {
-		grid: context.grid,
-		rowId: descriptor.rowId,
-		stateKey,
-		level: descriptor.level
-	});
 }
 
 export const RowDetailPlugin = {
@@ -260,19 +215,25 @@ export const RowDetailPlugin = {
 		const state = context.peekState();
 		const cleanup = [];
 
-		context._rowDetailLoadSequence = 0;
-
 		if (!state[stateKey]) {
-			setState(context, stateKey, normalizeState(null));
-		}
-		else {
-			setState(context, stateKey, normalizeState(state[stateKey]));
+			context.setState(buildStatePatch(stateKey, null));
 		}
 
 		if (options.clearOnDataReload === true) {
 			cleanup.push(
 				context.events.on('data:loading', () => {
-					context.execute('clearDetailRow');
+					const currentState = context.peekState()[stateKey] || buildInitialState();
+					const shouldClearEntries = options.cache === false;
+
+					context.setState(
+						buildClearedStatePatch(stateKey, currentState, shouldClearEntries)
+					);
+
+					context.events.emit('detail:changed', {
+						grid: context.grid,
+						rowId: null,
+						stateKey
+					});
 				})
 			);
 		}
@@ -295,10 +256,25 @@ export const RowDetailPlugin = {
 	commands: {
 		setDetailRow(context, payload = null) {
 			const options = resolveOptions(context);
-			const descriptor = resolveDetailDescriptor(payload, options);
+			const stateKey = options.stateKey || 'detailView';
+			const normalizedPayload = normalizePayload(payload, options, context);
+			const sectionState = context.peekState()[stateKey] || buildInitialState();
 
-			setActiveDetailRow(context, options, descriptor);
-			ensureAsyncDetailLoaded(context, options, descriptor);
+			context.setState(
+				buildStatePatch(stateKey, sectionState, {
+					rowId: normalizedPayload.rowId
+				})
+			);
+
+			context.events.emit('detail:changed', {
+				grid: context.grid,
+				rowId: normalizedPayload.rowId,
+				stateKey
+			});
+
+			if (normalizedPayload.rowId !== null && normalizedPayload.rowId !== undefined) {
+				void loadAsyncDetail(context, options, normalizedPayload);
+			}
 
 			return context.grid;
 		},
@@ -306,19 +282,18 @@ export const RowDetailPlugin = {
 		clearDetailRow(context) {
 			const options = resolveOptions(context);
 			const stateKey = options.stateKey || 'detailView';
-			const currentState = normalizeState(context.peekState()[stateKey]);
-			const nextState = {
-				...currentState,
-				rowId: null
-			};
+			const sectionState = context.peekState()[stateKey] || buildInitialState();
 
-			setState(context, stateKey, nextState);
+			context.setState(
+				buildStatePatch(stateKey, sectionState, {
+					rowId: null
+				})
+			);
 
 			context.events.emit('detail:changed', {
 				grid: context.grid,
 				rowId: null,
-				stateKey,
-				level: Number(options.level) || 1
+				stateKey
 			});
 
 			return context.grid;
@@ -326,52 +301,29 @@ export const RowDetailPlugin = {
 
 		toggleDetailRow(context, payload = null) {
 			const options = resolveOptions(context);
-			const descriptor = resolveDetailDescriptor(payload, options);
-			const currentState = normalizeState(context.peekState()[options.stateKey]);
-			const currentRowId = currentState.rowId ?? null;
-			const nextRowId = currentRowId === descriptor.rowId ? null : descriptor.rowId;
-			const nextDescriptor = {
-				...descriptor,
-				rowId: nextRowId
-			};
-
-			setActiveDetailRow(context, options, nextDescriptor);
-
-			if (nextRowId !== null) {
-				ensureAsyncDetailLoaded(context, options, nextDescriptor);
-			}
-
-			return context.grid;
-		},
-
-		clearDetailCache(context, payload = null) {
-			const options = resolveOptions(context);
 			const stateKey = options.stateKey || 'detailView';
-			const currentState = normalizeState(context.peekState()[stateKey]);
+			const normalizedPayload = normalizePayload(payload, options, context);
+			const sectionState = context.peekState()[stateKey] || buildInitialState();
+			const currentRowId = sectionState?.rowId ?? null;
+			const nextRowId = currentRowId === normalizedPayload.rowId ? null : normalizedPayload.rowId;
 
-			if (payload === null || payload === undefined || payload === '') {
-				setState(context, stateKey, {
-					...currentState,
-					entries: {}
-				});
+			context.setState(
+				buildStatePatch(stateKey, sectionState, {
+					rowId: nextRowId
+				})
+			);
 
-				return context.grid;
-			}
-
-			const rowId = resolveRowIdFromPayload(payload, options);
-			const nextEntries = {
-				...currentState.entries
-			};
-
-			delete nextEntries[String(rowId)];
-
-			setState(context, stateKey, {
-				...currentState,
-				entries: nextEntries
+			context.events.emit('detail:changed', {
+				grid: context.grid,
+				rowId: nextRowId,
+				stateKey
 			});
+
+			if (nextRowId !== null && nextRowId !== undefined) {
+				void loadAsyncDetail(context, options, normalizedPayload);
+			}
 
 			return context.grid;
 		}
 	}
 };
-

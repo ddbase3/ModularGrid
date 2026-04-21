@@ -52,6 +52,7 @@ The current code base already includes:
 - responsive view switching
 - shared inline row detail behavior
 - async row detail loading with loading/error/cache states
+- structured nested child items inside async row detail
 - group summary rendering in table view
 - configurable zebra rows in table view
 - per-column long-text display strategies
@@ -193,11 +194,6 @@ const grid = new ModularGrid('#grid', {
 					});
 
 					return response.json();
-				},
-				render({ payload }) {
-					const detail = document.createElement('div');
-					detail.textContent = payload.title;
-					return detail;
 				}
 			}
 		}
@@ -205,7 +201,7 @@ const grid = new ModularGrid('#grid', {
 });
 ```
 
-The plugin keeps the active row state in the shared grid state and stores per-row async detail cache entries with loading and error information.
+The plugin keeps the active row state in the shared grid state and stores per-row async detail cache entries with loading and error information. Structured payloads can also render nested child items so the detail layer becomes a natural container for server-loaded hierarchy previews.
 
 ## Table column interaction baseline
 
@@ -243,4 +239,7 @@ Controls such as search, filters, grouping, paging, info bars, summaries, bulk a
 - optional layout helpers
 
 This keeps the core neutral and avoids hardcoded toolbar/footer structures.
+
+
+The built-in structured async renderer understands payloads with keys such as `headline`, `summary`, `badges`, `sections`, `activity` and `children`, so nested child items can be rendered without writing a custom detail renderer.
 

@@ -4,292 +4,206 @@ function isUtilityColumn(column) {
 	return !column?.label || String(column.key || '').startsWith('__mg_');
 }
 
-function isPlainObject(value) {
-	return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
-
-function normalizeEntry(rawEntry) {
-	const entry = isPlainObject(rawEntry) ? rawEntry : {};
-
-	return {
-		status: entry.status || 'idle',
-		payload: entry.payload ?? null,
-		error: entry.error ?? null,
-		requestId: entry.requestId ?? null,
-		version: Number(entry.version) || 0
-	};
-}
-
-function resolveAsyncDetailOptions(configured) {
-	const configuredAsyncDetail = isPlainObject(configured.asyncDetail)
-		? configured.asyncDetail
-		: {};
-	const load = typeof configuredAsyncDetail.load === 'function'
-		? configuredAsyncDetail.load
-		: null;
-
-	return {
-		enabled: load !== null,
-		cache: true,
-		load,
-		render: null,
-		renderLoading: null,
-		renderError: null,
-		...configuredAsyncDetail,
-		load
-	};
-}
-
-function getRowDetailState(grid, options) {
+function getDetailSectionState(grid, options) {
 	const state = typeof grid.store?.peek === 'function' ? grid.store.peek() : {};
-	const rawState = isPlainObject(state[options.stateKey]) ? state[options.stateKey] : {};
 
-	return {
-		rowId: rawState.rowId ?? null,
-		entries: isPlainObject(rawState.entries) ? rawState.entries : {}
+	return state[options.stateKey] || {
+		rowId: null,
+		entries: {}
 	};
 }
 
-function createStatusBox(className, text) {
-	const statusBox = createElement('div', `mg-row-detail-status ${className}`);
-	statusBox.textContent = text;
+function getDetailEntryByRowId(grid, rowId, options) {
+	if (rowId === null || rowId === undefined) {
+		return null;
+	}
 
-	return statusBox;
+	const sectionState = getDetailSectionState(grid, options);
+	const entries = sectionState.entries || {};
+	const entry = entries[String(rowId)];
+
+	return entry && typeof entry === 'object' ? entry : null;
 }
 
-function formatObjectLabel(key) {
-	return String(key)
-		.replace(/_/g, ' ')
-		.replace(/\b\w/g, (character) => character.toUpperCase());
+function isRenderableContent(value) {
+	return value !== null && value !== undefined && value !== '';
 }
 
-function formatObjectValue(value) {
-	if (value === null || value === undefined || value === '') {
-		return '—';
-	}
+function buildRendererContext(row, grid, viewModel, options, entry = null) {
+	const rowId = getRowDetailRowId(row, options);
 
-	if (Array.isArray(value)) {
-		return value.join(', ');
-	}
-
-	if (typeof value === 'object') {
-		return JSON.stringify(value);
-	}
-
-	return String(value);
+	return {
+		row,
+		rowId,
+		grid,
+		viewModel,
+		options,
+		level: Number(entry?.level) || Number(options.level) || 1,
+		parentPath: Array.isArray(entry?.parentPath) ? entry.parentPath : (Array.isArray(options.parentPath) ? options.parentPath : []),
+		payload: entry?.payload ?? null,
+		error: entry?.error ?? null,
+		entry
+	};
 }
 
-function renderGenericObjectPayload(payload) {
-	const fields = createElement('div', 'mg-row-detail-fields');
-
-	Object.entries(payload).forEach(([key, value]) => {
-		const field = createElement('div', 'mg-row-detail-field');
-		const label = createElement('div', 'mg-row-detail-label');
-		const content = createElement('div', 'mg-row-detail-value');
-
-		label.textContent = formatObjectLabel(key);
-		content.textContent = formatObjectValue(value);
-
-		field.appendChild(label);
-		field.appendChild(content);
-		fields.appendChild(field);
-	});
-
-	return fields;
-}
-
-function renderAsyncPayload(payload, row, rowId, grid, viewModel, options) {
-	if (typeof options.asyncDetail.render === 'function') {
-		return options.asyncDetail.render({
-			payload,
-			row,
-			rowId,
-			grid,
-			viewModel,
-			level: Number(options.level) || 1,
-			options
-		});
-	}
-
-	if (payload instanceof Node) {
-		return payload;
-	}
-
-	if (isPlainObject(payload) && typeof payload.html === 'string') {
-		const wrapper = createElement('div', 'mg-row-detail-html');
-		wrapper.innerHTML = payload.html;
-		return wrapper;
-	}
-
-	if (isPlainObject(payload)) {
-		return renderGenericObjectPayload(payload);
-	}
-
-	const wrapper = createElement('div', 'mg-row-detail-value');
-	appendContent(wrapper, payload ?? options.emptyPlaceholder);
+function createStateMessage(className, text) {
+	const wrapper = createElement('div', className);
+	wrapper.textContent = text;
 
 	return wrapper;
 }
 
-function renderLoadingState(row, rowId, grid, viewModel, options) {
-	if (typeof options.asyncDetail.renderLoading === 'function') {
-		return options.asyncDetail.renderLoading({
-			row,
-			rowId,
-			grid,
-			viewModel,
-			level: Number(options.level) || 1,
-			options
-		});
+function createDetailPresentation(content, status = 'loaded', level = 1) {
+	if (!isRenderableContent(content)) {
+		return null;
 	}
 
-	return createStatusBox('mg-row-detail-status-loading', 'Loading detail...');
-}
-
-function renderErrorState(row, rowId, error, grid, viewModel, options) {
-	if (typeof options.asyncDetail.renderError === 'function') {
-		return options.asyncDetail.renderError({
-			row,
-			rowId,
-			error,
-			grid,
-			viewModel,
-			level: Number(options.level) || 1,
-			options
-		});
-	}
-
-	return createStatusBox('mg-row-detail-status-error', error || 'Failed to load detail.');
-}
-
-export function resolveRowDetailOptions(grid) {
-	const configured = grid.options?.pluginOptions?.rowDetail || {};
-	const stateKey = configured.stateKey || 'detailView';
-	const state = typeof grid.store?.peek === 'function' ? grid.store.peek() : {};
-	const hasConfiguredOptions = typeof grid.options?.pluginOptions?.rowDetail === 'object';
-	const hasState = !!state[stateKey];
-	const baseOptions = {
-		enabled: hasConfiguredOptions || hasState,
-		stateKey,
-		rowIdKey: 'id',
-		level: 1,
-		toggleOnRowClick: true,
-		renderInTable: true,
-		renderInCards: true,
-		showLabels: true,
-		emptyPlaceholder: '—',
-		detailRenderer: null,
-		clearOnDataReload: false,
-		...configured
+	return {
+		content,
+		status,
+		level: Math.max(1, Number(level) || 1)
 	};
-
-	baseOptions.asyncDetail = resolveAsyncDetailOptions(baseOptions);
-
-	return baseOptions;
 }
 
-export function getRowDetailRowId(row, options) {
-	if (!row || typeof row !== 'object') {
+function renderDetailBadges(badges) {
+	if (!Array.isArray(badges) || badges.length === 0) {
 		return null;
 	}
 
-	return row[options.rowIdKey] ?? null;
-}
+	const wrapper = createElement('div', 'mg-row-detail-badges');
 
-export function getActiveDetailRowId(grid, options) {
-	const state = getRowDetailState(grid, options);
-	return state.rowId ?? null;
-}
+	badges.forEach((badge) => {
+		if (!isRenderableContent(badge)) {
+			return;
+		}
 
-export function getRowDetailEntry(grid, rowId, options) {
-	if (rowId === null || rowId === undefined || rowId === '') {
-		return null;
-	}
-
-	const state = getRowDetailState(grid, options);
-	const rawEntry = state.entries[String(rowId)];
-
-	if (!rawEntry) {
-		return null;
-	}
-
-	return normalizeEntry(rawEntry);
-}
-
-export function getActiveDetailStateSignature(grid, rows, options) {
-	const activeRowId = getActiveDetailRowId(grid, options);
-
-	if (activeRowId === null) {
-		return '';
-	}
-
-	const hasVisibleRow = Array.isArray(rows) && rows.some((row) => {
-		return getRowDetailRowId(row, options) === activeRowId;
+		const badgeElement = createElement('span', 'mg-row-detail-badge');
+		badgeElement.textContent = String(badge);
+		wrapper.appendChild(badgeElement);
 	});
-	const entry = getRowDetailEntry(grid, activeRowId, options);
 
-	if (!entry) {
-		return `row:${String(activeRowId)}:${hasVisibleRow ? 'idle' : 'hidden'}:0`;
-	}
-
-	return [
-		`row:${String(activeRowId)}`,
-		entry.status,
-		String(entry.version),
-		entry.error || '',
-		hasVisibleRow ? 'visible' : 'hidden'
-	].join(':');
+	return wrapper.childNodes.length > 0 ? wrapper : null;
 }
 
-export function isDetailRowActive(row, grid, options) {
-	const rowId = getRowDetailRowId(row, options);
-
-	if (rowId === null) {
-		return false;
+function renderDetailFieldRows(rows, className) {
+	if (!Array.isArray(rows) || rows.length === 0) {
+		return null;
 	}
 
-	return getActiveDetailRowId(grid, options) === rowId;
+	const wrapper = createElement('div', className);
+
+	rows.forEach((row) => {
+		if (!row || typeof row !== 'object') {
+			return;
+		}
+
+		const item = createElement('div', `${className}-item`);
+		const label = createElement('div', `${className}-label`);
+		const value = createElement('div', `${className}-value`);
+
+		label.textContent = row.label || row.key || 'Value';
+		appendContent(value, isRenderableContent(row.value) ? row.value : '—');
+
+		item.appendChild(label);
+		item.appendChild(value);
+		wrapper.appendChild(item);
+	});
+
+	return wrapper.childNodes.length > 0 ? wrapper : null;
 }
 
-export function createRowDetailContent(row, grid, viewModel, columns, options) {
-	const rowId = getRowDetailRowId(row, options);
-	const level = Number(options.level) || 1;
-
-	if (options.asyncDetail.enabled === true && rowId !== null) {
-		const entry = getRowDetailEntry(grid, rowId, options);
-		const status = entry?.status || 'idle';
-
-		if (status === 'error') {
-			return {
-				content: renderErrorState(row, rowId, entry?.error, grid, viewModel, options),
-				status: 'error',
-				level
-			};
-		}
-
-		if (status === 'loaded') {
-			return {
-				content: renderAsyncPayload(entry?.payload, row, rowId, grid, viewModel, options),
-				status: 'loaded',
-				level
-			};
-		}
-
-		return {
-			content: renderLoadingState(row, rowId, grid, viewModel, options),
-			status: 'loading',
-			level
-		};
+function renderNestedChildList(children, level) {
+	if (!Array.isArray(children) || children.length === 0) {
+		return null;
 	}
 
-	if (typeof options.detailRenderer === 'function') {
-		return {
-			content: options.detailRenderer(row, grid, viewModel),
-			status: 'loaded',
-			level
-		};
+	const wrapper = createElement('div', `mg-row-detail-list mg-row-detail-list-level-${level}`);
+	const list = createElement('div', 'mg-row-detail-list-items');
+
+	children.forEach((child) => {
+		if (!child || typeof child !== 'object') {
+			return;
+		}
+
+		const item = createElement('div', `mg-row-detail-list-item mg-row-detail-list-item-level-${level + 1}`);
+
+		if (child.title) {
+			const title = createElement('div', 'mg-row-detail-list-item-title');
+			title.textContent = String(child.title);
+			item.appendChild(title);
+		}
+
+		if (child.subtitle) {
+			const subtitle = createElement('div', 'mg-row-detail-list-item-subtitle');
+			subtitle.textContent = String(child.subtitle);
+			item.appendChild(subtitle);
+		}
+
+		const badges = renderDetailBadges(child.badges || []);
+		if (badges) {
+			item.appendChild(badges);
+		}
+
+		const fields = renderDetailFieldRows(child.fields || [], 'mg-row-detail-list-item-fields');
+		if (fields) {
+			item.appendChild(fields);
+		}
+
+		list.appendChild(item);
+	});
+
+	wrapper.appendChild(list);
+
+	return list.childNodes.length > 0 ? wrapper : null;
+}
+
+function renderStructuredPayload(payload, level) {
+	if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+		if (isRenderableContent(payload)) {
+			return createStateMessage('mg-row-detail-text', String(payload));
+		}
+
+		return null;
 	}
 
+	const wrapper = createElement('div', 'mg-row-detail-async-content');
+
+	if (payload.headline) {
+		const headline = createElement('div', 'mg-row-detail-headline');
+		headline.textContent = String(payload.headline);
+		wrapper.appendChild(headline);
+	}
+
+	const badges = renderDetailBadges(payload.badges || []);
+	if (badges) {
+		wrapper.appendChild(badges);
+	}
+
+	if (payload.summary) {
+		const summary = createElement('div', 'mg-row-detail-summary');
+		summary.textContent = String(payload.summary);
+		wrapper.appendChild(summary);
+	}
+
+	const sections = renderDetailFieldRows(payload.sections || [], 'mg-row-detail-sections');
+	if (sections) {
+		wrapper.appendChild(sections);
+	}
+
+	const activity = renderDetailFieldRows(payload.activity || [], 'mg-row-detail-activity');
+	if (activity) {
+		wrapper.appendChild(activity);
+	}
+
+	const children = renderNestedChildList(payload.children || payload.items || [], level);
+	if (children) {
+		wrapper.appendChild(children);
+	}
+
+	return wrapper.childNodes.length > 0 ? wrapper : null;
+}
+
+function createDefaultFieldDetailContent(row, grid, columns, options) {
 	const renderColumns = (columns || []).filter((column) => {
 		return column.visible !== false && !isUtilityColumn(column);
 	});
@@ -323,10 +237,214 @@ export function createRowDetailContent(row, grid, viewModel, columns, options) {
 		fields.appendChild(field);
 	});
 
+	return fields;
+}
+
+function createAsyncDetailPresentation(row, grid, viewModel, columns, options) {
+	const asyncDetail = options.asyncDetail;
+
+	if (!asyncDetail || typeof asyncDetail !== 'object') {
+		return null;
+	}
+
+	const rowId = getRowDetailRowId(row, options);
+	const entry = getDetailEntryByRowId(grid, rowId, options);
+	const context = buildRendererContext(row, grid, viewModel, options, entry);
+	const level = context.level;
+
+	if (!entry || entry.status === 'idle' || entry.status === 'loading') {
+		if (typeof asyncDetail.renderLoading === 'function') {
+			const customLoadingContent = asyncDetail.renderLoading(context);
+			const presentation = createDetailPresentation(customLoadingContent, 'loading', level);
+
+			if (presentation) {
+				return presentation;
+			}
+		}
+
+		return createDetailPresentation(
+			createStateMessage('mg-row-detail-loading-message', 'Loading detail...'),
+			'loading',
+			level
+		);
+	}
+
+	if (entry.status === 'error') {
+		if (typeof asyncDetail.renderError === 'function') {
+			const customErrorContent = asyncDetail.renderError(context);
+			const presentation = createDetailPresentation(customErrorContent, 'error', level);
+
+			if (presentation) {
+				return presentation;
+			}
+		}
+
+		return createDetailPresentation(
+			createStateMessage('mg-row-detail-error-message', entry.error || 'Failed to load detail.'),
+			'error',
+			level
+		);
+	}
+
+	if (entry.status === 'loaded') {
+		if (typeof asyncDetail.render === 'function') {
+			const customLoadedContent = asyncDetail.render(context);
+			const presentation = createDetailPresentation(customLoadedContent, 'loaded', level);
+
+			if (presentation) {
+				return presentation;
+			}
+		}
+
+		const structuredPayload = renderStructuredPayload(entry.payload, level);
+		const structuredPresentation = createDetailPresentation(structuredPayload, 'loaded', level);
+
+		if (structuredPresentation) {
+			return structuredPresentation;
+		}
+
+		if (typeof options.detailRenderer === 'function') {
+			const fallbackCustomContent = options.detailRenderer(row, grid, viewModel);
+			const fallbackPresentation = createDetailPresentation(fallbackCustomContent, 'loaded', level);
+
+			if (fallbackPresentation) {
+				return fallbackPresentation;
+			}
+		}
+
+		const defaultFields = createDefaultFieldDetailContent(row, grid, columns, options);
+
+		return createDetailPresentation(defaultFields, 'loaded', level);
+	}
+
+	return null;
+}
+
+export function resolveRowDetailOptions(grid) {
+	const configured = grid.options?.pluginOptions?.rowDetail || {};
+	const stateKey = configured.stateKey || 'detailView';
+	const state = typeof grid.store?.peek === 'function' ? grid.store.peek() : {};
+	const hasConfiguredOptions = typeof grid.options?.pluginOptions?.rowDetail === 'object';
+	const hasState = !!state[stateKey];
+
 	return {
-		content: fields,
-		status: 'loaded',
-		level
+		enabled: hasConfiguredOptions || hasState,
+		stateKey,
+		rowIdKey: 'id',
+		toggleOnRowClick: true,
+		renderInTable: true,
+		renderInCards: true,
+		showLabels: true,
+		emptyPlaceholder: '—',
+		detailRenderer: null,
+		clearOnDataReload: false,
+		cache: true,
+		level: 1,
+		parentPath: [],
+		asyncDetail: null,
+		...configured
 	};
 }
 
+export function getRowDetailRowId(row, options) {
+	if (!row || typeof row !== 'object') {
+		return null;
+	}
+
+	return row[options.rowIdKey] ?? null;
+}
+
+export function getActiveDetailRowId(grid, options) {
+	const sectionState = getDetailSectionState(grid, options);
+
+	return sectionState?.rowId ?? null;
+}
+
+export function getRowDetailEntry(row, grid, options) {
+	return getDetailEntryByRowId(grid, getRowDetailRowId(row, options), options);
+}
+
+export function getRowDetailStatus(row, grid, options) {
+	return getRowDetailEntry(row, grid, options)?.status || 'idle';
+}
+
+export function getRowDetailLevel(row, grid, options) {
+	return Number(getRowDetailEntry(row, grid, options)?.level) || Number(options.level) || 1;
+}
+
+export function getRowDetailClassNames(row, grid, options) {
+	const status = getRowDetailStatus(row, grid, options);
+	const level = getRowDetailLevel(row, grid, options);
+	const classNames = [`mg-row-detail-level-${level}`];
+
+	if (status === 'loading') {
+		classNames.push('mg-row-detail-loading');
+	}
+	else if (status === 'error') {
+		classNames.push('mg-row-detail-error');
+	}
+	else if (status === 'loaded') {
+		classNames.push('mg-row-detail-loaded');
+	}
+
+	return classNames;
+}
+
+export function getActiveDetailStateSignature(grid, rows, options) {
+	const visibleRows = Array.isArray(rows) ? rows : [];
+	const activeRowId = getActiveDetailRowId(grid, options);
+
+	if (activeRowId === null || activeRowId === undefined) {
+		return '';
+	}
+
+	const isVisible = visibleRows.some((row) => {
+		return getRowDetailRowId(row, options) === activeRowId;
+	});
+
+	if (!isVisible) {
+		return '';
+	}
+
+	const entry = getDetailEntryByRowId(grid, activeRowId, options);
+
+	return JSON.stringify({
+		rowId: activeRowId,
+		status: entry?.status || 'idle',
+		error: entry?.error || null,
+		level: Number(entry?.level) || Number(options.level) || 1,
+		hasPayload: entry?.payload !== null && entry?.payload !== undefined
+	});
+}
+
+export function isDetailRowActive(row, grid, options) {
+	const rowId = getRowDetailRowId(row, options);
+
+	if (rowId === null) {
+		return false;
+	}
+
+	return getActiveDetailRowId(grid, options) === rowId;
+}
+
+export function createRowDetailContent(row, grid, viewModel, columns, options) {
+	const asyncPresentation = createAsyncDetailPresentation(row, grid, viewModel, columns, options);
+
+	if (asyncPresentation) {
+		return asyncPresentation;
+	}
+
+	if (typeof options.detailRenderer === 'function') {
+		return createDetailPresentation(
+			options.detailRenderer(row, grid, viewModel),
+			'loaded',
+			Number(options.level) || 1
+		);
+	}
+
+	return createDetailPresentation(
+		createDefaultFieldDetailContent(row, grid, columns, options),
+		'loaded',
+		Number(options.level) || 1
+	);
+}

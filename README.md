@@ -52,8 +52,7 @@ The current code base already includes:
 - responsive view switching
 - shared inline row detail behavior
 - async row detail loading with loading/error/cache states
-- structured nested child items inside async row detail
-- interactive nested child-detail loading below async row detail items
+- demo-scoped server grouping workbench with child-table detail loading
 - group summary rendering in table view
 - configurable zebra rows in table view
 - per-column long-text display strategies
@@ -90,6 +89,7 @@ Then open for example:
 - `http://localhost:8000/demos/card-view/`
 - `http://localhost:8000/demos/extended-ajax/`
 - `http://localhost:8000/demos/infinite-ajax/`
+- `http://localhost:8000/demos/grouping-infinite-ajax/`
 - `http://localhost:8000/tests/browser-smoke/`
 
 ## Table zebra rows
@@ -195,21 +195,6 @@ const grid = new ModularGrid('#grid', {
 					});
 
 					return response.json();
-				},
-				async loadChildDetail({ row, childId, parentPath }) {
-					const response = await fetch('/detail-child-endpoint', {
-						method: 'POST',
-						headers: {
-							'Content-Type': 'application/json'
-						},
-						body: JSON.stringify({
-							id: row.id,
-							childId,
-							parentPath
-						})
-					});
-
-					return response.json();
 				}
 			}
 		}
@@ -217,7 +202,20 @@ const grid = new ModularGrid('#grid', {
 });
 ```
 
-The plugin keeps the active row state in the shared grid state and stores per-row async detail cache entries with loading and error information. Structured payloads can also render nested child items, and those child items can now lazily load their own follow-up detail content.
+The plugin keeps the active row state in the shared grid state and stores per-row async detail cache entries with loading and error information.
+
+## Grouping workbench demo
+
+The grouping infinite ajax demo is intentionally isolated from the original infinite ajax service.
+
+In that demo:
+
+- the grid starts in the normal infinite-table mode
+- grouping fields can be added and removed live through dedicated dropdown controls
+- the same table keeps running with search, filters, export, selection and infinite loading
+- grouped rows expose their matching entries through a child table in the async detail layer
+
+This keeps the existing demos stable while still opening a practical path toward richer server-side grouping.
 
 ## Table column interaction baseline
 
@@ -255,6 +253,4 @@ Controls such as search, filters, grouping, paging, info bars, summaries, bulk a
 - optional layout helpers
 
 This keeps the core neutral and avoids hardcoded toolbar/footer structures.
-
-The built-in structured async renderer understands payloads with keys such as `headline`, `summary`, `badges`, `sections`, `activity` and `children`, so nested child items can be rendered without writing a custom detail renderer. When `asyncDetail.loadChildDetail()` is provided, those child items can also open their own lazy-loaded follow-up detail layers.
 

@@ -11,6 +11,7 @@ function resolveOptions(context) {
 		selectPageLabel: 'Select page',
 		clearLabel: 'Clear',
 		selectedLabel: 'Selected',
+		isRowSelectable: null,
 		...context.getPluginOptions('selection')
 	};
 }
@@ -65,6 +66,20 @@ function getRowId(row, options) {
 	}
 
 	return value;
+}
+
+function isRowSelectable(row, context, options) {
+	const rowId = getRowId(row, options);
+
+	if (rowId === null) {
+		return false;
+	}
+
+	if (typeof options.isRowSelectable === 'function') {
+		return options.isRowSelectable(row, context.grid) !== false;
+	}
+
+	return true;
 }
 
 function getSelectedRowIds(context) {
@@ -146,6 +161,7 @@ function createHeaderCheckbox(grid, context, options) {
 	const prepared = grid.getPreparedRows();
 	const visibleRows = prepared.rows;
 	const visibleIds = visibleRows
+		.filter((row) => isRowSelectable(row, context, options))
 		.map((row) => getRowId(row, options))
 		.filter((value) => value !== null);
 
@@ -161,6 +177,7 @@ function createHeaderCheckbox(grid, context, options) {
 	input.type = 'checkbox';
 	input.checked = allSelected;
 	input.indeterminate = someSelected;
+	input.setAttribute('aria-checked', someSelected ? 'mixed' : (allSelected ? 'true' : 'false'));
 
 	input.addEventListener('click', (event) => {
 		event.stopPropagation();
@@ -187,6 +204,7 @@ function createRowCheckbox(row, context, options) {
 	const input = document.createElement('input');
 	input.type = 'checkbox';
 	input.checked = isRowSelected(context, row, options);
+	input.disabled = isRowSelectable(row, context, options) === false;
 
 	input.addEventListener('click', (event) => {
 		event.stopPropagation();
@@ -234,7 +252,7 @@ export const SelectionPlugin = {
 			const options = resolveOptions(context);
 			const rowId = getRowId(payload.row, options);
 
-			if (rowId === null) {
+			if (rowId === null || isRowSelectable(payload.row, context, options) === false) {
 				return context.grid;
 			}
 
@@ -255,6 +273,7 @@ export const SelectionPlugin = {
 			const options = resolveOptions(context);
 			const visibleRows = context.grid.getPreparedRows().rows;
 			const visibleIds = visibleRows
+				.filter((row) => isRowSelectable(row, context, options))
 				.map((row) => getRowId(row, options))
 				.filter((value) => value !== null);
 
@@ -265,6 +284,7 @@ export const SelectionPlugin = {
 			const options = resolveOptions(context);
 			const visibleRows = context.grid.getPreparedRows().rows;
 			const visibleIds = visibleRows
+				.filter((row) => isRowSelectable(row, context, options))
 				.map((row) => getRowId(row, options))
 				.filter((value) => value !== null);
 
@@ -350,3 +370,4 @@ export const SelectionPlugin = {
 		];
 	}
 };
+

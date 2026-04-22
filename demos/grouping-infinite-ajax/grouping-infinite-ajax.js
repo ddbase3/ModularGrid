@@ -103,10 +103,40 @@ const layout = {
 };
 
 const logElement = document.querySelector('#grouping-infinite-ajax-log');
-const groupingControlsElement = document.querySelector('#grouping-controls');
+let groupingControlsMount = null;
 
 function setLog(message) {
 	logElement.innerHTML = `<strong>Last action:</strong> ${message}`;
+}
+
+function queueUiRefresh(callback) {
+	window.requestAnimationFrame(() => {
+		callback();
+	});
+}
+
+function getGroupingToolbarZone() {
+	return document.querySelector('#grouping-infinite-ajax-grid .grouping-panel--top-line-2');
+}
+
+function ensureGroupingControlsMount() {
+	const zone = getGroupingToolbarZone();
+
+	if (!(zone instanceof HTMLElement)) {
+		return null;
+	}
+
+	if (groupingControlsMount instanceof HTMLElement && groupingControlsMount.isConnected) {
+		return groupingControlsMount;
+	}
+
+	const wrapper = document.createElement('div');
+	wrapper.className = 'demo-grouping-toolbar';
+	zone.appendChild(wrapper);
+
+	groupingControlsMount = wrapper;
+
+	return groupingControlsMount;
 }
 
 function isEmptyValue(value) {
@@ -123,6 +153,14 @@ function getText(value, placeholder = '—') {
 
 function getFieldLabel(key) {
 	return GROUP_FIELD_OPTIONS.find((option) => option.key === key)?.label || key;
+}
+
+function getGroupingSummaryText(fields = getGroupFields()) {
+	if (fields.length === 0) {
+		return 'No grouping';
+	}
+
+	return fields.map(getFieldLabel).join(' → ');
 }
 
 function formatBoolean(value) {
@@ -252,6 +290,52 @@ function buildGroupPayload(fields) {
 
 function hasActiveGrouping() {
 	return getGroupFields().length > 0;
+}
+
+function getVisibleSelectableRowIds() {
+	if (!grid) {
+		return [];
+	}
+
+	const rows = grid.getState().data?.rows;
+
+	if (!Array.isArray(rows)) {
+		return [];
+	}
+
+	return rows
+		.filter((row) => row && typeof row === 'object' && row.is_group_row !== true && row.id !== null && row.id !== undefined)
+		.map((row) => row.id);
+}
+
+function updateSelectionHeaderState() {
+	if (!grid) {
+		return;
+	}
+
+	const checkbox = document.querySelector('#grouping-infinite-ajax-grid thead .mg-selection-toggle input[type="checkbox"]');
+
+	if (!(checkbox instanceof HTMLInputElement)) {
+		return;
+	}
+
+	const visibleRowIds = getVisibleSelectableRowIds();
+	const selectedRowIds = Array.isArray(grid.getState().selection?.selectedRowIds)
+		? grid.getState().selection.selectedRowIds
+		: [];
+	const visibleSelectedCount = visibleRowIds.filter((rowId) => selectedRowIds.includes(rowId)).length;
+	const isChecked = visibleRowIds.length > 0 && visibleSelectedCount === visibleRowIds.length;
+	const isIndeterminate = visibleSelectedCount > 0 && visibleSelectedCount < visibleRowIds.length;
+
+	checkbox.checked = isChecked;
+	checkbox.indeterminate = isIndeterminate;
+	checkbox.setAttribute('aria-checked', isIndeterminate ? 'mixed' : (isChecked ? 'true' : 'false'));
+}
+
+function queueSelectionHeaderStateUpdate() {
+	queueUiRefresh(() => {
+		updateSelectionHeaderState();
+	});
 }
 
 function buildFilterPayload(filters) {
@@ -616,6 +700,7 @@ function setActiveGroupFields(fields) {
 	});
 
 	renderGroupingControls();
+	queueSelectionHeaderStateUpdate();
 	setLog(
 		normalizedFields.length > 0
 			? `Grouping active: ${normalizedFields.map(getFieldLabel).join(' → ')}`
@@ -624,96 +709,87 @@ function setActiveGroupFields(fields) {
 }
 
 function renderGroupingControls() {
-	if (!(groupingControlsElement instanceof HTMLElement)) {
+	const mount = ensureGroupingControlsMount();
+
+	if (!(mount instanceof HTMLElement)) {
 		return;
 	}
 
-	groupingControlsElement.innerHTML = '';
+	mount.innerHTML = '';
 
 	const fields = getGroupFields();
+	const details = document.createElement('details');
+	details.className = 'mg-dropdown demo-grouping-dropdown';
+
+	const summary = document.createElement('summary');
+	summary.className = 'mg-button mg-dropdown-summary demo-grouping-dropdown-summary';
+
+	const summaryLabel = document.createElement('span');
+	summaryLabel.className = 'demo-grouping-dropdown-label';
+	summaryLabel.textContent = 'Grouping';
+	summary.appendChild(summaryLabel);
+
+	const summaryValue = document.createElement('span');
+	summaryValue.className = 'demo-grouping-dropdown-value';
+	summaryValue.textContent = getGroupingSummaryText(fields);
+	summary.appendChild(summaryValue);
+
+	details.appendChild(summary);
+
+	const menu = document.createElement('div');
+	menu.className = 'mg-dropdown-menu demo-grouping-dropdown-menu';
+
+	const headline = document.createElement('div');
+	headline.className = 'demo-grouping-dropdown-headline';
+	headline.textContent = 'Group rows by';
+	menu.appendChild(headline);
+
+	const copy = document.createElement('div');
+	copy.className = 'demo-grouping-dropdown-copy';
+	copy.textContent = 'Toggle fields on or off. The checked order defines the grouping path.';
+	menu.appendChild(copy);
+
 	const list = document.createElement('div');
-	list.className = 'demo-grouping-list';
+	list.className = 'mg-checkbox-list demo-grouping-checkbox-list';
 
-	if (fields.length === 0) {
-		const emptyState = document.createElement('div');
-		emptyState.className = 'demo-grouping-empty';
-		emptyState.textContent = 'No grouping active. The grid currently shows the normal infinite table.';
-		list.appendChild(emptyState);
-	}
-	else {
-		fields.forEach((fieldKey, index) => {
-			const item = document.createElement('div');
-			item.className = 'demo-grouping-item';
+	GROUP_FIELD_OPTIONS.forEach((option) => {
+		const row = document.createElement('label');
+		row.className = 'mg-checkbox-row demo-grouping-checkbox-row';
 
-			const label = document.createElement('span');
-			label.className = 'demo-grouping-level';
-			label.textContent = `Level ${index + 1}`;
-			item.appendChild(label);
+		const checkbox = document.createElement('input');
+		checkbox.type = 'checkbox';
+		checkbox.checked = fields.includes(option.key);
+		checkbox.addEventListener('change', () => {
+			const nextFields = checkbox.checked
+				? [...fields, option.key]
+				: fields.filter((fieldKey) => fieldKey !== option.key);
 
-			const select = document.createElement('select');
-			select.className = 'demo-grouping-select';
-
-			GROUP_FIELD_OPTIONS.forEach((option) => {
-				const optionElement = document.createElement('option');
-				optionElement.value = option.key;
-				optionElement.textContent = option.label;
-				optionElement.selected = option.key === fieldKey;
-				select.appendChild(optionElement);
-			});
-
-			select.addEventListener('change', () => {
-				const nextFields = fields.slice();
-				nextFields[index] = select.value;
-				setActiveGroupFields(nextFields);
-			});
-			item.appendChild(select);
-
-			const removeButton = document.createElement('button');
-			removeButton.type = 'button';
-			removeButton.className = 'mg-button';
-			removeButton.textContent = 'Remove';
-			removeButton.addEventListener('click', () => {
-				setActiveGroupFields(fields.filter((_, fieldIndex) => fieldIndex !== index));
-			});
-			item.appendChild(removeButton);
-
-			list.appendChild(item);
+			setActiveGroupFields(nextFields);
 		});
-	}
+		row.appendChild(checkbox);
 
-	groupingControlsElement.appendChild(list);
+		const label = document.createElement('span');
+		label.textContent = option.label;
+		row.appendChild(label);
 
-	const actions = document.createElement('div');
-	actions.className = 'demo-grouping-actions';
-
-	const addSelect = document.createElement('select');
-	addSelect.className = 'demo-grouping-select';
-
-	const placeholderOption = document.createElement('option');
-	placeholderOption.value = '';
-	placeholderOption.textContent = 'Add grouping field…';
-	placeholderOption.selected = true;
-	addSelect.appendChild(placeholderOption);
-
-	GROUP_FIELD_OPTIONS.filter((option) => !fields.includes(option.key)).forEach((option) => {
-		const optionElement = document.createElement('option');
-		optionElement.value = option.key;
-		optionElement.textContent = option.label;
-		addSelect.appendChild(optionElement);
-	});
-
-	addSelect.addEventListener('change', () => {
-		if (!addSelect.value) {
-			return;
+		if (fields.includes(option.key)) {
+			const badge = document.createElement('span');
+			badge.className = 'demo-grouping-order-badge';
+			badge.textContent = String(fields.indexOf(option.key) + 1);
+			row.appendChild(badge);
 		}
 
-		setActiveGroupFields([...fields, addSelect.value]);
+		list.appendChild(row);
 	});
-	actions.appendChild(addSelect);
+
+	menu.appendChild(list);
+
+	const actions = document.createElement('div');
+	actions.className = 'demo-grouping-dropdown-actions';
 
 	const clearButton = document.createElement('button');
 	clearButton.type = 'button';
-	clearButton.className = 'mg-button';
+	clearButton.className = 'mg-button demo-grouping-clear-button';
 	clearButton.textContent = 'Clear grouping';
 	clearButton.disabled = fields.length === 0;
 	clearButton.addEventListener('click', () => {
@@ -721,7 +797,9 @@ function renderGroupingControls() {
 	});
 	actions.appendChild(clearButton);
 
-	groupingControlsElement.appendChild(actions);
+	menu.appendChild(actions);
+	details.appendChild(menu);
+	mount.appendChild(details);
 }
 
 let grid = null;
@@ -1162,10 +1240,12 @@ grid.on('bulkAction:run', ({ selectedRowIds }) => {
 
 grid.on('data:appended', ({ appendedCount, totalLoaded }) => {
 	setLog(`Loaded ${appendedCount} more rows. ${totalLoaded} rows are currently loaded.`);
+	queueSelectionHeaderStateUpdate();
 });
 
 grid.on('data:loaded', () => {
 	renderGroupingControls();
+	queueSelectionHeaderStateUpdate();
 });
 
 grid.on('detail:loaded', ({ rowId, row, payload }) => {
@@ -1183,7 +1263,14 @@ grid.on('detail:error', ({ rowId, error }) => {
 
 await grid.init();
 renderGroupingControls();
-setLog(`Initial batch loaded. Start with the normal infinite table or add grouping fields above the grid.`);
+queueSelectionHeaderStateUpdate();
+document.querySelector('#grouping-infinite-ajax-grid')?.addEventListener('change', () => {
+	queueSelectionHeaderStateUpdate();
+});
+document.querySelector('#grouping-infinite-ajax-grid')?.addEventListener('click', () => {
+	queueSelectionHeaderStateUpdate();
+});
+setLog(`Initial batch loaded. Start with the normal infinite table or toggle grouping from the toolbar.`);
 
 window.groupingInfiniteAjaxGrid = grid;
 

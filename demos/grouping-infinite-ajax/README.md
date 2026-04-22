@@ -37,14 +37,10 @@ This grouping demo therefore uses its own service class and endpoint so that dee
 
 The demo starts in the normal infinite-table mode.
 
-Grouping is optional and controlled outside the grid through dedicated dropdowns:
+Grouping is optional and now lives directly inside the same compact toolbar row as the other controls.
 
-- add a grouping field
-- change the field per grouping level
-- remove individual grouping levels
-- clear grouping completely
-
-The order of the selected fields defines the grouping path.
+Open the `Grouping` dropdown and toggle fields on or off with checkboxes.
+The checked order defines the grouping path.
 
 Examples:
 
@@ -147,7 +143,7 @@ That means:
 
 - in normal mode it clamps record text fields
 - in grouped mode it clamps the aggregated member preview text
-- the `More` / `Less` toggle continues to work in both modes because the column still renders plain text content into the existing text-display system
+- the `More` / `Less` toggle continues to work in both modes because the grouped preview still flows through the existing text-display system
 
 ## Current design intent
 
@@ -160,4 +156,9 @@ It proves three things:
 3. grouped rows can expose their members through a child table in the detail layer
 
 The next deeper grouping step would be true nested server-side hierarchy rendering directly in the table body.
+
+## Header selection checkbox
+
+The demo also updates the header selection checkbox into a mixed state when only some currently visible data rows are selected.
+This makes the grouped toolbar baseline feel more consistent during partial selection states.
 

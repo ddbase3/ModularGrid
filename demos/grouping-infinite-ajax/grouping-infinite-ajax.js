@@ -231,14 +231,6 @@ function normalizeGroupFields(fields) {
 	return normalized;
 }
 
-function getGroupFields() {
-	if (!grid) {
-		return [];
-	}
-
-	return normalizeGroupFields(grid.getState().grouping?.keys || []);
-}
-
 function buildGroupPayload(fields) {
 	return normalizeGroupFields(fields).map((key) => {
 		return {
@@ -246,6 +238,14 @@ function buildGroupPayload(fields) {
 			dir: 'asc'
 		};
 	});
+}
+
+function getGroupFields() {
+	if (!grid) {
+		return [];
+	}
+
+	return normalizeGroupFields(grid.getState().demoGrouping?.fields);
 }
 
 function buildFilterPayload(filters) {
@@ -285,6 +285,39 @@ function resolveSortForRequest(request) {
 		key: sortKey,
 		direction: sortDirection,
 		type: SORT_TYPES[sortKey] || 'string'
+	};
+}
+
+function buildGroupingChangePatch(state, fields) {
+	const normalizedFields = normalizeGroupFields(fields);
+	const currentQuery = state.query || {};
+	let nextSortKey = currentQuery.sortKey || NORMAL_SORT_FALLBACK.key;
+	let nextSortDirection = currentQuery.sortDirection || NORMAL_SORT_FALLBACK.direction;
+
+	if (normalizedFields.length > 0) {
+		const allowedGroupedSorts = new Set([...normalizedFields, ...GROUP_METRIC_SORT_KEYS]);
+
+		if (!allowedGroupedSorts.has(nextSortKey)) {
+			nextSortKey = normalizedFields[0];
+			nextSortDirection = 'asc';
+		}
+	}
+	else if (GROUP_METRIC_SORT_KEYS.has(nextSortKey)) {
+		nextSortKey = NORMAL_SORT_FALLBACK.key;
+		nextSortDirection = NORMAL_SORT_FALLBACK.direction;
+	}
+
+	return {
+		query: {
+			...currentQuery,
+			page: 1,
+			sortKey: nextSortKey,
+			sortDirection: nextSortDirection
+		},
+		selection: {
+			enabled: true,
+			selectedRowIds: []
+		}
 	};
 }
 
@@ -607,7 +640,7 @@ grid = new ModularGrid('#grouping-infinite-ajax-grid', {
 	dataMode: 'server',
 	server: {
 		searchDebounceMs: 220,
-		watchStateKeys: ['query', 'filters', 'grouping']
+		watchStateKeys: ['query', 'filters', 'demoGrouping']
 	},
 	features: {
 		paging: false
@@ -690,24 +723,23 @@ grid = new ModularGrid('#grouping-infinite-ajax-grid', {
 		grouping: {
 			zone: 'topLine2',
 			order: 5,
-			stateKey: 'grouping',
+			stateKey: 'demoGrouping',
 			label: 'Grouping',
 			clearLabel: 'No grouping',
-			clearButtonLabel: 'Clear grouping',
-			description: 'Toggle fields on or off. The checked order defines the grouping path.',
+			mode: 'multi',
+			presentation: 'dropdown',
 			fields: GROUP_FIELD_OPTIONS,
-			multiple: true,
-			control: 'dropdown'
+			dropdownTitle: 'Group rows by',
+			dropdownDescription: 'Toggle fields on or off. The checked order defines the grouping path.',
+			dropdownAlign: 'start',
+			onChange({ state, fields }) {
+				return buildGroupingChangePatch(state, fields);
+			}
 		},
 		headerMenu: {
 			showSortActions: true,
 			showClearSortAction: true,
 			showHideColumnAction: true
-		},
-		selection: {
-			isRowSelectable(row) {
-				return row?.is_group_row !== true;
-			}
 		},
 		bulkActions: {
 			zone: 'topLine2',
@@ -753,11 +785,11 @@ grid = new ModularGrid('#grouping-infinite-ajax-grid', {
 			zone: 'topLine2',
 			order: 30,
 			label: 'Reset',
-			sections: ['query', 'filters', 'columns', 'selection', 'detailView', 'grouping']
+			sections: ['query', 'filters', 'columns', 'selection', 'detailView', 'demoGrouping']
 		},
 		sessionStorage: {
 			key: 'modulargrid-demo-grouping-infinite-ajax',
-			sections: ['query', 'filters', 'columns', 'selection', 'detailView', 'grouping']
+			sections: ['query', 'filters', 'columns', 'selection', 'detailView', 'demoGrouping']
 		},
 		info: {
 			zone: 'statusZone',
@@ -1024,10 +1056,12 @@ grid.on('bulkAction:run', ({ selectedRowIds }) => {
 	setLog(`Bulk action on IDs: ${selectedRowIds.join(', ') || 'none'}`);
 });
 
-grid.on('grouping:changed', ({ keys }) => {
+grid.on('grouping:changed', ({ fields }) => {
+	const normalizedFields = normalizeGroupFields(fields);
+
 	setLog(
-		Array.isArray(keys) && keys.length > 0
-			? `Grouping active: ${keys.map(getFieldLabel).join(' → ')}`
+		normalizedFields.length > 0
+			? `Grouping active: ${normalizedFields.map(getFieldLabel).join(' → ')}`
 			: 'Grouping cleared. Back to the normal infinite table.'
 	);
 });
@@ -1053,4 +1087,3 @@ await grid.init();
 setLog('Initial batch loaded. Start with the normal infinite table or toggle grouping from the toolbar.');
 
 window.groupingInfiniteAjaxGrid = grid;
-

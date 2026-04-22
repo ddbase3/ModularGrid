@@ -11,7 +11,6 @@ function resolveOptions(context) {
 		selectPageLabel: 'Select page',
 		clearLabel: 'Clear',
 		selectedLabel: 'Selected',
-		isRowSelectable: null,
 		...context.getPluginOptions('selection')
 	};
 }
@@ -68,22 +67,61 @@ function getRowId(row, options) {
 	return value;
 }
 
-function isRowSelectable(row, context, options) {
-	const rowId = getRowId(row, options);
-
-	if (rowId === null) {
-		return false;
-	}
-
-	if (typeof options.isRowSelectable === 'function') {
-		return options.isRowSelectable(row, context.grid) !== false;
-	}
-
-	return true;
-}
-
 function getSelectedRowIds(context) {
 	return getSelectionState(context).selectedRowIds;
+}
+
+function getVisibleRowIds(grid, options) {
+	const prepared = grid.getPreparedRows();
+	const visibleRows = Array.isArray(prepared?.rows) ? prepared.rows : [];
+
+	return visibleRows
+		.map((row) => getRowId(row, options))
+		.filter((value) => value !== null);
+}
+
+function getHeaderCheckboxElement(context) {
+	if (!(context.grid.viewContainer instanceof HTMLElement)) {
+		return null;
+	}
+
+	return context.grid.viewContainer.querySelector('thead .mg-selection-toggle input[type="checkbox"]');
+}
+
+function syncHeaderCheckboxState(context, options) {
+	const input = getHeaderCheckboxElement(context);
+
+	if (!(input instanceof HTMLInputElement)) {
+		return;
+	}
+
+	const visibleIds = getVisibleRowIds(context.grid, options);
+	const selectedIds = getSelectedRowIds(context);
+	const selectedVisibleCount = visibleIds.filter((id) => {
+		return selectedIds.some((selectedId) => selectedId === id);
+	}).length;
+	const allSelected = visibleIds.length > 0 && selectedVisibleCount === visibleIds.length;
+	const someSelected = selectedVisibleCount > 0 && !allSelected;
+
+	input.checked = allSelected;
+	input.indeterminate = someSelected;
+	input.setAttribute('aria-checked', someSelected ? 'mixed' : (allSelected ? 'true' : 'false'));
+}
+
+function scheduleHeaderCheckboxSync(context, options) {
+	if (typeof context._selectionHeaderSyncFrame === 'number') {
+		window.cancelAnimationFrame(context._selectionHeaderSyncFrame);
+	}
+
+	if (typeof context._selectionHeaderSyncFrameInner === 'number') {
+		window.cancelAnimationFrame(context._selectionHeaderSyncFrameInner);
+	}
+
+	context._selectionHeaderSyncFrame = window.requestAnimationFrame(() => {
+		context._selectionHeaderSyncFrameInner = window.requestAnimationFrame(() => {
+			syncHeaderCheckboxState(context, options);
+		});
+	});
 }
 
 function preserveTableScroll(context, callback) {
@@ -128,6 +166,8 @@ function preserveTableScroll(context, callback) {
 }
 
 function setSelectedRowIds(context, ids) {
+	const options = resolveOptions(context);
+
 	return preserveTableScroll(context, () => {
 		const nextIds = buildUniqueIds(ids);
 
@@ -142,6 +182,8 @@ function setSelectedRowIds(context, ids) {
 			grid: context.grid,
 			selectedRowIds: nextIds
 		});
+
+		scheduleHeaderCheckboxSync(context, options);
 
 		return context.grid;
 	});
@@ -158,15 +200,11 @@ function isRowSelected(context, row, options) {
 }
 
 function createHeaderCheckbox(grid, context, options) {
-	const prepared = grid.getPreparedRows();
-	const visibleRows = prepared.rows;
-	const visibleIds = visibleRows
-		.filter((row) => isRowSelectable(row, context, options))
-		.map((row) => getRowId(row, options))
-		.filter((value) => value !== null);
-
+	const visibleIds = getVisibleRowIds(grid, options);
 	const selectedIds = getSelectedRowIds(context);
-	const selectedVisibleCount = visibleIds.filter((id) => selectedIds.some((selectedId) => selectedId === id)).length;
+	const selectedVisibleCount = visibleIds.filter((id) => {
+		return selectedIds.some((selectedId) => selectedId === id);
+	}).length;
 	const allSelected = visibleIds.length > 0 && selectedVisibleCount === visibleIds.length;
 	const someSelected = selectedVisibleCount > 0 && !allSelected;
 
@@ -204,7 +242,6 @@ function createRowCheckbox(row, context, options) {
 	const input = document.createElement('input');
 	input.type = 'checkbox';
 	input.checked = isRowSelected(context, row, options);
-	input.disabled = isRowSelectable(row, context, options) === false;
 
 	input.addEventListener('click', (event) => {
 		event.stopPropagation();
@@ -228,6 +265,8 @@ export const SelectionPlugin = {
 
 	install(context) {
 		const state = context.peekState();
+		const options = resolveOptions(context);
+		const cleanup = [];
 
 		if (!state.selection) {
 			context.setState({
@@ -236,6 +275,47 @@ export const SelectionPlugin = {
 					selectedRowIds: []
 				}
 			});
+		}
+
+		cleanup.push(
+			context.events.on('selection:changed', () => {
+				scheduleHeaderCheckboxSync(context, options);
+			})
+		);
+
+		cleanup.push(
+			context.events.on('data:loaded', () => {
+				scheduleHeaderCheckboxSync(context, options);
+			})
+		);
+
+		cleanup.push(
+			context.events.on('data:appended', () => {
+				scheduleHeaderCheckboxSync(context, options);
+			})
+		);
+
+		context._selectionCleanup = cleanup;
+		scheduleHeaderCheckboxSync(context, options);
+	},
+
+	destroy(context) {
+		const cleanup = Array.isArray(context._selectionCleanup) ? context._selectionCleanup : [];
+
+		cleanup.forEach((unsubscribe) => {
+			if (typeof unsubscribe === 'function') {
+				unsubscribe();
+			}
+		});
+
+		context._selectionCleanup = [];
+
+		if (typeof context._selectionHeaderSyncFrame === 'number') {
+			window.cancelAnimationFrame(context._selectionHeaderSyncFrame);
+		}
+
+		if (typeof context._selectionHeaderSyncFrameInner === 'number') {
+			window.cancelAnimationFrame(context._selectionHeaderSyncFrameInner);
 		}
 	},
 
@@ -252,7 +332,7 @@ export const SelectionPlugin = {
 			const options = resolveOptions(context);
 			const rowId = getRowId(payload.row, options);
 
-			if (rowId === null || isRowSelectable(payload.row, context, options) === false) {
+			if (rowId === null) {
 				return context.grid;
 			}
 
@@ -271,22 +351,14 @@ export const SelectionPlugin = {
 
 		selectVisibleRows(context) {
 			const options = resolveOptions(context);
-			const visibleRows = context.grid.getPreparedRows().rows;
-			const visibleIds = visibleRows
-				.filter((row) => isRowSelectable(row, context, options))
-				.map((row) => getRowId(row, options))
-				.filter((value) => value !== null);
+			const visibleIds = getVisibleRowIds(context.grid, options);
 
 			return setSelectedRowIds(context, [...getSelectedRowIds(context), ...visibleIds]);
 		},
 
 		clearVisibleSelection(context) {
 			const options = resolveOptions(context);
-			const visibleRows = context.grid.getPreparedRows().rows;
-			const visibleIds = visibleRows
-				.filter((row) => isRowSelectable(row, context, options))
-				.map((row) => getRowId(row, options))
-				.filter((value) => value !== null);
+			const visibleIds = getVisibleRowIds(context.grid, options);
 
 			return setSelectedRowIds(
 				context,
@@ -370,4 +442,3 @@ export const SelectionPlugin = {
 		];
 	}
 };
-

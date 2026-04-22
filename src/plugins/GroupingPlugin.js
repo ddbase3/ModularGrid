@@ -7,14 +7,16 @@ function resolveOptions(context) {
 		stateKey: 'grouping',
 		label: 'Group by',
 		clearLabel: 'No grouping',
-		clearButtonLabel: 'Clear grouping',
-		description: '',
 		fields: [],
 		defaultKey: '',
-		defaultKeys: [],
-		multiple: false,
-		control: 'select',
-		dropdownAlign: 'end',
+		defaultFields: [],
+		mode: 'single',
+		presentation: '',
+		dropdownTitle: 'Group rows by',
+		dropdownDescription: 'Toggle fields on or off. The checked order defines the grouping path.',
+		dropdownAlign: 'start',
+		dropdownStateKey: '',
+		onChange: null,
 		summary: {
 			enabled: true,
 			metrics: []
@@ -23,94 +25,237 @@ function resolveOptions(context) {
 	};
 }
 
-function normalizeGroupingKeys(values, options) {
-	const allowedKeys = new Set(
-		(Array.isArray(options.fields) ? options.fields : []).map((field) => String(field?.key || '').trim()).filter(Boolean)
-	);
-	const normalized = [];
-	const used = new Set();
+function isPlainObject(value) {
+	return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
 
-	(values || []).forEach((value) => {
-		const key = String(value || '').trim();
+function mergeStatePatch(basePatch, extraPatch) {
+	if (!isPlainObject(extraPatch)) {
+		return basePatch;
+	}
 
-		if (!key || !allowedKeys.has(key) || used.has(key)) {
+	const result = {
+		...basePatch
+	};
+
+	Object.entries(extraPatch).forEach(([key, value]) => {
+		if (isPlainObject(result[key]) && isPlainObject(value)) {
+			result[key] = {
+				...result[key],
+				...value
+			};
 			return;
 		}
 
-		used.add(key);
-		normalized.push(key);
+		result[key] = value;
 	});
 
-	if (options.multiple !== true && normalized.length > 1) {
-		return [normalized[0]];
+	return result;
+}
+
+function normalizeFieldOptions(options) {
+	const result = [];
+
+	(options.fields || []).forEach((field) => {
+		if (typeof field === 'string' && field.trim() !== '') {
+			result.push({
+				key: field.trim(),
+				label: field.trim()
+			});
+			return;
+		}
+
+		if (!field || typeof field !== 'object') {
+			return;
+		}
+
+		const key = typeof field.key === 'string' ? field.key.trim() : '';
+
+		if (!key) {
+			return;
+		}
+
+		result.push({
+			...field,
+			key,
+			label: field.label || key
+		});
+	});
+
+	return result;
+}
+
+function normalizeFields(values, options) {
+	const allowedKeys = new Set(
+		normalizeFieldOptions(options).map((field) => field.key)
+	);
+	const seen = new Set();
+	const result = [];
+
+	(values || []).forEach((value) => {
+		const key = typeof value === 'string' ? value.trim() : '';
+
+		if (!key || !allowedKeys.has(key) || seen.has(key)) {
+			return;
+		}
+
+		seen.add(key);
+		result.push(key);
+	});
+
+	return result;
+}
+
+function isMultiMode(options) {
+	return options.mode === 'multi';
+}
+
+function resolvePresentation(options) {
+	if (options.presentation === 'dropdown' || options.presentation === 'select') {
+		return options.presentation;
 	}
 
-	return normalized;
+	return isMultiMode(options) ? 'dropdown' : 'select';
+}
+
+function buildSingleState(options, currentState = {}) {
+	const availableFields = normalizeFieldOptions(options);
+	const availableKeys = new Set(availableFields.map((field) => field.key));
+	const currentKey = typeof currentState.key === 'string' ? currentState.key.trim() : '';
+	const fallbackKey = typeof options.defaultKey === 'string' ? options.defaultKey.trim() : '';
+
+	if (currentKey && availableKeys.has(currentKey)) {
+		return {
+			key: currentKey
+		};
+	}
+
+	if (fallbackKey && availableKeys.has(fallbackKey)) {
+		return {
+			key: fallbackKey
+		};
+	}
+
+	return {
+		key: ''
+	};
+}
+
+function buildMultiState(options, currentState = {}) {
+	const currentFields = normalizeFields(currentState.fields, options);
+
+	if (currentFields.length > 0) {
+		return {
+			fields: currentFields
+		};
+	}
+
+	if (typeof currentState.key === 'string' && currentState.key.trim() !== '') {
+		return {
+			fields: normalizeFields([currentState.key], options)
+		};
+	}
+
+	const defaultFields = normalizeFields(options.defaultFields, options);
+
+	if (defaultFields.length > 0) {
+		return {
+			fields: defaultFields
+		};
+	}
+
+	if (typeof options.defaultKey === 'string' && options.defaultKey.trim() !== '') {
+		return {
+			fields: normalizeFields([options.defaultKey], options)
+		};
+	}
+
+	return {
+		fields: []
+	};
 }
 
 function buildInitialState(options, currentState = {}) {
-	const rawKeys = Array.isArray(currentState.keys)
-		? currentState.keys
-		: Array.isArray(options.defaultKeys) && options.defaultKeys.length > 0
-			? options.defaultKeys
-			: currentState.key
-				? [currentState.key]
-				: options.defaultKey
-					? [options.defaultKey]
-					: [];
-	const keys = normalizeGroupingKeys(rawKeys, options);
+	if (isMultiMode(options)) {
+		return buildMultiState(options, currentState);
+	}
 
-	return {
-		key: keys[0] || '',
-		keys
-	};
+	return buildSingleState(options, currentState);
 }
 
 function getGroupingState(context, options) {
-	const state = context.peekState()[options.stateKey] || {};
-
-	return buildInitialState(options, state);
+	return context.peekState()[options.stateKey] || buildInitialState(options);
 }
 
-function getGroupingFieldLabel(options, key) {
-	return (options.fields || []).find((field) => field?.key === key)?.label || key;
+function getActiveFieldsFromState(state, options) {
+	if (isMultiMode(options)) {
+		return normalizeFields(state?.fields, options);
+	}
+
+	const key = typeof state?.key === 'string' ? state.key.trim() : '';
+
+	return key ? normalizeFields([key], options) : [];
 }
 
-function getGroupingSummaryText(options, keys) {
-	if (!Array.isArray(keys) || keys.length === 0) {
+function getFieldLabel(options, key) {
+	return normalizeFieldOptions(options).find((field) => field.key === key)?.label || key;
+}
+
+function getSummaryText(options, state) {
+	const activeFields = getActiveFieldsFromState(state, options);
+
+	if (activeFields.length === 0) {
 		return options.clearLabel;
 	}
 
-	return keys.map((key) => getGroupingFieldLabel(options, key)).join(' → ');
+	return activeFields.map((key) => getFieldLabel(options, key)).join(' → ');
 }
 
-function applyGroupingState(context, options, keys) {
-	const nextKeys = normalizeGroupingKeys(keys, options);
-	const nextState = {
-		key: nextKeys[0] || '',
-		keys: nextKeys
-	};
-
-	context.setState({
-		[options.stateKey]: nextState,
+function buildStatePatch(context, options, nextGroupingState) {
+	const basePatch = {
+		[options.stateKey]: nextGroupingState,
 		query: {
 			page: 1
 		}
+	};
+
+	if (typeof options.onChange !== 'function') {
+		return basePatch;
+	}
+
+	const extraPatch = options.onChange({
+		context,
+		state: context.peekState(),
+		nextGroupingState,
+		key: typeof nextGroupingState.key === 'string' ? nextGroupingState.key : '',
+		fields: getActiveFieldsFromState(nextGroupingState, options),
+		options
 	});
+
+	return mergeStatePatch(basePatch, extraPatch);
+}
+
+function emitGroupingChanged(context, options, nextGroupingState) {
+	const fields = getActiveFieldsFromState(nextGroupingState, options);
 
 	context.events.emit('grouping:changed', {
 		grid: context.grid,
-		key: nextState.key,
-		keys: nextState.keys
+		stateKey: options.stateKey,
+		key: fields[0] || '',
+		fields
 	});
-
-	return context.grid;
 }
 
-function createSelectControl(context, options, groupingState) {
-	const fields = Array.isArray(options.fields) ? options.fields : [];
+function createSelectControl(context, options) {
+	const fields = normalizeFieldOptions(options);
+
+	if (fields.length === 0) {
+		return null;
+	}
+
+	const groupingState = getGroupingState(context, options);
 	const wrapper = document.createElement('div');
-	wrapper.className = 'mg-control-group mg-grouping-control';
+	wrapper.className = 'mg-control-group mg-grouping-control mg-grouping-control-select';
 
 	const label = document.createElement('label');
 	label.className = 'mg-label';
@@ -147,18 +292,33 @@ function createSelectControl(context, options, groupingState) {
 	return wrapper;
 }
 
-function createDropdownControl(context, options, groupingState) {
+function createDropdownControl(context, options) {
+	const fields = normalizeFieldOptions(options);
+
+	if (fields.length === 0) {
+		return null;
+	}
+
+	const groupingState = getGroupingState(context, options);
+	const activeFields = getActiveFieldsFromState(groupingState, options);
 	const wrapper = document.createElement('div');
-	wrapper.className = 'mg-control-group mg-grouping-control';
+	wrapper.className = 'mg-control-group mg-grouping-control mg-grouping-control-dropdown';
+
+	const label = document.createElement('label');
+	label.className = 'mg-label';
+	label.textContent = options.label;
+	wrapper.appendChild(label);
 
 	const details = document.createElement('details');
 	details.className = 'mg-dropdown mg-grouping-dropdown';
 
 	const summary = document.createElement('summary');
 	summary.className = 'mg-button mg-dropdown-summary mg-grouping-dropdown-summary';
+	summary.setAttribute('aria-label', options.label);
+
 	const summaryValue = document.createElement('span');
 	summaryValue.className = 'mg-grouping-dropdown-value';
-	summaryValue.textContent = getGroupingSummaryText(options, groupingState.keys);
+	summaryValue.textContent = getSummaryText(options, groupingState);
 	summary.appendChild(summaryValue);
 
 	details.appendChild(summary);
@@ -166,36 +326,53 @@ function createDropdownControl(context, options, groupingState) {
 	const menu = document.createElement('div');
 	menu.className = 'mg-dropdown-menu mg-grouping-dropdown-menu';
 
-	if (options.description) {
+	if (options.dropdownTitle) {
+		const title = document.createElement('div');
+		title.className = 'mg-grouping-dropdown-title';
+		title.textContent = options.dropdownTitle;
+		menu.appendChild(title);
+	}
+
+	if (options.dropdownDescription) {
 		const description = document.createElement('div');
-		description.className = 'mg-grouping-dropdown-copy';
-		description.textContent = options.description;
+		description.className = 'mg-grouping-dropdown-description';
+		description.textContent = options.dropdownDescription;
 		menu.appendChild(description);
 	}
 
 	const list = document.createElement('div');
 	list.className = 'mg-checkbox-list mg-grouping-checkbox-list';
 
-	(options.fields || []).forEach((field) => {
+	fields.forEach((field) => {
 		const row = document.createElement('label');
 		row.className = 'mg-checkbox-row mg-grouping-checkbox-row';
 
-		const checkbox = document.createElement('input');
-		checkbox.type = 'checkbox';
-		checkbox.checked = groupingState.keys.includes(field.key);
-		checkbox.addEventListener('change', () => {
-			context.execute('toggleGroupingField', field.key);
+		const input = document.createElement('input');
+		input.type = 'checkbox';
+		input.checked = activeFields.includes(field.key);
+
+		input.addEventListener('click', (event) => {
+			event.stopPropagation();
 		});
-		row.appendChild(checkbox);
+
+		input.addEventListener('change', () => {
+			const nextFields = input.checked
+				? [...activeFields, field.key]
+				: activeFields.filter((key) => key !== field.key);
+
+			context.execute('setGroupingFields', nextFields);
+		});
+
+		row.appendChild(input);
 
 		const text = document.createElement('span');
 		text.textContent = field.label || field.key;
 		row.appendChild(text);
 
-		if (groupingState.keys.includes(field.key)) {
+		if (activeFields.includes(field.key)) {
 			const badge = document.createElement('span');
 			badge.className = 'mg-grouping-order-badge';
-			badge.textContent = String(groupingState.keys.indexOf(field.key) + 1);
+			badge.textContent = String(activeFields.indexOf(field.key) + 1);
 			row.appendChild(badge);
 		}
 
@@ -210,24 +387,29 @@ function createDropdownControl(context, options, groupingState) {
 	const clearButton = document.createElement('button');
 	clearButton.type = 'button';
 	clearButton.className = 'mg-button mg-grouping-clear-button';
-	clearButton.textContent = options.clearButtonLabel;
-	clearButton.disabled = groupingState.keys.length === 0;
-	clearButton.addEventListener('click', () => {
+	clearButton.textContent = options.clearLabel;
+	clearButton.disabled = activeFields.length === 0;
+
+	clearButton.addEventListener('click', (event) => {
+		event.preventDefault();
+		event.stopPropagation();
 		context.execute('clearGrouping');
 	});
+
 	actions.appendChild(clearButton);
 	menu.appendChild(actions);
 
 	details.appendChild(menu);
-	wrapper.appendChild(details);
 
 	attachFloatingDropdown(details, {
 		grid: context.grid,
 		summary,
 		menu,
 		preferredAlign: options.dropdownAlign,
-		stateKey: `${options.stateKey}:dropdown`
+		stateKey: options.dropdownStateKey || `grouping-${options.stateKey}`
 	});
+
+	wrapper.appendChild(details);
 
 	return wrapper;
 }
@@ -247,74 +429,104 @@ export const GroupingPlugin = {
 	commands: {
 		setGrouping(context, payload = '') {
 			const options = resolveOptions(context);
-			let nextKeys = [];
+			const nextKey = typeof payload === 'string'
+				? payload.trim()
+				: String(payload?.key || '').trim();
+			const availableKeys = new Set(
+				normalizeFieldOptions(options).map((field) => field.key)
+			);
+			const normalizedKey = availableKeys.has(nextKey) ? nextKey : '';
+			const nextGroupingState = isMultiMode(options)
+				? {
+					fields: normalizedKey ? [normalizedKey] : []
+				}
+				: {
+					key: normalizedKey
+				};
 
-			if (Array.isArray(payload)) {
-				nextKeys = payload;
-			}
-			else if (Array.isArray(payload?.keys)) {
-				nextKeys = payload.keys;
-			}
-			else if (typeof payload === 'string') {
-				nextKeys = payload ? [payload] : [];
-			}
-			else if (payload && typeof payload === 'object' && payload.key) {
-				nextKeys = [payload.key];
-			}
+			context.setState(buildStatePatch(context, options, nextGroupingState));
+			emitGroupingChanged(context, options, nextGroupingState);
 
-			return applyGroupingState(context, options, nextKeys);
+			return context.grid;
+		},
+
+		setGroupingFields(context, payload = []) {
+			const options = resolveOptions(context);
+			const nextFields = normalizeFields(payload, options);
+			const nextGroupingState = isMultiMode(options)
+				? {
+					fields: nextFields
+				}
+				: {
+					key: nextFields[0] || ''
+				};
+
+			context.setState(buildStatePatch(context, options, nextGroupingState));
+			emitGroupingChanged(context, options, nextGroupingState);
+
+			return context.grid;
 		},
 
 		toggleGroupingField(context, payload = '') {
 			const options = resolveOptions(context);
-			const key = String(payload || '').trim();
+			const key = typeof payload === 'string'
+				? payload.trim()
+				: String(payload?.key || '').trim();
 
 			if (!key) {
 				return context.grid;
 			}
 
-			const groupingState = getGroupingState(context, options);
-			const exists = groupingState.keys.includes(key);
-			const nextKeys = exists
-				? groupingState.keys.filter((fieldKey) => fieldKey !== key)
-				: options.multiple === true
-					? [...groupingState.keys, key]
-					: [key];
+			if (!isMultiMode(options)) {
+				return context.execute('setGrouping', key);
+			}
 
-			return applyGroupingState(context, options, nextKeys);
+			const currentState = getGroupingState(context, options);
+			const activeFields = getActiveFieldsFromState(currentState, options);
+			const nextFields = activeFields.includes(key)
+				? activeFields.filter((field) => field !== key)
+				: [...activeFields, key];
+
+			return context.execute('setGroupingFields', nextFields);
 		},
 
 		clearGrouping(context) {
 			const options = resolveOptions(context);
+			const nextGroupingState = isMultiMode(options)
+				? {
+					fields: []
+				}
+				: {
+					key: ''
+				};
 
-			return applyGroupingState(context, options, []);
+			context.setState(buildStatePatch(context, options, nextGroupingState));
+			emitGroupingChanged(context, options, nextGroupingState);
+
+			return context.grid;
 		}
 	},
 
 	layoutContributions(context) {
 		const options = resolveOptions(context);
+		const fields = normalizeFieldOptions(options);
+
+		if (fields.length === 0) {
+			return [];
+		}
 
 		return [
 			{
 				zone: options.zone,
 				order: options.order,
 				render() {
-					const fields = Array.isArray(options.fields) ? options.fields : [];
-
-					if (fields.length === 0) {
-						return null;
+					if (resolvePresentation(options) === 'dropdown') {
+						return createDropdownControl(context, options);
 					}
 
-					const groupingState = getGroupingState(context, options);
-
-					if (options.control === 'dropdown' || options.multiple === true) {
-						return createDropdownControl(context, options, groupingState);
-					}
-
-					return createSelectControl(context, options, groupingState);
+					return createSelectControl(context, options);
 				}
 			}
 		];
 	}
 };
-

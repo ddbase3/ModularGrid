@@ -212,6 +212,16 @@ function getFullName(row) {
 	return [row.firstname, row.lastname].filter(Boolean).join(' ').trim() || `#${row.id}`;
 }
 
+function getGroupFields() {
+	if (!grid) {
+		return [];
+	}
+
+	const fields = grid.getState().demoGrouping?.fields;
+
+	return normalizeGroupFields(fields);
+}
+
 function normalizeGroupFields(fields) {
 	const allowedKeys = new Set(GROUP_FIELD_OPTIONS.map((option) => option.key));
 	const normalized = [];
@@ -238,14 +248,6 @@ function buildGroupPayload(fields) {
 			dir: 'asc'
 		};
 	});
-}
-
-function getGroupFields() {
-	if (!grid) {
-		return [];
-	}
-
-	return normalizeGroupFields(grid.getState().demoGrouping?.fields);
 }
 
 function buildFilterPayload(filters) {
@@ -285,39 +287,6 @@ function resolveSortForRequest(request) {
 		key: sortKey,
 		direction: sortDirection,
 		type: SORT_TYPES[sortKey] || 'string'
-	};
-}
-
-function buildGroupingChangePatch(state, fields) {
-	const normalizedFields = normalizeGroupFields(fields);
-	const currentQuery = state.query || {};
-	let nextSortKey = currentQuery.sortKey || NORMAL_SORT_FALLBACK.key;
-	let nextSortDirection = currentQuery.sortDirection || NORMAL_SORT_FALLBACK.direction;
-
-	if (normalizedFields.length > 0) {
-		const allowedGroupedSorts = new Set([...normalizedFields, ...GROUP_METRIC_SORT_KEYS]);
-
-		if (!allowedGroupedSorts.has(nextSortKey)) {
-			nextSortKey = normalizedFields[0];
-			nextSortDirection = 'asc';
-		}
-	}
-	else if (GROUP_METRIC_SORT_KEYS.has(nextSortKey)) {
-		nextSortKey = NORMAL_SORT_FALLBACK.key;
-		nextSortDirection = NORMAL_SORT_FALLBACK.direction;
-	}
-
-	return {
-		query: {
-			...currentQuery,
-			page: 1,
-			sortKey: nextSortKey,
-			sortDirection: nextSortDirection
-		},
-		selection: {
-			enabled: true,
-			selectedRowIds: []
-		}
 	};
 }
 
@@ -603,6 +572,36 @@ function buildRowActionLabel(row) {
 	return getFullName(row);
 }
 
+function buildGroupingStatePatch({ currentState, nextGroupingState }) {
+	const normalizedFields = normalizeGroupFields(nextGroupingState.fields || []);
+	const currentQuery = currentState.query || {};
+	let nextSortKey = currentQuery.sortKey || NORMAL_SORT_FALLBACK.key;
+	let nextSortDirection = currentQuery.sortDirection || NORMAL_SORT_FALLBACK.direction;
+
+	if (normalizedFields.length > 0) {
+		const allowedGroupedSorts = new Set([...normalizedFields, ...GROUP_METRIC_SORT_KEYS]);
+
+		if (!allowedGroupedSorts.has(nextSortKey)) {
+			nextSortKey = normalizedFields[0];
+			nextSortDirection = 'asc';
+		}
+	}
+	else if (GROUP_METRIC_SORT_KEYS.has(nextSortKey)) {
+		nextSortKey = NORMAL_SORT_FALLBACK.key;
+		nextSortDirection = NORMAL_SORT_FALLBACK.direction;
+	}
+
+	return {
+		query: {
+			sortKey: nextSortKey,
+			sortDirection: nextSortDirection
+		},
+		selection: {
+			selectedRowIds: []
+		}
+	};
+}
+
 let grid = null;
 
 const adapter = new AjaxAdapter({
@@ -722,18 +721,33 @@ grid = new ModularGrid('#grouping-infinite-ajax-grid', {
 		},
 		grouping: {
 			zone: 'topLine2',
-			order: 5,
+			order: 40,
 			stateKey: 'demoGrouping',
-			label: 'Grouping',
-			clearLabel: 'No grouping',
-			mode: 'multi',
-			presentation: 'dropdown',
+			control: 'dropdown',
+			multi: true,
 			fields: GROUP_FIELD_OPTIONS,
-			dropdownTitle: 'Group rows by',
-			dropdownDescription: 'Toggle fields on or off. The checked order defines the grouping path.',
-			dropdownAlign: 'start',
-			onChange({ state, fields }) {
-				return buildGroupingChangePatch(state, fields);
+			onStateChangePatch: buildGroupingStatePatch,
+			dropdown: {
+				summaryLabel: 'Grouping',
+				emptyLabel: 'No grouping',
+				headline: 'Group rows by',
+				copy: 'Toggle fields on or off. The checked order defines the grouping path.',
+				clearLabel: 'Clear grouping',
+				preferredAlign: 'end',
+				stateKey: 'demoGroupingDropdown',
+				wrapperClassName: 'demo-grouping-toolbar',
+				detailsClassName: 'demo-grouping-dropdown',
+				summaryClassName: 'demo-grouping-dropdown-summary',
+				summaryLabelClassName: 'demo-grouping-dropdown-label',
+				summaryValueClassName: 'demo-grouping-dropdown-value',
+				menuClassName: 'demo-grouping-dropdown-menu',
+				headlineClassName: 'demo-grouping-dropdown-headline',
+				copyClassName: 'demo-grouping-dropdown-copy',
+				listClassName: 'demo-grouping-checkbox-list',
+				rowClassName: 'demo-grouping-checkbox-row',
+				badgeClassName: 'demo-grouping-order-badge',
+				actionsClassName: 'demo-grouping-dropdown-actions',
+				clearButtonClassName: 'demo-grouping-clear-button'
 			}
 		},
 		headerMenu: {
@@ -1056,18 +1070,18 @@ grid.on('bulkAction:run', ({ selectedRowIds }) => {
 	setLog(`Bulk action on IDs: ${selectedRowIds.join(', ') || 'none'}`);
 });
 
+grid.on('data:appended', ({ appendedCount, totalLoaded }) => {
+	setLog(`Loaded ${appendedCount} more rows. ${totalLoaded} rows are currently loaded.`);
+});
+
 grid.on('grouping:changed', ({ fields }) => {
-	const normalizedFields = normalizeGroupFields(fields);
+	const normalizedFields = normalizeGroupFields(fields || []);
 
 	setLog(
 		normalizedFields.length > 0
 			? `Grouping active: ${normalizedFields.map(getFieldLabel).join(' → ')}`
 			: 'Grouping cleared. Back to the normal infinite table.'
 	);
-});
-
-grid.on('data:appended', ({ appendedCount, totalLoaded }) => {
-	setLog(`Loaded ${appendedCount} more rows. ${totalLoaded} rows are currently loaded.`);
 });
 
 grid.on('detail:loaded', ({ rowId, row, payload }) => {

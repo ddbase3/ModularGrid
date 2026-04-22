@@ -10,6 +10,67 @@ function getDropdownStateStore(grid) {
 	return grid._mgDropdownState;
 }
 
+function getDropdownInstanceStore(grid) {
+	if (!grid) {
+		return {};
+	}
+
+	if (!grid._mgDropdownInstances) {
+		grid._mgDropdownInstances = {};
+	}
+
+	return grid._mgDropdownInstances;
+}
+
+function getActiveFloatingDropdown(grid, stateKey) {
+	if (!grid || !stateKey) {
+		return null;
+	}
+
+	const store = getDropdownInstanceStore(grid);
+	const details = store[stateKey];
+
+	if (!(details instanceof HTMLDetailsElement)) {
+		delete store[stateKey];
+		return null;
+	}
+
+	if (!details.isConnected || details.open !== true) {
+		delete store[stateKey];
+		return null;
+	}
+
+	return details;
+}
+
+function setActiveFloatingDropdown(grid, stateKey, details) {
+	if (!grid || !stateKey || !(details instanceof HTMLDetailsElement)) {
+		return;
+	}
+
+	getDropdownInstanceStore(grid)[stateKey] = details;
+}
+
+function clearActiveFloatingDropdown(grid, stateKey, details = null) {
+	if (!grid || !stateKey) {
+		return;
+	}
+
+	const store = getDropdownInstanceStore(grid);
+	const current = store[stateKey];
+
+	if (!(current instanceof HTMLDetailsElement)) {
+		delete store[stateKey];
+		return;
+	}
+
+	if (details instanceof HTMLDetailsElement && current !== details) {
+		return;
+	}
+
+	delete store[stateKey];
+}
+
 function getContextRect(trigger, grid) {
 	const margin = 8;
 	const tableScroll = trigger?.closest?.('.mg-table-scroll');
@@ -117,7 +178,7 @@ function positionFloatingDropdown(details, summary, menu, grid, preferredAlign =
 		return;
 	}
 
-	if (!details.open) {
+	if (!details.open || !details.isConnected || !summary.isConnected) {
 		return;
 	}
 
@@ -246,6 +307,7 @@ export function attachFloatingDropdown(details, {
 	}
 
 	let rafId = 0;
+	let reopenRafId = 0;
 	let listenersAttached = false;
 
 	storeOriginalMenuMount(menu, details);
@@ -322,12 +384,26 @@ export function attachFloatingDropdown(details, {
 		}
 
 		if (details.open) {
+			const activeDetails = stateKey ? getActiveFloatingDropdown(grid, stateKey) : null;
+
+			if (activeDetails && activeDetails !== details) {
+				activeDetails.open = false;
+			}
+
+			if (stateKey) {
+				setActiveFloatingDropdown(grid, stateKey, details);
+			}
+
 			cleanupDetachedFloatingDropdowns();
 			mountMenuToBody(menu, details);
 			attachViewportListeners();
 			requestPosition();
 		}
 		else {
+			if (stateKey) {
+				clearActiveFloatingDropdown(grid, stateKey, details);
+			}
+
 			detachViewportListeners();
 			cleanupFloatingDropdownMenu(menu);
 		}
@@ -342,11 +418,19 @@ export function attachFloatingDropdown(details, {
 	});
 
 	if (stateKey && isFloatingDropdownOpen(grid, stateKey)) {
-		cleanupDetachedFloatingDropdowns();
-		details.open = true;
-		mountMenuToBody(menu, details);
-		attachViewportListeners();
-		requestPosition();
+		reopenRafId = window.requestAnimationFrame(() => {
+			const activeDetails = getActiveFloatingDropdown(grid, stateKey);
+
+			if (activeDetails && activeDetails !== details) {
+				return;
+			}
+
+			if (!details.isConnected || details.open) {
+				return;
+			}
+
+			details.open = true;
+		});
 	}
 
 	return details;

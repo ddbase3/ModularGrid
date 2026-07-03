@@ -1,4 +1,5 @@
 import { appendContent } from '../utils/dom.js';
+import { attachFloatingDropdown, setFloatingDropdownOpenState } from '../utils/dropdown.js';
 
 function resolveOptions(context) {
 	return {
@@ -11,6 +12,8 @@ function resolveOptions(context) {
 		clearLabel: 'Clear filters',
 		addLabel: 'Add filter',
 		addPlaceholder: 'Select optional filter',
+		pickerWidth: null,
+		pickerMinWidth: null,
 		removeLabel: 'Remove filter',
 		debounceMs: 250,
 		fields: [],
@@ -29,32 +32,75 @@ function getDefaultValue(field) {
 		return false;
 	}
 
+	return getEmptyValue(field);
+}
+
+function getEmptyValue(field) {
+	if (Object.prototype.hasOwnProperty.call(field, 'emptyValue')) {
+		return field.emptyValue;
+	}
+
+	if (field.type === 'checkbox') {
+		return false;
+	}
+
+	if (field.type === 'multiselect') {
+		return [];
+	}
+
+	if (field.type === 'range') {
+		return {
+			min: '',
+			max: ''
+		};
+	}
+
+	if (field.type === 'daterange' || field.type === 'datetimerange') {
+		return {
+			from: '',
+			to: ''
+		};
+	}
+
 	return '';
 }
 
-function buildBaselineFilterState(options) {
-	const nextState = {
-		...(options.initialValues || {})
-	};
+function buildDefaultFilterState(options) {
+	const nextState = {};
 
 	(options.fields || []).forEach((field) => {
 		if (!field || !field.key) {
 			return;
 		}
 
-		if (!Object.prototype.hasOwnProperty.call(nextState, field.key)) {
-			nextState[field.key] = getDefaultValue(field);
-		}
+		nextState[field.key] = normalizeFieldValue(field, getDefaultValue(field));
 	});
 
 	return nextState;
 }
 
 function buildInitialFilterState(options, currentState = {}) {
-	return {
-		...buildBaselineFilterState(options),
-		...currentState
-	};
+	const nextState = buildDefaultFilterState(options);
+
+	Object.entries(options.initialValues || {}).forEach(([key, value]) => {
+		const field = getFieldByKey(options, key) || {
+			key,
+			type: 'text'
+		};
+
+		nextState[key] = normalizeFieldValue(field, value);
+	});
+
+	Object.entries(currentState || {}).forEach(([key, value]) => {
+		const field = getFieldByKey(options, key) || {
+			key,
+			type: 'text'
+		};
+
+		nextState[key] = normalizeFieldValue(field, value);
+	});
+
+	return nextState;
 }
 
 function getFilterState(context, options) {
@@ -122,12 +168,15 @@ function areValuesEqual(a, b) {
 	return valueSignature(a) === valueSignature(b);
 }
 
-function isDefaultValue(field, value) {
-	if (typeof field.isDefault === 'function') {
-		return field.isDefault(value, field) === true;
+function isEmptyValue(field, value) {
+	if (typeof field.isEmpty === 'function') {
+		return field.isEmpty(value, field) === true;
 	}
 
-	return areValuesEqual(value, getDefaultValue(field));
+	return areValuesEqual(
+		normalizeFieldValue(field, value),
+		normalizeFieldValue(field, getEmptyValue(field))
+	);
 }
 
 function buildVisibilityState(visibleKeys) {
@@ -151,7 +200,7 @@ function buildInitialVisibilityState(options, currentVisibility = {}, filterStat
 			return;
 		}
 
-		if (!isDefaultValue(field, filterState[field.key])) {
+		if (!isEmptyValue(field, filterState[field.key])) {
 			visibleKeys.add(field.key);
 		}
 	});
@@ -168,7 +217,19 @@ function normalizeFieldValue(field, value) {
 		return value === true;
 	}
 
-	if (field.type === 'number') {
+	if (field.type === 'multiselect') {
+		if (Array.isArray(value)) {
+			return value.map((entry) => String(entry ?? '')).filter((entry) => entry !== '');
+		}
+
+		if (value === null || value === undefined || value === '') {
+			return [];
+		}
+
+		return [String(value)];
+	}
+
+	if (field.type === 'number' || field.type === 'slider') {
 		if (value === null || value === undefined || value === '') {
 			return '';
 		}
@@ -322,6 +383,102 @@ function applyControlMetadata(control, options, field) {
 	control.dataset.mgFocusKey = `filter-${options.stateKey}-${field.key}`;
 }
 
+function getOptionValue(option) {
+	return option && typeof option === 'object' ? option.value : option;
+}
+
+function getOptionLabel(option) {
+	return option && typeof option === 'object' ? option.label : option;
+}
+
+function getMultiselectSummary(field, selectedValues) {
+	const selectedSet = new Set(selectedValues.map((value) => String(value)));
+	const selectedOptions = (field.options || []).filter((option) => selectedSet.has(String(getOptionValue(option) ?? '')));
+
+	if (selectedOptions.length === 0) {
+		return field.placeholder || field.emptyLabel || field.label || field.key;
+	}
+
+	if (selectedOptions.length === 1) {
+		return getOptionLabel(selectedOptions[0]) ?? String(getOptionValue(selectedOptions[0]) ?? '');
+	}
+
+	return field.selectedLabel || `${selectedOptions.length} selected`;
+}
+
+function renderMultiselectControl(context, options, field, value) {
+	const selectedValues = normalizeFieldValue(Object.assign({}, field, { type: 'multiselect' }), value);
+	const selectedSet = new Set(selectedValues.map((entry) => String(entry)));
+	const details = document.createElement('details');
+	details.className = 'mg-dropdown mg-compact-multiselect mg-compact-filter-control';
+
+	const summary = document.createElement('summary');
+	summary.className = 'mg-button mg-dropdown-summary mg-compact-multiselect-summary';
+	summary.textContent = getMultiselectSummary(field, selectedValues);
+	summary.dataset.mgFocusKey = `filter-${options.stateKey}-${field.key}`;
+
+	const menu = document.createElement('div');
+	menu.className = 'mg-dropdown-menu mg-compact-multiselect-menu';
+
+	const list = document.createElement('div');
+	list.className = 'mg-checkbox-list mg-compact-multiselect-list';
+
+	(field.options || []).forEach((entry) => {
+		const optionValue = getOptionValue(entry) ?? '';
+		const optionLabel = getOptionLabel(entry) ?? optionValue;
+		const row = document.createElement('label');
+		row.className = 'mg-checkbox-row mg-compact-multiselect-option';
+
+		const input = document.createElement('input');
+		input.type = 'checkbox';
+		input.value = optionValue;
+		input.checked = selectedSet.has(String(optionValue));
+		input.name = field.name || field.key;
+		input.dataset.key = field.key;
+		input.dataset.filterKey = field.key;
+
+		input.addEventListener('change', () => {
+			const nextValues = Array.from(list.querySelectorAll('input[type="checkbox"]'))
+				.filter((checkbox) => checkbox.checked)
+				.map((checkbox) => checkbox.value)
+				.filter((entryValue) => entryValue !== '');
+
+			setFloatingDropdownOpenState(context.grid, `filter-${options.stateKey}-${field.key}-multiselect`, true);
+			scheduleFieldUpdate(context, options, field, nextValues);
+		});
+
+		const text = document.createElement('span');
+		text.textContent = optionLabel;
+
+		row.appendChild(input);
+		row.appendChild(text);
+		list.appendChild(row);
+	});
+
+	if (list.children.length === 0) {
+		const empty = document.createElement('div');
+		empty.className = 'mg-empty-message';
+		empty.textContent = field.emptyOptionsLabel || 'No options';
+		menu.appendChild(empty);
+	} else {
+		menu.appendChild(list);
+	}
+
+	details.appendChild(summary);
+	details.appendChild(menu);
+	appendFieldDimensions(details, field);
+
+	attachFloatingDropdown(details, {
+		grid: context.grid,
+		summary,
+		menu,
+		preferredAlign: 'start',
+		stateKey: `filter-${options.stateKey}-${field.key}-multiselect`
+	});
+
+	return details;
+}
+
 function renderSelectControl(context, options, field, value) {
 	const select = document.createElement('select');
 	select.className = 'mg-select mg-compact-filter-control';
@@ -386,6 +543,68 @@ function renderNumberControl(context, options, field, value) {
 	});
 
 	return input;
+}
+
+
+function renderSliderControl(context, options, field, value) {
+	const wrapper = document.createElement('div');
+	const input = document.createElement('input');
+	const output = document.createElement('span');
+	const minValue = field.min !== undefined && field.min !== null ? Number(field.min) : 0;
+	const maxValue = field.max !== undefined && field.max !== null ? Number(field.max) : 100;
+	const stepValue = field.step !== undefined && field.step !== null ? Number(field.step) : 1;
+	const numberValue = Number(value);
+	const hasValue = value !== null && value !== undefined && value !== '' && Number.isFinite(numberValue);
+
+	wrapper.className = 'mg-compact-slider mg-compact-filter-control';
+	input.type = 'range';
+	input.className = 'mg-compact-slider-input';
+	input.min = Number.isFinite(minValue) ? String(minValue) : '0';
+	input.max = Number.isFinite(maxValue) ? String(maxValue) : '100';
+	input.step = Number.isFinite(stepValue) && stepValue > 0 ? String(stepValue) : '1';
+	input.value = hasValue ? String(numberValue) : input.min;
+	output.className = 'mg-compact-slider-value';
+	applyControlMetadata(input, options, field);
+
+	if (field.width) {
+		input.style.width = `${field.width}px`;
+	}
+
+	if (field.minWidth) {
+		input.style.minWidth = `${field.minWidth}px`;
+	}
+
+	if (field.maxWidth) {
+		input.style.maxWidth = `${field.maxWidth}px`;
+	}
+
+	function updateOutput() {
+		if (!hasValue && input.value === input.min) {
+			output.textContent = field.emptyLabel || '—';
+			return;
+		}
+
+		output.textContent = field.valueLabelPrefix
+			? `${field.valueLabelPrefix}${input.value}${field.valueLabelSuffix || ''}`
+			: `${input.value}${field.valueLabelSuffix || ''}`;
+	}
+
+	input.addEventListener('input', () => {
+		output.textContent = field.valueLabelPrefix
+			? `${field.valueLabelPrefix}${input.value}${field.valueLabelSuffix || ''}`
+			: `${input.value}${field.valueLabelSuffix || ''}`;
+	});
+
+	input.addEventListener('change', () => {
+		const nextValue = Number(input.value);
+		scheduleFieldUpdate(context, options, field, Number.isFinite(nextValue) ? nextValue : '');
+	});
+
+	updateOutput();
+	wrapper.appendChild(input);
+	wrapper.appendChild(output);
+
+	return wrapper;
 }
 
 function renderDateControl(context, options, field, value) {
@@ -468,6 +687,7 @@ function renderCustomControl(context, options, field, value, viewModel) {
 		field,
 		value,
 		defaultValue: getDefaultValue(field),
+		emptyValue: getEmptyValue(field),
 		viewModel,
 		setValue(nextValue) {
 			scheduleFieldUpdate(context, options, field, nextValue);
@@ -505,12 +725,20 @@ function renderControl(context, options, field, value, viewModel) {
 		return renderSelectControl(context, options, field, value);
 	}
 
+	if (field.type === 'multiselect') {
+		return renderMultiselectControl(context, options, field, value);
+	}
+
 	if (field.type === 'checkbox') {
 		return renderCheckboxControl(context, options, field, value);
 	}
 
 	if (field.type === 'radio') {
 		return renderRadioControl(context, options, field, value);
+	}
+
+	if (field.type === 'slider') {
+		return renderSliderControl(context, options, field, value);
 	}
 
 	if (field.type === 'number' || field.type === 'range') {
@@ -574,7 +802,7 @@ function getVisibleKeys(options, filters, visibility) {
 			return;
 		}
 
-		if (Object.prototype.hasOwnProperty.call(filters, field.key) && !isDefaultValue(field, filters[field.key])) {
+		if (Object.prototype.hasOwnProperty.call(filters, field.key) && !isEmptyValue(field, filters[field.key])) {
 			visibleKeys.add(field.key);
 		}
 	});
@@ -598,9 +826,17 @@ function renderPicker(context, options, fields, visibleKeys) {
 	label.textContent = options.addLabel;
 
 	const select = document.createElement('select');
-	select.className = 'mg-select';
+	select.className = 'mg-select mg-compact-filter-picker-select';
 	select.dataset.mgFocusKey = `filter-${options.stateKey}-picker`;
 	select.disabled = hiddenOptionalFields.length === 0;
+
+	if (options.pickerWidth) {
+		select.style.width = `${options.pickerWidth}px`;
+	}
+
+	if (options.pickerMinWidth) {
+		select.style.minWidth = `${options.pickerMinWidth}px`;
+	}
 
 	const placeholder = document.createElement('option');
 	placeholder.value = '';
@@ -626,7 +862,10 @@ function renderPicker(context, options, fields, visibleKeys) {
 		select.value = '';
 	});
 
-	wrapper.appendChild(label);
+	if (options.addLabel !== '') {
+		wrapper.appendChild(label);
+	}
+
 	wrapper.appendChild(select);
 
 	return wrapper;
@@ -677,7 +916,7 @@ export const CompactFiltersPlugin = {
 			};
 			let nextVisibility = null;
 
-			if (isOptionalField(field) && !isDefaultValue(field, nextValue)) {
+			if (isOptionalField(field) && !isEmptyValue(field, nextValue)) {
 				const currentVisibility = getVisibilityState(context, options);
 				nextVisibility = buildVisibilityState([
 					...currentVisibility.visibleKeys,
@@ -692,7 +931,7 @@ export const CompactFiltersPlugin = {
 			const options = resolveOptions(context);
 			clearTimers(context);
 
-			const nextFilters = buildBaselineFilterState(options);
+			const nextFilters = buildDefaultFilterState(options);
 			const nextVisibility = buildInitialVisibilityState(options, {}, nextFilters);
 
 			return setFilterState(context, options, nextFilters, nextVisibility);

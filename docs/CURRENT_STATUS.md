@@ -64,6 +64,7 @@ The current code base already contains:
 - `src/plugins/SearchPlugin.js`
 - `src/plugins/FiltersPlugin.js`
 - `src/plugins/CompactFiltersPlugin.js`
+  - compact optional filter UI with text, select, multiselect, checkbox, radio, number, date/datetime, slider and custom controls
 - `src/plugins/GroupingPlugin.js`
 - `src/plugins/HeaderMenuPlugin.js`
 - `src/plugins/PageSizePlugin.js`

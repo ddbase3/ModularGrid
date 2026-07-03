@@ -1234,10 +1234,12 @@ try {
 				stateKey: 'filters',
 				visibilityStateKey: 'filterVisibility',
 				initialValues: {
-					title: 'Project A'
+					title: 'Project A',
+					level: 1
 				},
 				fields: [
 					{ key: 'id', label: 'ID', type: 'number', visibility: 'always', width: 80 },
+					{ key: 'level', label: 'Level', type: 'slider', visibility: 'always', defaultValue: '', min: 1, max: 7, step: 1, width: 120 },
 					{ key: 'title', label: 'Title', type: 'text', visibility: 'optional', defaultValue: '', width: 160 },
 					{ key: 'owner', label: 'Owner', type: 'text', visibility: 'optional', defaultValue: '', width: 140 }
 				]
@@ -1271,6 +1273,16 @@ try {
 	assert(!!compactTitleFilter, 'Compact filters show optional filters with non-default initial values');
 	assert(!compactOwnerFilterBeforeAdd, 'Compact filters keep default optional filters hidden initially');
 	assert(secondGrid.getState().filterVisibility.visibleKeys.includes('title'), 'Compact filters persist initial optional visibility in state');
+
+	const compactLevelFilter = document.querySelector('#second-grid .mg-compact-filter-group[data-filter-key="level"]');
+	const compactLevelSlider = compactLevelFilter?.querySelector('input[type="range"]');
+	assert(!!compactLevelSlider, 'Compact filters can render slider controls');
+	assert(compactLevelSlider.min === '1' && compactLevelSlider.max === '7', 'Compact slider controls apply min and max bounds');
+	compactLevelSlider.value = '4';
+	compactLevelSlider.dispatchEvent(new Event('input', { bubbles: true }));
+	compactLevelSlider.dispatchEvent(new Event('change', { bubbles: true }));
+	await settleFrames(2);
+	assert(secondGrid.getState().filters.level === 4, 'Compact slider controls update numeric filter state');
 
 	compactFilterPicker.value = 'owner';
 	compactFilterPicker.dispatchEvent(new Event('change', { bubbles: true }));

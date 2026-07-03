@@ -1176,6 +1176,10 @@
 	min-width: auto;
 }
 
+.mg-compact-filter-picker-select {
+	width: auto;
+}
+
 .mg-compact-filter-group {
 	position: relative;
 	flex-direction: row;
@@ -1187,6 +1191,49 @@
 .mg-compact-filter-control {
 	min-width: 0;
 }
+
+.mg-compact-multiselect {
+	display: inline-block;
+	width: auto;
+}
+
+.mg-compact-multiselect-summary {
+	display: flex;
+	justify-content: space-between;
+	width: 100%;
+	min-width: 0;
+	max-width: 100%;
+	box-sizing: border-box;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.mg-compact-multiselect-menu {
+	min-width: 220px;
+}
+
+
+.mg-compact-slider {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	white-space: nowrap;
+}
+
+.mg-compact-slider-input {
+	width: 120px;
+	min-width: 80px;
+	max-width: 180px;
+}
+
+.mg-compact-slider-value {
+	min-width: 1.8em;
+	text-align: right;
+	font-size: 12px;
+	color: #555;
+}
+
 
 .mg-compact-filter-remove {
 	width: 24px;

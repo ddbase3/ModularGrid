@@ -63,6 +63,7 @@ The current code base already contains:
 - `src/plugins/createStorageStatePlugin.js`
 - `src/plugins/SearchPlugin.js`
 - `src/plugins/FiltersPlugin.js`
+- `src/plugins/CompactFiltersPlugin.js`
 - `src/plugins/GroupingPlugin.js`
 - `src/plugins/HeaderMenuPlugin.js`
 - `src/plugins/PageSizePlugin.js`

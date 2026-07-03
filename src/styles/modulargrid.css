@@ -1168,6 +1168,39 @@
 	white-space: nowrap;
 }
 
+.mg-compact-filters {
+	gap: 8px;
+}
+
+.mg-compact-filter-picker {
+	min-width: auto;
+}
+
+.mg-compact-filter-group {
+	position: relative;
+	flex-direction: row;
+	align-items: center;
+	gap: 6px;
+	min-width: auto;
+}
+
+.mg-compact-filter-control {
+	min-width: 0;
+}
+
+.mg-compact-filter-remove {
+	width: 24px;
+	min-width: 24px;
+	height: 24px;
+	padding: 0;
+	line-height: 1;
+}
+
+.mg-compact-radio-group,
+.mg-compact-radio-option {
+	gap: 4px;
+}
+
 .mg-filter-clear,
 .mg-export-button,
 .mg-bulk-action-button {

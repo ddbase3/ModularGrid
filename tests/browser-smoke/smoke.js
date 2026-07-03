@@ -2,6 +2,7 @@ import {
 	BulkActionsPlugin,
 	CardViewPlugin,
 	ColumnVisibilityPlugin,
+	CompactFiltersPlugin,
 	ExportPlugin,
 	FiltersPlugin,
 	GroupingPlugin,
@@ -441,6 +442,7 @@ try {
 			ExportPlugin,
 			SummaryPlugin,
 			ColumnVisibilityPlugin,
+	CompactFiltersPlugin,
 			ResetPlugin,
 			CardViewPlugin,
 			SplitDetailViewPlugin,
@@ -1207,6 +1209,10 @@ try {
 	assert(document.querySelectorAll('#test-grid .mg-table-scroll').length === 1, 'Switching back to table view keeps the horizontal scroll wrapper');
 
 	const secondGrid = new ModularGrid('#second-grid', {
+		layout: createClassicLayout({
+			top: ['secondFilters'],
+			bottom: []
+		}),
 		data: [
 			{ id: 10, title: 'Project A' },
 			{ id: 11, title: 'Project B' }
@@ -1218,7 +1224,25 @@ try {
 		columns: [
 			{ key: 'id', label: 'ID', width: 80 },
 			{ key: 'title', label: 'Title', minWidth: 180 }
-		]
+		],
+		plugins: [
+			CompactFiltersPlugin
+		],
+		pluginOptions: {
+			compactFilters: {
+				zone: 'secondFilters',
+				stateKey: 'filters',
+				visibilityStateKey: 'filterVisibility',
+				initialValues: {
+					title: 'Project A'
+				},
+				fields: [
+					{ key: 'id', label: 'ID', type: 'number', visibility: 'always', width: 80 },
+					{ key: 'title', label: 'Title', type: 'text', visibility: 'optional', defaultValue: '', width: 160 },
+					{ key: 'owner', label: 'Owner', type: 'text', visibility: 'optional', defaultValue: '', width: 140 }
+				]
+			}
+		}
 	});
 
 	await secondGrid.init();
@@ -1239,6 +1263,35 @@ try {
 		&& !secondGridRow.classList.contains('mg-row-even'),
 		'Table zebra rows can be disabled per grid instance'
 	);
+
+	const compactTitleFilter = document.querySelector('#second-grid .mg-compact-filter-group[data-filter-key="title"]');
+	const compactOwnerFilterBeforeAdd = document.querySelector('#second-grid .mg-compact-filter-group[data-filter-key="owner"]');
+	const compactFilterPicker = document.querySelector('#second-grid .mg-compact-filter-picker .mg-select');
+
+	assert(!!compactTitleFilter, 'Compact filters show optional filters with non-default initial values');
+	assert(!compactOwnerFilterBeforeAdd, 'Compact filters keep default optional filters hidden initially');
+	assert(secondGrid.getState().filterVisibility.visibleKeys.includes('title'), 'Compact filters persist initial optional visibility in state');
+
+	compactFilterPicker.value = 'owner';
+	compactFilterPicker.dispatchEvent(new Event('change', { bubbles: true }));
+	await settleFrames(2);
+
+	const compactOwnerFilter = document.querySelector('#second-grid .mg-compact-filter-group[data-filter-key="owner"]');
+	assert(!!compactOwnerFilter, 'Compact filters can show optional filters through the picker');
+
+	const compactOwnerInput = compactOwnerFilter.querySelector('input');
+	compactOwnerInput.value = 'Ada';
+	compactOwnerInput.dispatchEvent(new Event('input', { bubbles: true }));
+	await settleFrames(20);
+
+	assert(secondGrid.getState().filters.owner === 'Ada', 'Compact filters update filter state for optional controls');
+
+	const compactOwnerRemove = compactOwnerFilter.querySelector('.mg-compact-filter-remove');
+	dispatchClick(compactOwnerRemove);
+	await settleFrames(2);
+
+	assert(!document.querySelector('#second-grid .mg-compact-filter-group[data-filter-key="owner"]'), 'Compact filters hide optional filters after removing them');
+	assert(secondGrid.getState().filters.owner === '', 'Compact filters reset removed optional filters to their default value');
 
 	const infiniteGrid = new ModularGrid('#infinite-grid', {
 		layout: createClassicLayout({

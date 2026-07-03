@@ -15,6 +15,7 @@ export { createStorageStatePlugin } from './plugins/createStorageStatePlugin.js'
 export { ColumnVisibilityPlugin } from './plugins/ColumnVisibilityPlugin.js';
 export { SearchPlugin } from './plugins/SearchPlugin.js';
 export { FiltersPlugin } from './plugins/FiltersPlugin.js';
+export { CompactFiltersPlugin } from './plugins/CompactFiltersPlugin.js';
 export { GroupingPlugin } from './plugins/GroupingPlugin.js';
 export { HeaderMenuPlugin } from './plugins/HeaderMenuPlugin.js';
 export { PageSizePlugin } from './plugins/PageSizePlugin.js';

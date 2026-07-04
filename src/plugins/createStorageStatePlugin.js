@@ -3,24 +3,41 @@ function mergeColumns(currentColumns, storedColumns) {
 		return currentColumns;
 	}
 
-	const storedMap = new Map();
+	const currentMap = new Map();
 
-	storedColumns.forEach((column) => {
+	currentColumns.forEach((column) => {
 		if (column && column.key) {
-			storedMap.set(column.key, column);
+			currentMap.set(column.key, column);
 		}
 	});
 
-	return currentColumns.map((column) => {
-		if (!storedMap.has(column.key)) {
-			return column;
+	const usedKeys = new Set();
+	const restoredColumns = [];
+
+	storedColumns.forEach((storedColumn) => {
+		if (!storedColumn || !storedColumn.key || !currentMap.has(storedColumn.key)) {
+			return;
 		}
 
-		return {
-			...column,
-			...storedMap.get(column.key)
-		};
+		const currentColumn = currentMap.get(storedColumn.key);
+
+		restoredColumns.push({
+			...currentColumn,
+			...storedColumn
+		});
+
+		usedKeys.add(storedColumn.key);
 	});
+
+	currentColumns.forEach((column) => {
+		if (!column || usedKeys.has(column.key)) {
+			return;
+		}
+
+		restoredColumns.push(column);
+	});
+
+	return restoredColumns;
 }
 
 function buildSerializableState(state, sections) {

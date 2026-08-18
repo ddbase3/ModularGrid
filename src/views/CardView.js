@@ -64,14 +64,14 @@ export class CardView {
 
 		if (viewModel.loading) {
 			const loadingBox = createElement('div', 'mg-state mg-state-loading');
-			loadingBox.textContent = 'Loading...';
+			loadingBox.textContent = grid.getString('loading');
 			container.appendChild(loadingBox);
 			return;
 		}
 
 		if (!Array.isArray(viewModel.rows) || viewModel.rows.length === 0) {
 			const emptyBox = createElement('div', 'mg-state');
-			emptyBox.textContent = 'No rows found.';
+			emptyBox.textContent = grid.getString('noRows');
 			container.appendChild(emptyBox);
 			return;
 		}

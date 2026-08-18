@@ -9,12 +9,12 @@ function resolveOptions(context) {
 		visibilityStateKey: 'compactFilterVisibility',
 		showClearButton: true,
 		showPicker: true,
-		clearLabel: 'Clear filters',
-		addLabel: 'Add filter',
-		addPlaceholder: 'Select optional filter',
+		clearLabel: context.getString('clearFilters'),
+		addLabel: context.getString('addFilter'),
+		addPlaceholder: context.getString('selectOptionalFilter'),
 		pickerWidth: null,
 		pickerMinWidth: null,
-		removeLabel: 'Remove filter',
+		removeLabel: context.getString('removeFilter'),
 		debounceMs: 250,
 		fields: [],
 		initialValues: {},
@@ -458,7 +458,7 @@ function renderMultiselectControl(context, options, field, value) {
 	if (list.children.length === 0) {
 		const empty = document.createElement('div');
 		empty.className = 'mg-empty-message';
-		empty.textContent = field.emptyOptionsLabel || 'No options';
+		empty.textContent = field.emptyOptionsLabel || context.getString('noOptions');
 		menu.appendChild(empty);
 	} else {
 		menu.appendChild(list);

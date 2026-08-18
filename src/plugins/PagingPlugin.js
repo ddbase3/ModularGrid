@@ -32,7 +32,7 @@ export const PagingPlugin = {
 					const previousButton = document.createElement('button');
 					previousButton.type = 'button';
 					previousButton.className = 'mg-button';
-					previousButton.textContent = '← Prev';
+					previousButton.textContent = `← ${context.getString('previous')}`;
 					previousButton.disabled = viewModel.page <= 1;
 
 					previousButton.addEventListener('click', () => {
@@ -41,12 +41,12 @@ export const PagingPlugin = {
 
 					const label = document.createElement('span');
 					label.className = 'mg-pager-label';
-					label.textContent = `Page ${viewModel.page} of ${viewModel.totalPages}`;
+					label.textContent = context.getString('pageStatus', { page: viewModel.page, totalPages: viewModel.totalPages });
 
 					const nextButton = document.createElement('button');
 					nextButton.type = 'button';
 					nextButton.className = 'mg-button';
-					nextButton.textContent = 'Next →';
+					nextButton.textContent = `${context.getString('next')} →`;
 					nextButton.disabled = viewModel.page >= viewModel.totalPages;
 
 					nextButton.addEventListener('click', () => {

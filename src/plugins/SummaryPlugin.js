@@ -51,7 +51,7 @@ export const SummaryPlugin = {
 						const item = document.createElement('div');
 						item.className = 'mg-summary-item';
 
-						const label = metric.label || metric.key || `Metric ${index + 1}`;
+						const label = metric.label || metric.key || context.getString('metric', { index: index + 1 });
 						const value = computeSummaryMetric(metric, rows);
 						const formattedValue = formatSummaryMetric(metric, value, rows);
 

@@ -4,8 +4,8 @@ function resolveOptions(context) {
 		order: 5,
 		rowIdKey: 'id',
 		showSelectedCount: true,
-		selectedLabel: 'Selected',
-		emptyText: 'No selection',
+		selectedLabel: context.getString('selected'),
+		emptyText: context.getString('noSelection'),
 		items: [],
 		...context.getPluginOptions('bulkActions')
 	};
@@ -88,7 +88,7 @@ function resolveItems(context, options) {
 			return {
 				...item,
 				key: item.key || item.label || 'bulk-action',
-				label: item.label || item.key || 'Action',
+				label: item.label || item.key || context.getString('action'),
 				disabled
 			};
 		})

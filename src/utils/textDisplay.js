@@ -38,8 +38,8 @@ function resolveTextDisplayOptions(grid, column = null) {
 		title: true,
 		lines: 2,
 		expandable: true,
-		expandLabel: 'More',
-		collapseLabel: 'Less',
+		expandLabel: grid.getString('more'),
+		collapseLabel: grid.getString('less'),
 		...(gridConfig || {}),
 		...(columnConfig || {})
 	};

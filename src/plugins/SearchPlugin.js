@@ -2,8 +2,8 @@ function resolveOptions(context) {
 	return {
 		zone: 'toolbar',
 		order: 10,
-		label: 'Search',
-		placeholder: 'Search all columns',
+		label: context.getString('search'),
+		placeholder: context.getString('searchPlaceholder'),
 		showClearButton: true,
 		...context.getPluginOptions('search')
 	};
@@ -47,7 +47,7 @@ export const SearchPlugin = {
 						const clearButton = document.createElement('button');
 						clearButton.type = 'button';
 						clearButton.className = 'mg-button';
-						clearButton.textContent = 'Clear';
+						clearButton.textContent = context.getString('clear');
 
 						clearButton.addEventListener('click', () => {
 							context.execute('clearSearch');

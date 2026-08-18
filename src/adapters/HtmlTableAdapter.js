@@ -51,6 +51,7 @@ export class HtmlTableAdapter {
 		this.source = source;
 		this.options = {
 			hideSource: true,
+			columnLabel: 'Column {index}',
 			...options
 		};
 		this.parsed = null;
@@ -69,12 +70,12 @@ export class HtmlTableAdapter {
 
 		if (headerCells.length > 0) {
 			labels = headerCells.map((cell, index) => {
-				return cell.dataset.key || cell.textContent.trim() || `Column ${index + 1}`;
+				return cell.dataset.key || cell.textContent.trim() || this.options.columnLabel.replaceAll('{index}', String(index + 1));
 			});
 		} else if (bodyRows.length > 0) {
 			const firstRowCells = Array.from(bodyRows[0].children);
 			labels = firstRowCells.map((cell, index) => {
-				return cell.dataset.key || `Column ${index + 1}`;
+				return cell.dataset.key || this.options.columnLabel.replaceAll('{index}', String(index + 1));
 			});
 		}
 

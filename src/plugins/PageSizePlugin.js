@@ -2,7 +2,7 @@ function resolveOptions(context) {
 	return {
 		zone: 'toolbar',
 		order: 20,
-		label: 'Rows per page',
+		label: context.getString('rowsPerPage'),
 		...context.getPluginOptions('pageSize')
 	};
 }

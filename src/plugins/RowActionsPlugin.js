@@ -96,7 +96,7 @@ function evaluateActionItem(item, row, context) {
 	return {
 		...item,
 		key: item.key || item.label || 'action',
-		label: item.label || item.key || 'Action',
+		label: item.label || item.key || context.getString('action'),
 		disabled
 	};
 }
@@ -267,7 +267,7 @@ function renderColumnVisibilitySection(context, item, details, stateKey) {
 		const resetButton = document.createElement('button');
 		resetButton.type = 'button';
 		resetButton.className = 'mg-button mg-row-actions-header-reset';
-		resetButton.textContent = item.resetLabel || 'Reset columns';
+		resetButton.textContent = item.resetLabel || context.getString('resetColumns');
 
 		resetButton.addEventListener('click', () => {
 			preserveTableScroll(context, () => {
@@ -313,7 +313,7 @@ function renderHeaderMenuItem(context, item, details, stateKey) {
 	const button = document.createElement('button');
 	button.type = 'button';
 	button.className = 'mg-menu-action mg-header-menu-action';
-	button.textContent = item.label || item.key || 'Action';
+	button.textContent = item.label || item.key || context.getString('action');
 	button.dataset.mgRowActionsHeaderAction = item.key || 'action';
 	button.disabled = item.disabled === true;
 
@@ -349,7 +349,7 @@ function buildHeaderMenuItems(context, options) {
 	if (hasPinnedDataColumns(context.peekState().columns || [])) {
 		items.push({
 			key: 'unpin-all',
-			label: 'Unpin all',
+			label: context.getString('unpinAll'),
 			command: 'unpinAllDataColumns'
 		});
 	}

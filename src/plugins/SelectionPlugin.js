@@ -8,9 +8,9 @@ function resolveOptions(context) {
 		zone: 'actions',
 		zoneOrder: 5,
 		showSummary: true,
-		selectPageLabel: 'Select page',
-		clearLabel: 'Clear',
-		selectedLabel: 'Selected',
+		selectPageLabel: context.getString('selectPage'),
+		clearLabel: context.getString('clear'),
+		selectedLabel: context.getString('selected'),
 		...context.getPluginOptions('selection')
 	};
 }

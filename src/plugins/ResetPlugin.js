@@ -2,7 +2,7 @@ function resolveOptions(context) {
 	return {
 		zone: 'actions',
 		order: 100,
-		label: 'Reset',
+		label: context.getString('reset'),
 		sections: ['query', 'columns'],
 		...context.getPluginOptions('reset')
 	};

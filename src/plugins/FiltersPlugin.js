@@ -4,7 +4,7 @@ function resolveOptions(context) {
 		order: 20,
 		stateKey: 'filters',
 		showClearButton: true,
-		clearLabel: 'Clear filters',
+		clearLabel: context.getString('clearFilters'),
 		debounceMs: 250,
 		fields: [],
 		initialValues: {},

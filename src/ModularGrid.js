@@ -11,7 +11,91 @@ import { cloneValue, deepMerge } from './utils/object.js';
 import { isUtilityColumn, normalizeColumnPinning, resolveEffectivePinnedSide } from './utils/columnPinning.js';
 import { TableView } from './views/TableView.js';
 
+const DEFAULT_STRINGS = {
+	table: 'Table',
+	cards: 'Cards',
+	split: 'Split',
+	column: 'Column {index}',
+	search: 'Search',
+	searchPlaceholder: 'Search all columns',
+	clear: 'Clear',
+	previous: 'Prev',
+	next: 'Next',
+	pageStatus: 'Page {page} of {totalPages}',
+	rowsPerPage: 'Rows per page',
+	reset: 'Reset',
+	clearFilters: 'Clear filters',
+	addFilter: 'Add filter',
+	selectOptionalFilter: 'Select optional filter',
+	removeFilter: 'Remove filter',
+	noOptions: 'No options',
+	groupBy: 'Group by',
+	noGrouping: 'No grouping',
+	grouping: 'Grouping',
+	groupRowsBy: 'Group rows by',
+	groupingHelp: 'Toggle fields on or off. The checked order defines the grouping path.',
+	clearGrouping: 'Clear grouping',
+	columns: 'Columns',
+	showAll: 'Show all',
+	hideAll: 'Hide all',
+	selectPage: 'Select page',
+	selected: 'Selected',
+	noSelection: 'No selection',
+	action: 'Action',
+	export: 'Export',
+	noRecords: 'No records',
+	loaded: 'Loaded',
+	loadedAll: 'Loaded all',
+	loadingMore: 'Loading more',
+	loadedAllRecords: 'Loaded all {total} records',
+	loadedOfRecords: 'Loaded {loaded} of {total} records',
+	loadedRecords: 'Loaded {loaded} records',
+	recordsRangeFiltered: 'Records {from} to {to} of {filteredTotal} (filtered from {total})',
+	recordsRange: 'Records {from} to {to} of {total}',
+	sortBy: 'Sort by',
+	clearSort: 'Clear sort',
+	hideColumn: 'Hide column',
+	sortedBy: 'sorted by',
+	pinLeft: 'Pin left',
+	pinRight: 'Pin right',
+	unpinLeft: 'Unpin left',
+	unpinRight: 'Unpin right',
+	ascending: 'asc',
+	descending: 'desc',
+	unpinAll: 'Unpin all',
+	resetColumns: 'Reset columns',
+	loading: 'Loading...',
+	noRows: 'No rows found.',
+	noVisibleColumns: 'No visible columns selected.',
+	group: 'Group',
+	groupRowCount: '{count} row',
+	groupRowCountPlural: '{count} rows',
+	resizeColumn: 'Resize {column}',
+	moveColumn: 'Move {column}',
+	value: 'Value',
+	yesLabel: 'Yes',
+	noLabel: 'No',
+	showDetails: 'Show details',
+	hideDetails: 'Hide details',
+	more: 'More',
+	less: 'Less',
+	metric: 'Metric {index}',
+	columnMenu: 'Column menu',
+	loadingDetail: 'Loading detail...',
+	detailLoadFailed: 'Failed to load detail.',
+	details: 'Details',
+	activity: 'Activity',
+	items: 'Items'
+};
+
+function formatString(template, replacements = {}) {
+	return Object.entries(replacements).reduce((value, [key, replacement]) => {
+		return value.replaceAll(`{${key}}`, String(replacement));
+	}, String(template ?? ''));
+}
+
 const defaultOptions = {
+	strings: DEFAULT_STRINGS,
 	columns: [],
 	data: [],
 	adapter: null,
@@ -79,12 +163,12 @@ function inferColumnsFromRow(row) {
 	});
 }
 
-function normalizeColumns(columns) {
+function normalizeColumns(columns, getString) {
 	return (columns || []).map((column, index) => {
 		return {
 			...column,
 			key: column.key || `col_${index}`,
-			label: column.label || column.key || `Column ${index + 1}`,
+			label: column.label || column.key || getString('column', { index: index + 1 }),
 			visible: column.visible !== false,
 			sortable: column.sortable !== false,
 			resizable: column.resizable !== false,
@@ -152,7 +236,7 @@ export class ModularGrid {
 
 		this.viewManager.register('table', {
 			name: 'table',
-			label: 'Table',
+			label: this.getString('table'),
 			render: new TableView().render.bind(new TableView())
 		});
 
@@ -170,7 +254,7 @@ export class ModularGrid {
 	}
 
 	buildInitialState() {
-		let columns = normalizeColumns(this.options.columns);
+		let columns = normalizeColumns(this.options.columns, (key, replacements) => this.getString(key, replacements));
 
 		if (columns.length === 0 && Array.isArray(this.options.data) && this.options.data.length > 0) {
 			columns = inferColumnsFromRow(this.options.data[0]);
@@ -244,6 +328,11 @@ export class ModularGrid {
 					payload?.position || 'before'
 				);
 			});
+	}
+
+	getString(key, replacements = {}) {
+		const value = this.options.strings?.[key] ?? DEFAULT_STRINGS[key] ?? key;
+		return formatString(value, replacements);
 	}
 
 	getInitialStateSnapshot() {

@@ -14,14 +14,14 @@ function resolveOptions(context) {
 		buttonLabel: '⋯',
 		showSortHint: true,
 		labels: {
-			sortBy: 'Sort by',
-			clearSort: 'Clear sort',
-			hideColumn: 'Hide column',
-			sortedBy: 'sorted by',
-			pinLeft: 'Pin left',
-			pinRight: 'Pin right',
-			unpinLeft: 'Unpin left',
-			unpinRight: 'Unpin right'
+			sortBy: context.getString('sortBy'),
+			clearSort: context.getString('clearSort'),
+			hideColumn: context.getString('hideColumn'),
+			sortedBy: context.getString('sortedBy'),
+			pinLeft: context.getString('pinLeft'),
+			pinRight: context.getString('pinRight'),
+			unpinLeft: context.getString('unpinLeft'),
+			unpinRight: context.getString('unpinRight')
 		},
 		items: null,
 		...context.getPluginOptions('headerMenu')
@@ -299,7 +299,7 @@ function buildDefaultItems(context, column, options) {
 		sortConfig.sortOptions.forEach((sortOption) => {
 			items.push({
 				key: `sort-${sortOption.key}-asc`,
-				label: `${options.labels.sortBy} ${sortOption.label || sortOption.key} asc`,
+				label: `${options.labels.sortBy} ${sortOption.label || sortOption.key} ${context.getString('ascending')}`,
 				disabled: currentSortKey === sortOption.key && currentSortDirection === 'asc',
 				onClick() {
 					setSort(context, sortOption.key, 'asc');
@@ -308,7 +308,7 @@ function buildDefaultItems(context, column, options) {
 
 			items.push({
 				key: `sort-${sortOption.key}-desc`,
-				label: `${options.labels.sortBy} ${sortOption.label || sortOption.key} desc`,
+				label: `${options.labels.sortBy} ${sortOption.label || sortOption.key} ${context.getString('descending')}`,
 				disabled: currentSortKey === sortOption.key && currentSortDirection === 'desc',
 				onClick() {
 					setSort(context, sortOption.key, 'desc');
@@ -469,7 +469,7 @@ function renderHeaderMenu(column, grid, context, options) {
 	const items = resolveItems(context, column, options);
 
 	summary.textContent = options.buttonLabel;
-	summary.title = 'Column menu';
+	summary.title = context.getString('columnMenu');
 
 	items.forEach((item) => {
 		if (!item || typeof item !== 'object') {
@@ -491,7 +491,7 @@ function renderHeaderMenu(column, grid, context, options) {
 
 		const button = createElement('button', 'mg-menu-action mg-header-menu-action');
 		button.type = 'button';
-		button.textContent = item.label || item.key || 'Action';
+		button.textContent = item.label || item.key || context.getString('action');
 		button.dataset.mgHeaderMenuAction = item.key || 'action';
 
 		const disabled = typeof item.isDisabled === 'function'

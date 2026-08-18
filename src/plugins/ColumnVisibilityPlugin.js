@@ -5,13 +5,13 @@ function resolveOptions(context) {
 	return {
 		zone: 'actions',
 		order: 20,
-		buttonLabel: 'Columns',
+		buttonLabel: context.getString('columns'),
 		showShowAllButton: true,
 		showHideAllButton: true,
 		showResetButton: false,
-		resetLabel: 'Reset',
-		showAllLabel: 'Show all',
-		hideAllLabel: 'Hide all',
+		resetLabel: context.getString('reset'),
+		showAllLabel: context.getString('showAll'),
+		hideAllLabel: context.getString('hideAll'),
 		...context.getPluginOptions('columnVisibility')
 	};
 }

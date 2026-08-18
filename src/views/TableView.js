@@ -19,7 +19,7 @@ function isInteractiveTarget(target) {
 function resolveGroupingOptions(grid) {
 	return {
 		stateKey: 'grouping',
-		label: 'Group',
+		label: grid.getString('group'),
 		showCount: true,
 		summary: {
 			enabled: true,
@@ -71,7 +71,7 @@ function buildGroups(rows, key) {
 	return Array.from(groups.values());
 }
 
-function formatGroupValue(field, value) {
+function formatGroupValue(field, value, grid) {
 	if (typeof field?.valueFormatter === 'function') {
 		return field.valueFormatter(value);
 	}
@@ -81,17 +81,17 @@ function formatGroupValue(field, value) {
 	}
 
 	if (value === true) {
-		return 'Yes';
+		return grid.getString('yesLabel');
 	}
 
 	if (value === false) {
-		return 'No';
+		return grid.getString('noLabel');
 	}
 
 	return String(value);
 }
 
-function createGroupHeaderRow(renderColumns, field, value, rowCount, options) {
+function createGroupHeaderRow(renderColumns, field, value, rowCount, options, grid) {
 	const tr = createElement('tr', 'mg-group-row');
 	const td = createElement('td', 'mg-group-cell');
 	const content = createElement('div', 'mg-group-header');
@@ -100,10 +100,10 @@ function createGroupHeaderRow(renderColumns, field, value, rowCount, options) {
 
 	td.colSpan = Math.max(renderColumns.length, 1);
 
-	main.textContent = `${field?.label || options.label}: ${formatGroupValue(field, value)}`;
+	main.textContent = `${field?.label || options.label}: ${formatGroupValue(field, value, grid)}`;
 
 	if (options.showCount !== false) {
-		meta.textContent = `${rowCount} row${rowCount === 1 ? '' : 's'}`;
+		meta.textContent = grid.getString(rowCount === 1 ? 'groupRowCount' : 'groupRowCountPlural', { count: rowCount });
 		content.appendChild(main);
 		content.appendChild(meta);
 	}
@@ -117,7 +117,7 @@ function createGroupHeaderRow(renderColumns, field, value, rowCount, options) {
 	return tr;
 }
 
-function createGroupSummaryRow(renderColumns, groupRows, groupingOptions) {
+function createGroupSummaryRow(renderColumns, groupRows, groupingOptions, grid) {
 	const metrics = groupingOptions.summary?.metrics || [];
 
 	if (!Array.isArray(metrics) || metrics.length === 0 || groupingOptions.summary?.enabled === false) {
@@ -132,7 +132,7 @@ function createGroupSummaryRow(renderColumns, groupRows, groupingOptions) {
 
 	metrics.forEach((metric, index) => {
 		const item = createElement('div', 'mg-summary-item');
-		const label = metric.label || metric.key || `Metric ${index + 1}`;
+		const label = metric.label || metric.key || grid.getString('metric', { index: index + 1 });
 		const value = computeSummaryMetric(metric, groupRows);
 		const formattedValue = formatSummaryMetric(metric, value, groupRows);
 
@@ -295,7 +295,7 @@ function resolveResizeMaxWidth(column, computedStyle) {
 function createResizeHandle(th, table, grid, column, columnIndex, renderColumns, tableOptions) {
 	const handle = createElement('button', 'mg-column-resize-handle');
 	handle.type = 'button';
-	handle.setAttribute('aria-label', `Resize ${column.label || column.key}`);
+	handle.setAttribute('aria-label', grid.getString('resizeColumn', { column: column.label || column.key }));
 
 	handle.addEventListener('mousedown', (event) => {
 		event.preventDefault();
@@ -755,7 +755,7 @@ function renderBodyIntoTbody(tbody, grid, viewModel, renderColumns, rowDetailOpt
 		const emptyRow = createElement('tr', 'mg-empty-row');
 		const emptyCell = createElement('td', 'mg-empty-cell');
 		emptyCell.colSpan = Math.max(renderColumns.length, 1);
-		emptyCell.textContent = 'No rows found.';
+		emptyCell.textContent = grid.getString('noRows');
 		emptyRow.appendChild(emptyCell);
 		tbody.appendChild(emptyRow);
 
@@ -776,7 +776,8 @@ function renderBodyIntoTbody(tbody, grid, viewModel, renderColumns, rowDetailOpt
 					groupingField,
 					group.value,
 					group.rows.length,
-					groupingOptions
+					groupingOptions,
+					grid
 				)
 			);
 
@@ -784,7 +785,7 @@ function renderBodyIntoTbody(tbody, grid, viewModel, renderColumns, rowDetailOpt
 				appendNumberedDataRow(row);
 			});
 
-			const summaryRow = createGroupSummaryRow(renderColumns, group.rows, groupingOptions);
+			const summaryRow = createGroupSummaryRow(renderColumns, group.rows, groupingOptions, grid);
 
 			if (summaryRow) {
 				tbody.appendChild(summaryRow);
@@ -802,9 +803,9 @@ function renderBodyIntoTbody(tbody, grid, viewModel, renderColumns, rowDetailOpt
 	};
 }
 
-function createLoadingOverlay() {
+function createLoadingOverlay(grid) {
 	const overlay = createElement('div', 'mg-state mg-state-loading mg-table-loading-overlay');
-	overlay.textContent = 'Loading...';
+	overlay.textContent = grid.getString('loading');
 	overlay.style.position = 'absolute';
 	overlay.style.inset = '0';
 	overlay.style.display = 'flex';
@@ -853,7 +854,7 @@ function clearLoadingPresentation(state) {
 	}
 }
 
-function renderStableLoadingState(container, previousState, preservedDimensions = {}) {
+function renderStableLoadingState(container, previousState, preservedDimensions = {}, grid) {
 	const mountedState = getMountedTableState(container);
 	const activeState = mountedState || previousState || null;
 	const height = Math.max(0, Number(preservedDimensions.height) || 0);
@@ -866,7 +867,7 @@ function renderStableLoadingState(container, previousState, preservedDimensions 
 		scroll.style.position = 'relative';
 
 		if (!(overlay instanceof HTMLElement) || !scroll.contains(overlay)) {
-			overlay = createLoadingOverlay();
+			overlay = createLoadingOverlay(grid);
 			scroll.appendChild(overlay);
 		}
 
@@ -898,7 +899,7 @@ function renderStableLoadingState(container, previousState, preservedDimensions 
 		scrollInner.style.minHeight = `${minHeight}px`;
 	}
 
-	loadingBox.textContent = 'Loading...';
+	loadingBox.textContent = grid.getString('loading');
 	loadingBox.style.width = '100%';
 	loadingBox.style.minHeight = minHeight > 0 ? `${minHeight}px` : '100%';
 	loadingBox.style.height = minHeight > 0 ? `${minHeight}px` : '100%';
@@ -993,7 +994,7 @@ export class TableView {
 
 		if (viewModel.loading) {
 			const preservedDimensions = getPreservedScrollDimensions(previousState, container);
-			const loadingState = renderStableLoadingState(container, previousState, preservedDimensions);
+			const loadingState = renderStableLoadingState(container, previousState, preservedDimensions, grid);
 			storeTableViewState(container, loadingState);
 			return;
 		}
@@ -1007,7 +1008,7 @@ export class TableView {
 			clearElement(container);
 
 			const emptyColumnsBox = createElement('div', 'mg-state');
-			emptyColumnsBox.textContent = 'No visible columns selected.';
+			emptyColumnsBox.textContent = grid.getString('noVisibleColumns');
 			container.appendChild(emptyColumnsBox);
 			return;
 		}
@@ -1171,7 +1172,7 @@ export class TableView {
 			handle.type = 'button';
 			handle.draggable = true;
 			handle.textContent = '⠿';
-			handle.setAttribute('aria-label', `Move ${column.label || column.key}`);
+			handle.setAttribute('aria-label', grid.getString('moveColumn', { column: column.label || column.key }));
 
 			handle.addEventListener('dragstart', (event) => {
 				dragSourceKey = column.key;

@@ -235,7 +235,7 @@ export const ExportPlugin = {
 						const button = document.createElement('button');
 						button.type = 'button';
 						button.className = 'mg-button mg-export-button';
-						button.textContent = action.label || action.key || 'Export';
+						button.textContent = action.label || action.key || context.getString('export');
 
 						if (action.scope === 'selected' && getSelectedRowIds(context).length === 0) {
 							button.disabled = true;

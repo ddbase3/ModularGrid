@@ -111,7 +111,7 @@ function buildClearedStatePatch(stateKey, sectionState, clearEntries = false) {
 	});
 }
 
-function normalizeErrorMessage(error) {
+function normalizeErrorMessage(error, context) {
 	if (error instanceof Error && error.message) {
 		return error.message;
 	}
@@ -120,7 +120,7 @@ function normalizeErrorMessage(error) {
 		return error.trim();
 	}
 
-	return 'Failed to load detail.';
+	return context.getString('detailLoadFailed');
 }
 
 function findRowById(context, rowId, rowIdKey) {
@@ -276,7 +276,7 @@ async function loadAsyncDetail(context, options, payloadInfo) {
 			buildEntryPatch(stateKey, nextSectionState, rowId, {
 				status: 'error',
 				payload: null,
-				error: normalizeErrorMessage(error),
+				error: normalizeErrorMessage(error, context),
 				level: payloadInfo.level,
 				parentPath: payloadInfo.parentPath
 			})
@@ -286,7 +286,7 @@ async function loadAsyncDetail(context, options, payloadInfo) {
 			grid: context.grid,
 			rowId,
 			row: payloadInfo.row,
-			error: normalizeErrorMessage(error),
+			error: normalizeErrorMessage(error, context),
 			stateKey
 		});
 	}
@@ -382,7 +382,7 @@ async function loadAsyncChildDetail(context, options, payloadInfo) {
 				expanded: true,
 				status: 'error',
 				payload: null,
-				error: normalizeErrorMessage(error),
+				error: normalizeErrorMessage(error, context),
 				level: payloadInfo.level,
 				parentPath: childPath,
 				childId: payloadInfo.childId
@@ -396,7 +396,7 @@ async function loadAsyncChildDetail(context, options, payloadInfo) {
 			child: payloadInfo.child,
 			childId: payloadInfo.childId,
 			parentPath: childPath,
-			error: normalizeErrorMessage(error),
+			error: normalizeErrorMessage(error, context),
 			stateKey
 		});
 	}

@@ -165,7 +165,7 @@ function renderDetailBadges(badges) {
 	return wrapper.childNodes.length > 0 ? wrapper : null;
 }
 
-function renderDetailFieldRows(rows, className) {
+function renderDetailFieldRows(rows, className, grid) {
 	if (!Array.isArray(rows) || rows.length === 0) {
 		return null;
 	}
@@ -181,7 +181,7 @@ function renderDetailFieldRows(rows, className) {
 		const label = createElement('div', `${className}-label`);
 		const value = createElement('div', `${className}-value`);
 
-		label.textContent = row.label || row.key || 'Value';
+		label.textContent = row.label || row.key || grid.getString('value');
 		appendContent(value, isRenderableContent(row.value) ? row.value : '—');
 
 		item.appendChild(label);
@@ -243,7 +243,7 @@ function renderChildDetailPresentation(row, grid, viewModel, options, entry, chi
 		}
 
 		return createDetailPresentation(
-			createStateMessage('mg-row-detail-status mg-row-detail-status-loading', 'Loading detail...'),
+			createStateMessage('mg-row-detail-status mg-row-detail-status-loading', grid.getString('loadingDetail')),
 			'loading',
 			level
 		);
@@ -260,7 +260,7 @@ function renderChildDetailPresentation(row, grid, viewModel, options, entry, chi
 		}
 
 		return createDetailPresentation(
-			createStateMessage('mg-row-detail-status mg-row-detail-status-error', childEntry.error || 'Failed to load detail.'),
+			createStateMessage('mg-row-detail-status mg-row-detail-status-error', childEntry.error || grid.getString('detailLoadFailed')),
 			'error',
 			level
 		);
@@ -377,14 +377,14 @@ function renderNestedChildList(children, row, grid, viewModel, options, entry, l
 			itemContent.appendChild(badges);
 		}
 
-		const fields = renderDetailFieldRows(child.fields || [], 'mg-row-detail-list-item-fields');
+		const fields = renderDetailFieldRows(child.fields || [], 'mg-row-detail-list-item-fields', grid);
 		if (fields) {
 			itemContent.appendChild(fields);
 		}
 
 		if (interactiveChildren) {
 			const toggle = createElement('div', 'mg-row-detail-list-item-toggle');
-			toggle.textContent = childEntry?.expanded === true ? 'Hide details' : 'Show details';
+			toggle.textContent = childEntry?.expanded === true ? grid.getString('hideDetails') : grid.getString('showDetails');
 			itemContent.appendChild(toggle);
 		}
 
@@ -447,9 +447,9 @@ function renderStructuredPayload(payload, level, row, grid, viewModel, options, 
 		wrapper.appendChild(badges);
 	}
 
-	const sections = renderDetailFieldRows(payload.sections || [], 'mg-row-detail-fields');
+	const sections = renderDetailFieldRows(payload.sections || [], 'mg-row-detail-fields', grid);
 	const sectionsBlock = createDetailSection(
-		payload.sectionsTitle || 'Details',
+		payload.sectionsTitle || grid.getString('details'),
 		sections,
 		payload.sectionsSummary || ''
 	);
@@ -457,9 +457,9 @@ function renderStructuredPayload(payload, level, row, grid, viewModel, options, 
 		wrapper.appendChild(sectionsBlock);
 	}
 
-	const activity = renderDetailFieldRows(payload.activity || [], 'mg-row-detail-fields');
+	const activity = renderDetailFieldRows(payload.activity || [], 'mg-row-detail-fields', grid);
 	const activityBlock = createDetailSection(
-		payload.activityTitle || 'Activity',
+		payload.activityTitle || grid.getString('activity'),
 		activity,
 		payload.activitySummary || ''
 	);
@@ -478,7 +478,7 @@ function renderStructuredPayload(payload, level, row, grid, viewModel, options, 
 		parentPath
 	);
 	const childrenBlock = createDetailSection(
-		payload.childrenTitle || payload.itemsTitle || 'Items',
+		payload.childrenTitle || payload.itemsTitle || grid.getString('items'),
 		children,
 		payload.childrenSummary || payload.itemsSummary || ''
 	);
@@ -549,7 +549,7 @@ function createAsyncDetailPresentation(row, grid, viewModel, columns, options) {
 		}
 
 		return createDetailPresentation(
-			createStateMessage('mg-row-detail-status mg-row-detail-status-loading', 'Loading detail...'),
+			createStateMessage('mg-row-detail-status mg-row-detail-status-loading', grid.getString('loadingDetail')),
 			'loading',
 			level
 		);
@@ -566,7 +566,7 @@ function createAsyncDetailPresentation(row, grid, viewModel, columns, options) {
 		}
 
 		return createDetailPresentation(
-			createStateMessage('mg-row-detail-status mg-row-detail-status-error', entry.error || 'Failed to load detail.'),
+			createStateMessage('mg-row-detail-status mg-row-detail-status-error', entry.error || grid.getString('detailLoadFailed')),
 			'error',
 			level
 		);

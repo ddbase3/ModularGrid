@@ -34,11 +34,13 @@ export const SplitDetailViewPlugin = {
 		}
 	},
 
-	views: [
-		{
-			name: 'split',
-			label: 'Split',
-			render: splitDetailViewInstance.render.bind(splitDetailViewInstance)
-		}
-	]
+	views(context) {
+		return [
+			{
+				name: 'split',
+				label: context.getString('split'),
+				render: splitDetailViewInstance.render.bind(splitDetailViewInstance)
+			}
+		];
+	}
 };

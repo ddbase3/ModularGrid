@@ -64,6 +64,10 @@ export class GridCommandRegistry {
 				return this.grid.options;
 			},
 
+			getString: (key, replacements = {}) => {
+				return this.grid.getString(key, replacements);
+			},
+
 			getPluginOptions: (pluginName) => {
 				if (!pluginName) {
 					return {};

@@ -85,7 +85,12 @@ const DEFAULT_STRINGS = {
 	detailLoadFailed: 'Failed to load detail.',
 	details: 'Details',
 	activity: 'Activity',
-	items: 'Items'
+	items: 'Items',
+	treeSearchPlaceholder: 'Search tree',
+	noTreeMatches: 'No matching nodes found.',
+	noTreeNodes: 'No nodes available.',
+	treeLoadFailed: 'Tree could not be loaded.',
+	toggleTreeNode: 'Expand or collapse node'
 };
 
 function formatString(template, replacements = {}) {

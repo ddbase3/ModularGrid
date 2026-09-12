@@ -1,218 +1,320 @@
+import { attachFloatingDropdown } from '../utils/dropdown.js';
+
 function resolveOptions(context) {
+	const configured = context.getPluginOptions('export') || {};
+	const labels = configured.labels || {};
+
 	return {
 		zone: 'actions',
 		order: 100,
-		rowIdKey: 'id',
-		visibleOnly: true,
-		includeHeaders: true,
-		fileName: 'modulargrid-export',
-		actions: [
-			{
-				key: 'csv-current',
-				label: 'CSV',
-				format: 'csv',
-				scope: 'current'
-			},
-			{
-				key: 'json-current',
-				label: 'JSON',
-				format: 'json',
-				scope: 'current'
-			}
-		],
-		...context.getPluginOptions('export')
+		buttonLabel: context.getString('export'),
+		exporters: [],
+		defaultExporter: '',
+		scopes: [],
+		defaultScope: 'filtered',
+		fields: [],
+		defaultFields: [],
+		onExport: null,
+		preferredAlign: 'end',
+		stateKey: 'export',
+		...configured,
+		labels: {
+			formatTab: 'Format',
+			dataTab: 'Data',
+			fieldsTab: 'Fields',
+			run: context.getString('export'),
+			working: 'Exporting ...',
+			failed: 'Export failed.',
+			noFields: 'Select at least one field.',
+			noSelection: context.getString('noSelection'),
+			...labels
+		}
 	};
 }
 
 function getSelectedRowIds(context) {
-	const state = context.peekState();
+	const selectedRowIds = context.peekState().selection?.selectedRowIds;
+	return Array.isArray(selectedRowIds) ? selectedRowIds : [];
+}
 
-	if (!state.selection || !Array.isArray(state.selection.selectedRowIds)) {
+function normalizeOptionList(values, keyName) {
+	if (!Array.isArray(values)) {
 		return [];
 	}
 
-	return state.selection.selectedRowIds;
+	return values.filter((item) => {
+		return item
+			&& typeof item === 'object'
+			&& typeof item[keyName] === 'string'
+			&& item[keyName].trim() !== '';
+	});
 }
 
-function getLoadedRows(context) {
-	return Array.isArray(context.peekState().data?.rows) ? context.peekState().data.rows : [];
-}
+function normalizeFieldKeys(values, fields) {
+	const allowedKeys = new Set(fields.map((field) => field.key));
+	const result = [];
 
-function getCurrentRows(context) {
-	return context.grid.getPreparedRows().rows || [];
-}
+	(Array.isArray(values) ? values : []).forEach((value) => {
+		const key = String(value || '').trim();
 
-function getRowsForScope(context, options, scope) {
-	if (scope === 'selected') {
-		const selectedIdSet = new Set(getSelectedRowIds(context));
-
-		return getLoadedRows(context).filter((row) => {
-			return selectedIdSet.has(row?.[options.rowIdKey]);
-		});
-	}
-
-	if (scope === 'loaded') {
-		return getLoadedRows(context);
-	}
-
-	return getCurrentRows(context);
-}
-
-function getExportColumns(context, options) {
-	const columns = Array.isArray(context.peekState().columns) ? context.peekState().columns : [];
-
-	return columns.filter((column) => {
-		if (!column || !column.key) {
-			return false;
+		if (!key || !allowedKeys.has(key) || result.includes(key)) {
+			return;
 		}
 
-		if (options.visibleOnly !== false && column.visible === false) {
-			return false;
-		}
-
-		return true;
+		result.push(key);
 	});
+
+	return result;
 }
 
-function normalizeCellValue(value) {
-	if (value === null || value === undefined) {
-		return '';
+function getExportState(context, options) {
+	if (!context.grid._mgExportPluginState) {
+		context.grid._mgExportPluginState = {};
 	}
 
-	if (typeof value === 'object') {
-		return JSON.stringify(value);
+	const exporters = normalizeOptionList(options.exporters, 'name');
+	const scopes = normalizeOptionList(options.scopes, 'key');
+	const fields = normalizeOptionList(options.fields, 'key');
+	const state = context.grid._mgExportPluginState;
+	const exporterNames = exporters.map((item) => item.name);
+	const scopeKeys = scopes.map((item) => item.key);
+
+	if (!exporterNames.includes(state.exporter)) {
+		state.exporter = exporterNames.includes(options.defaultExporter)
+			? options.defaultExporter
+			: (exporterNames[0] || '');
 	}
 
-	return String(value);
+	if (!scopeKeys.includes(state.scope)) {
+		state.scope = scopeKeys.includes(options.defaultScope)
+			? options.defaultScope
+			: (scopeKeys[0] || 'filtered');
+	}
+
+	if (!Array.isArray(state.fields)) {
+		state.fields = normalizeFieldKeys(options.defaultFields, fields);
+	}
+
+	state.fields = normalizeFieldKeys(state.fields, fields);
+
+	return state;
 }
 
-function buildExportRows(rows, columns) {
-	return rows.map((row) => {
-		const result = {};
+function createRadioList(items, activeValue, onChange) {
+	const list = document.createElement('div');
+	list.className = 'mg-export-choice-list';
+	const groupName = `mg-export-${Math.random().toString(36).slice(2)}`;
 
-		columns.forEach((column) => {
-			result[column.key] = row?.[column.key] ?? null;
+	items.forEach((item) => {
+		const row = document.createElement('label');
+		row.className = 'mg-export-choice-row';
+
+		const input = document.createElement('input');
+		input.type = 'radio';
+		input.name = groupName;
+		input.checked = item.value === activeValue;
+		input.addEventListener('change', () => {
+			if (input.checked) {
+				onChange(item.value);
+			}
 		});
 
-		return result;
+		const label = document.createElement('span');
+		label.textContent = item.label;
+
+		row.appendChild(input);
+		row.appendChild(label);
+		list.appendChild(row);
 	});
+
+	return list;
 }
 
-function escapeCsvCell(value, delimiter) {
-	const normalized = normalizeCellValue(value);
-	const needsQuotes =
-		normalized.includes('"') ||
-		normalized.includes('\n') ||
-		normalized.includes('\r') ||
-		normalized.includes(delimiter);
+function createExportControl(context, options) {
+	const exporters = normalizeOptionList(options.exporters, 'name');
+	const scopes = normalizeOptionList(options.scopes, 'key');
+	const fields = normalizeOptionList(options.fields, 'key');
 
-	if (!needsQuotes) {
-		return normalized;
+	if (exporters.length === 0 || scopes.length === 0 || fields.length === 0 || typeof options.onExport !== 'function') {
+		return null;
 	}
 
-	return `"${normalized.replace(/"/g, '""')}"`;
-}
+	const state = getExportState(context, options);
+	const details = document.createElement('details');
+	details.className = 'mg-dropdown mg-export-dropdown';
 
-function buildCsvContent(rows, columns, options) {
-	const delimiter = options.delimiter || ';';
-	const lines = [];
+	const summary = document.createElement('summary');
+	summary.className = 'mg-button mg-dropdown-summary mg-export-button';
+	summary.textContent = options.buttonLabel || context.getString('export');
+	details.appendChild(summary);
 
-	if (options.includeHeaders !== false) {
-		lines.push(
-			columns.map((column) => escapeCsvCell(column.label || column.key, delimiter)).join(delimiter)
-		);
-	}
+	const menu = document.createElement('div');
+	menu.className = 'mg-dropdown-menu mg-export-menu';
 
-	rows.forEach((row) => {
-		lines.push(
-			columns.map((column) => escapeCsvCell(row[column.key], delimiter)).join(delimiter)
-		);
+	const tabs = document.createElement('div');
+	tabs.className = 'mg-export-tabs';
+
+	const panelWrapper = document.createElement('div');
+	panelWrapper.className = 'mg-export-panels';
+
+	const tabDefinitions = [
+		{ key: 'format', label: options.labels.formatTab },
+		{ key: 'data', label: options.labels.dataTab },
+		{ key: 'fields', label: options.labels.fieldsTab }
+	];
+	const panels = new Map();
+	const tabButtons = new Map();
+
+	const activateTab = (key) => {
+		state.tab = key;
+
+		tabButtons.forEach((button, tabKey) => {
+			button.classList.toggle('mg-export-tab-active', tabKey === key);
+			button.setAttribute('aria-selected', tabKey === key ? 'true' : 'false');
+		});
+
+		panels.forEach((panel, panelKey) => {
+			panel.hidden = panelKey !== key;
+		});
+	};
+
+	tabDefinitions.forEach((tab) => {
+		const button = document.createElement('button');
+		button.type = 'button';
+		button.className = 'mg-export-tab';
+		button.textContent = tab.label;
+		button.addEventListener('click', () => activateTab(tab.key));
+		tabs.appendChild(button);
+		tabButtons.set(tab.key, button);
+
+		const panel = document.createElement('div');
+		panel.className = 'mg-export-panel';
+		panel.dataset.exportPanel = tab.key;
+		panelWrapper.appendChild(panel);
+		panels.set(tab.key, panel);
 	});
 
-	return lines.join('\n');
-}
+	panels.get('format').appendChild(createRadioList(
+		exporters.map((item) => ({ value: item.name, label: item.label || item.name })),
+		state.exporter,
+		(value) => {
+			state.exporter = value;
+		}
+	));
 
-function buildJsonContent(rows) {
-	return JSON.stringify(rows, null, 2);
-}
+	panels.get('data').appendChild(createRadioList(
+		scopes.map((item) => ({ value: item.key, label: item.label || item.key })),
+		state.scope,
+		(value) => {
+			state.scope = value;
+		}
+	));
 
-function downloadContent(fileName, content, mimeType) {
-	const blob = new Blob([content], {
-		type: mimeType
+	const fieldList = document.createElement('div');
+	fieldList.className = 'mg-export-field-list';
+
+	fields.forEach((field) => {
+		const row = document.createElement('label');
+		row.className = 'mg-export-choice-row';
+
+		const checkbox = document.createElement('input');
+		checkbox.type = 'checkbox';
+		checkbox.checked = state.fields.includes(field.key);
+		checkbox.addEventListener('change', () => {
+			state.fields = checkbox.checked
+				? normalizeFieldKeys([...state.fields, field.key], fields)
+				: state.fields.filter((key) => key !== field.key);
+		});
+
+		const label = document.createElement('span');
+		label.textContent = field.label || field.key;
+
+		row.appendChild(checkbox);
+		row.appendChild(label);
+		fieldList.appendChild(row);
 	});
 
-	const url = URL.createObjectURL(blob);
-	const anchor = document.createElement('a');
+	panels.get('fields').appendChild(fieldList);
 
-	anchor.href = url;
-	anchor.download = fileName;
-	document.body.appendChild(anchor);
-	anchor.click();
-	document.body.removeChild(anchor);
+	menu.appendChild(tabs);
+	menu.appendChild(panelWrapper);
 
-	window.setTimeout(() => {
-		URL.revokeObjectURL(url);
-	}, 0);
-}
+	const status = document.createElement('div');
+	status.className = 'mg-export-status';
+	status.hidden = true;
+	menu.appendChild(status);
 
-function buildFileName(baseName, action) {
-	const scope = action.scope || 'current';
-	const format = action.format || 'json';
-	return `${baseName}-${scope}.${format}`;
+	const actions = document.createElement('div');
+	actions.className = 'mg-export-actions';
+
+	const runButton = document.createElement('button');
+	runButton.type = 'button';
+	runButton.className = 'mg-button mg-export-run-button';
+	runButton.textContent = options.labels.run;
+
+	runButton.addEventListener('click', async () => {
+		status.hidden = true;
+		status.textContent = '';
+
+		if (state.fields.length === 0) {
+			status.textContent = options.labels.noFields;
+			status.hidden = false;
+			activateTab('fields');
+			return;
+		}
+
+		const selectedRowIds = getSelectedRowIds(context);
+		if (state.scope === 'selected' && selectedRowIds.length === 0) {
+			status.textContent = options.labels.noSelection;
+			status.hidden = false;
+			activateTab('data');
+			return;
+		}
+
+		runButton.disabled = true;
+		status.textContent = options.labels.working;
+		status.hidden = false;
+
+		try {
+			await options.onExport({
+				grid: context.grid,
+				context,
+				exporter: state.exporter,
+				scope: state.scope,
+				fields: [...state.fields],
+				selectedRowIds
+			});
+			status.hidden = true;
+			details.open = false;
+		}
+		catch (error) {
+			status.textContent = error?.message || options.labels.failed;
+			status.hidden = false;
+		}
+		finally {
+			runButton.disabled = false;
+		}
+	});
+
+	actions.appendChild(runButton);
+	menu.appendChild(actions);
+	details.appendChild(menu);
+
+	activateTab(['format', 'data', 'fields'].includes(state.tab) ? state.tab : 'format');
+
+	attachFloatingDropdown(details, {
+		grid: context.grid,
+		summary,
+		menu,
+		preferredAlign: options.preferredAlign,
+		stateKey: options.stateKey
+	});
+
+	return details;
 }
 
 export const ExportPlugin = {
 	name: 'export',
-
-	commands: {
-		exportGridData(context, payload = {}) {
-			const options = {
-				...resolveOptions(context),
-				...payload
-			};
-
-			const action = payload.action || {};
-			const scope = action.scope || options.scope || 'current';
-			const format = action.format || options.format || 'json';
-			const rows = getRowsForScope(context, options, scope);
-			const columns = getExportColumns(context, options);
-			const exportRows = buildExportRows(rows, columns);
-			const fileName = buildFileName(action.fileName || options.fileName || 'modulargrid-export', {
-				scope,
-				format
-			});
-
-			let content = '';
-			let mimeType = 'application/json';
-
-			if (format === 'csv') {
-				content = buildCsvContent(exportRows, columns, options);
-				mimeType = 'text/csv;charset=utf-8';
-			}
-			else {
-				content = buildJsonContent(exportRows);
-				mimeType = 'application/json;charset=utf-8';
-			}
-
-			downloadContent(fileName, content, mimeType);
-
-			context.events.emit('export:created', {
-				grid: context.grid,
-				format,
-				scope,
-				fileName,
-				rowCount: exportRows.length,
-				columnKeys: columns.map((column) => column.key)
-			});
-
-			return {
-				format,
-				scope,
-				fileName,
-				rowCount: exportRows.length
-			};
-		}
-	},
 
 	layoutContributions(context) {
 		const options = resolveOptions(context);
@@ -222,35 +324,7 @@ export const ExportPlugin = {
 				zone: options.zone,
 				order: options.order,
 				render() {
-					const actions = Array.isArray(options.actions) ? options.actions : [];
-
-					if (actions.length === 0) {
-						return null;
-					}
-
-					const wrapper = document.createElement('div');
-					wrapper.className = 'mg-inline-buttons mg-export-actions';
-
-					actions.forEach((action) => {
-						const button = document.createElement('button');
-						button.type = 'button';
-						button.className = 'mg-button mg-export-button';
-						button.textContent = action.label || action.key || context.getString('export');
-
-						if (action.scope === 'selected' && getSelectedRowIds(context).length === 0) {
-							button.disabled = true;
-						}
-
-						button.addEventListener('click', () => {
-							context.execute('exportGridData', {
-								action
-							});
-						});
-
-						wrapper.appendChild(button);
-					});
-
-					return wrapper;
+					return createExportControl(context, options);
 				}
 			}
 		];

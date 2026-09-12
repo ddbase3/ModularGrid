@@ -44,6 +44,7 @@ The current code base already includes:
 - plugin-based row actions
 - plugin-based bulk actions
 - plugin-based export
+- server/delegated export UI with format, scope and field selection
 - column visibility plugin
 - reset plugin
 - storage plugins
@@ -253,4 +254,8 @@ Controls such as search, filters, grouping, paging, info bars, summaries, bulk a
 - optional layout helpers
 
 This keeps the core neutral and avoids hardcoded toolbar/footer structures.
+
+### Export plugin boundary
+
+`ExportPlugin` is a UI plugin. It collects exporter, data-scope and field selections and delegates the export through its configured `onExport` callback. It does not serialize the currently loaded browser rows itself. This keeps server-side paging, filtering, access control and complete-data exports under the owning application. See `docs/EXPORT_PLUGIN.md`.
 

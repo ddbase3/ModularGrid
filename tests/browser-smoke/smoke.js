@@ -530,14 +530,23 @@ try {
 			},
 			export: {
 				zone: 'actions',
-				actions: [
-					{
-						key: 'json-current',
-						label: 'JSON page',
-						format: 'json',
-						scope: 'current'
-					}
-				]
+				exporters: [
+					{ name: 'jsonreportexporter', label: 'JSON' }
+				],
+				scopes: [
+					{ key: 'selected', label: 'Selection' },
+					{ key: 'filtered', label: 'Current filtering' },
+					{ key: 'all', label: 'All data' }
+				],
+				fields: [
+					{ key: 'firstname', label: 'First name' },
+					{ key: 'lastname', label: 'Last name' },
+					{ key: 'email', label: 'Email' }
+				],
+				defaultFields: ['firstname', 'lastname'],
+				onExport(request) {
+					exportEvents.push(request);
+				}
 			},
 			summary: {
 				zone: 'footerInfo',
@@ -698,9 +707,6 @@ try {
 		]
 	});
 
-	grid.on('export:created', (event) => {
-		exportEvents.push(event);
-	});
 
 	await grid.init();
 	await settleFrames(2);
@@ -1165,7 +1171,17 @@ try {
 	dispatchClick(exportButton);
 	await settleFrames(2);
 
-	assert(exportEvents.length === 1 && exportEvents[0].format === 'json', 'Export plugin emits export event');
+	const exportRunButton = document.querySelector('#test-grid .mg-export-run-button');
+	dispatchClick(exportRunButton);
+	await settleFrames(2);
+
+	assert(
+		exportEvents.length === 1
+			&& exportEvents[0].exporter === 'jsonreportexporter'
+			&& exportEvents[0].scope === 'filtered'
+			&& exportEvents[0].fields.includes('firstname'),
+		'Export plugin delegates the configured export request'
+	);
 
 	const firstActionButton = document.querySelector('#test-grid tbody tr.mg-row .mg-row-action-button');
 	dispatchClick(firstActionButton);
@@ -1362,6 +1378,7 @@ try {
 		plugins: [
 			InfoPlugin,
 			InfiniteScrollPlugin,
+			SelectionPlugin,
 			RowDetailPlugin
 		],
 		pluginOptions: {
@@ -1372,6 +1389,10 @@ try {
 				threshold: 16,
 				pageSize: 5,
 				autoFill: false
+			},
+			selection: {
+				rowIdKey: 'id',
+				showSummary: false
 			},
 			rowDetail: {
 				rowIdKey: 'id',
@@ -1425,6 +1446,12 @@ try {
 	assert(infiniteScrollContainer.classList.contains('mg-infinite-scroll-container') === true, 'Infinite scroll plugin marks the active scroll container');
 	assert(infiniteRequests.length === 1 && infiniteRequests[0].page === 1, 'Infinite scroll grid starts with the first server page');
 
+	const infiniteFirstSelectionCheckbox = document.querySelector('#infinite-grid tbody tr.mg-row input[type="checkbox"]');
+	dispatchClick(infiniteFirstSelectionCheckbox);
+	await settleFrames(2);
+
+	assert(infiniteGrid.getState().selection.selectedRowIds.length === 1, 'Infinite scroll selection stores the selected row before loading more');
+
 	infiniteGrid.execute('moveColumn', {
 		fromKey: 'text',
 		toKey: 'id',
@@ -1432,9 +1459,27 @@ try {
 	});
 	await settleFrames(3);
 
+	holdInfiniteResponses = true;
 	infiniteScrollContainer = document.querySelector('#infinite-grid .mg-table-scroll');
 	infiniteScrollContainer.scrollTop = Math.max(0, infiniteScrollContainer.scrollHeight - infiniteScrollContainer.clientHeight - 2);
 	infiniteScrollContainer.dispatchEvent(new Event('scroll', { bubbles: true }));
+	await settleFrames(2);
+
+	const selectedCheckboxWhileLoadingMore = document.querySelector('#infinite-grid tbody tr.mg-row input[type="checkbox"]');
+	assert(selectedCheckboxWhileLoadingMore?.checked === true, 'Infinite scroll keeps the selected checkbox while the next page is loading');
+
+	infiniteGrid.execute('clearSelection');
+	await settleFrames(2);
+
+	const clearedCheckboxWhileLoadingMore = document.querySelector('#infinite-grid tbody tr.mg-row input[type="checkbox"]');
+	assert(infiniteGrid.getState().selection.selectedRowIds.length === 0, 'Clear selection resets infinite scroll selection state while loading more');
+	assert(clearedCheckboxWhileLoadingMore?.checked === false, 'Clear selection rerenders infinite scroll checkboxes while loading more');
+
+	if (typeof releaseInfiniteResponse === 'function') {
+		releaseInfiniteResponse();
+	}
+
+	holdInfiniteResponses = false;
 	await settleFrames(6);
 
 	assert(infiniteRequests.length === 2 && infiniteRequests[1].page === 2, 'Infinite scroll still loads more records after column reorder');

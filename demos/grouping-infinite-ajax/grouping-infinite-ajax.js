@@ -776,21 +776,26 @@ grid = new ModularGrid('#grouping-infinite-ajax-grid', {
 		export: {
 			zone: 'topLine2',
 			order: 20,
-			fileName: 'modulargrid-grouping-infinite-ajax',
-			actions: [
-				{
-					key: 'csv-loaded',
-					label: 'CSV loaded',
-					format: 'csv',
-					scope: 'current'
-				},
-				{
-					key: 'json-selected',
-					label: 'JSON selected',
-					format: 'json',
-					scope: 'selected'
-				}
-			]
+			exporters: [
+				{ name: 'csvreportexporter', label: 'CSV' },
+				{ name: 'jsonreportexporter', label: 'JSON' }
+			],
+			scopes: [
+				{ key: 'selected', label: 'Selection' },
+				{ key: 'filtered', label: 'Current filtering' },
+				{ key: 'all', label: 'All data' }
+			],
+			fields: [
+				{ key: 'primary', label: 'Primary' },
+				{ key: 'context', label: 'Context' },
+				{ key: 'status_display', label: 'Status' },
+				{ key: 'metrics', label: 'Metrics' },
+				{ key: 'activity', label: 'Activity' }
+			],
+			defaultFields: ['primary', 'context', 'status_display'],
+			onExport(request) {
+				setLog(`Export requested: ${request.exporter}, ${request.scope}, ${request.fields.length} fields`);
+			}
 		},
 		columnVisibility: {
 			zone: ''
@@ -1062,9 +1067,7 @@ grid = new ModularGrid('#grouping-infinite-ajax-grid', {
 	]
 });
 
-grid.on('export:created', ({ format, scope, rowCount, fileName }) => {
-	setLog(`Exported ${rowCount} rows as ${format.toUpperCase()} from "${scope}" into ${fileName}`);
-});
+
 
 grid.on('bulkAction:run', ({ selectedRowIds }) => {
 	setLog(`Bulk action on IDs: ${selectedRowIds.join(', ') || 'none'}`);

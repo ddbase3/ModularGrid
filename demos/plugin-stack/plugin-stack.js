@@ -129,21 +129,28 @@ const grid = new ModularGrid('#plugin-stack-grid', {
 		export: {
 			zone: 'actions',
 			order: 30,
-			fileName: 'plugin-stack-demo',
-			actions: [
-				{
-					key: 'csv-current',
-					label: 'CSV page',
-					format: 'csv',
-					scope: 'current'
-				},
-				{
-					key: 'json-selected',
-					label: 'JSON selected',
-					format: 'json',
-					scope: 'selected'
-				}
-			]
+			exporters: [
+				{ name: 'csvreportexporter', label: 'CSV' },
+				{ name: 'jsonreportexporter', label: 'JSON' }
+			],
+			scopes: [
+				{ key: 'selected', label: 'Selection' },
+				{ key: 'filtered', label: 'Current view' },
+				{ key: 'all', label: 'All data' }
+			],
+			fields: [
+				{ key: 'firstname', label: 'First name' },
+				{ key: 'lastname', label: 'Last name' },
+				{ key: 'city', label: 'City' },
+				{ key: 'status', label: 'Status' },
+				{ key: 'score', label: 'Score' },
+				{ key: 'amount', label: 'Amount' },
+				{ key: 'is_verified', label: 'Verified' }
+			],
+			defaultFields: ['firstname', 'lastname', 'city', 'status'],
+			onExport(request) {
+				setLog(`Export requested: ${request.exporter}, ${request.scope}, ${request.fields.length} fields`);
+			}
 		},
 		reset: {
 			zone: 'actions',
@@ -231,9 +238,6 @@ const grid = new ModularGrid('#plugin-stack-grid', {
 	]
 });
 
-grid.on('export:created', ({ format, scope, rowCount, fileName }) => {
-	setLog(`Exported ${rowCount} rows as ${format.toUpperCase()} from scope "${scope}" into ${fileName}`);
-});
 
 await grid.init();
 

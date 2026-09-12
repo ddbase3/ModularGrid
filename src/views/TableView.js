@@ -534,7 +534,7 @@ function isStateAttachedToContainer(state, container) {
 	return true;
 }
 
-function canReuseDuringLoadingMore(state, renderSignature, rowIdentities, groupingKey, viewModel, detailStateSignature) {
+function canReuseDuringLoadingMore(state, renderSignature, rowIdentities, groupingKey, viewModel, detailStateSignature, textDisplaySignature, selectionSignature) {
 	if (!state || state.mode !== 'data') {
 		return false;
 	}
@@ -555,6 +555,14 @@ function canReuseDuringLoadingMore(state, renderSignature, rowIdentities, groupi
 		return false;
 	}
 
+	if (state.textDisplaySignature !== textDisplaySignature) {
+		return false;
+	}
+
+	if (state.selectionSignature !== selectionSignature) {
+		return false;
+	}
+
 	if (state.rowIdentities.length !== rowIdentities.length) {
 		return false;
 	}
@@ -562,7 +570,7 @@ function canReuseDuringLoadingMore(state, renderSignature, rowIdentities, groupi
 	return haveEqualArrays(state.rowIdentities, rowIdentities);
 }
 
-function canAppendRows(state, renderSignature, rowIdentities, activeDetailIdentities, groupingKey, viewModel, detailStateSignature) {
+function canAppendRows(state, renderSignature, rowIdentities, activeDetailIdentities, groupingKey, viewModel, detailStateSignature, textDisplaySignature, selectionSignature) {
 	if (!state || state.mode !== 'data') {
 		return false;
 	}
@@ -580,6 +588,14 @@ function canAppendRows(state, renderSignature, rowIdentities, activeDetailIdenti
 	}
 
 	if (state.detailStateSignature !== detailStateSignature) {
+		return false;
+	}
+
+	if (state.textDisplaySignature !== textDisplaySignature) {
+		return false;
+	}
+
+	if (state.selectionSignature !== selectionSignature) {
 		return false;
 	}
 
@@ -1013,11 +1029,11 @@ export class TableView {
 			return;
 		}
 
-		if (canReuseDuringLoadingMore(previousState, renderSignature, rowIdentities, groupingKey, viewModel, detailStateSignature)) {
+		if (canReuseDuringLoadingMore(previousState, renderSignature, rowIdentities, groupingKey, viewModel, detailStateSignature, textDisplaySignature, selectionSignature)) {
 			return;
 		}
 
-		if (canAppendRows(previousState, renderSignature, rowIdentities, activeDetailIdentities, groupingKey, viewModel, detailStateSignature)) {
+		if (canAppendRows(previousState, renderSignature, rowIdentities, activeDetailIdentities, groupingKey, viewModel, detailStateSignature, textDisplaySignature, selectionSignature)) {
 			for (let index = previousState.rowIdentities.length; index < viewModel.rows.length; index += 1) {
 				previousState.visualRowNumber += 1;
 
